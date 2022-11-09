@@ -497,6 +497,7 @@ def load_config(Path: str):
     d['Quantiz_Levels']         = int(d['Quantiz_Levels'])
     d['Ts_acq']                 = float(d['Ts_acq'])
     d['N_acqs']                 = int(d['N_acqs'])
+    d['N_avg']                  = int(d['N_avg'])
     d['WP_temperature']         = float(d['WP_temperature'])        if d['WP_temperature']      != 'None' else None
     d['Outside_temperature']    = float(d['Outside_temperature'])   if d['Outside_temperature'] != 'None' else None
     return d

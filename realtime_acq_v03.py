@@ -31,6 +31,8 @@ def time2str(seconds) -> str:
 # Paths and file names to use
 ########################################################
 Path = r'D:\Data\pruebas_acq'
+# Path = r'D:\Data\Arnau\Colacao_Plastic_Bottle_characterization'
+# Experiment_folder_name = 'test_3_charac_bottle_colacao'
 Experiment_folder_name = 'test' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
@@ -68,12 +70,12 @@ Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WO
 Fc = 5*1e6                      # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
-Smin1, Smin2 = 4_000, 4_000     # starting point of the scan of each channel - samples
-Smax1, Smax2 = 12_500, 12_500   # last point of the scan of each channel - samples
+Smin1, Smin2 = 5_000, 5_000     # starting point of the scan of each channel - samples
+Smax1, Smax2 = 9_000, 9_000   # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
-Ts_acq = 3                      # Time between acquisitions (if None, script waits for user input). Coding time is about 1.5s (so Ts_acq must be >1.5s) - seconds
-N_acqs = 100                   # Total number of acquisitions
+Ts_acq = 4                      # Time between acquisitions (if None, script waits for user input). Coding time is about 1.5s (so Ts_acq must be >1.5s) - seconds
+N_acqs = 500                   # Total number of acquisitions
 Charac_container = True         # If True, then the material inside the container is assumed to be water (Cc=Cw) - bool
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
 Save_acq_data = True            # If True, save all acq. data to {Acqdata_path} - bool
@@ -83,10 +85,10 @@ Temperature = True              # If True, take temperature measurements at each
 Plot_temperature = True         # If True, plots temperature measuements at each acq. (has no effect if Temperature==False) - bool
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
-Loc_echo1 = 850                # position of echo from front surface, approximation - samples
-Loc_echo2 = 7600                # position of echo from back surface, approximation - samples
-Loc_WP = 4700                   # position of Water Path, approximation - samples
-Loc_TT = 4700                   # position of Through Transmission, approximation - samples
+Loc_echo1 = 1000                # position of echo from front surface, approximation - samples
+Loc_echo2 = 3000                # position of echo from back surface, approximation - samples
+Loc_WP = 3000                   # position of Water Path, approximation - samples
+Loc_TT = 3000                   # position of Through Transmission, approximation - samples
 WinLen = Loc_echo1 * 2          # window length, approximation
 ID = True                       # use Iterative Deconvolution or find_peaks - bool
 
@@ -156,6 +158,7 @@ config_dict = {'Fs': Fs,
                'N_acqs': N_acqs,
                'WP_temperature' : None,
                'Outside_temperature': None,
+               'N_avg' : N_avg,
                'Start_date': '',
                'End_date': '',
                'Experiment_description': Experiment_description}
@@ -391,9 +394,9 @@ for i in range(N_acqs):
         CM[i] = 2*LM[i]/ToF_TR1R2*Fs # material speed - m/s
     
     
-    # ----------------------------------
-    # Save results to text file as we go 
-    # ----------------------------------
+    # -----------------------------------
+    # Save results to CSV file as we go 
+    # -----------------------------------
     with open(Results_path, 'a') as f:
         if Ts_acq is None:
             if Charac_container:
@@ -520,10 +523,10 @@ Lc_no_outliers, Lc_outliers, Lc_outliers_indexes = USF.reject_outliers(Lc, m=m)
 if Charac_container:
     Cc_no_outliers, Cc_outliers, Cc_outliers_indexes = USF.reject_outliers(Cc, m=m)
     if Ts_acq is None:
-        axs[0].scatter(Cc_outliers_indexes, Cc[Cc_outliers_indexes], color='red')
+        axs[0].scatter(Cc_outliers_indexes, Cc_outliers, color='red')
         axs[1].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red')
     else:
-        axs[0].scatter(Time_axis[Cc_outliers_indexes], Cc[Cc_outliers_indexes], color='red')
+        axs[0].scatter(Time_axis[Cc_outliers_indexes], Cc_outliers, color='red')
         axs[1].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red')
 else:
     LM_no_outliers, LM_outliers, LM_outliers_indexes = USF.reject_outliers(LM, m=m)

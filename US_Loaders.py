@@ -420,7 +420,7 @@ def load_bin_acqs(Path: str, N_acqs: int):
     '''
     with open(Path, 'rb') as f:
         data = np.fromfile(f)
-    data = np.split(data, N_acqs)
+    data = np.split(data, 2*N_acqs)
     data = np.array(data).T
     TT_Ascans = data[:,::2]
     PE_Ascans = data[:,1::2]

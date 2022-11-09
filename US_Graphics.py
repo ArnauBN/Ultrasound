@@ -1206,6 +1206,8 @@ def movefig(location: str):
         'southeast' or 'se'
         'northwest' or 'nw'
         'southwest' or 'sw'
+        'south'     or 's'
+        'north'     or 'n'
 
     Parameters
     ----------
@@ -1235,3 +1237,22 @@ def movefig(location: str):
         mngr.window.setGeometry(5, 30, dx, dy)
     elif location.lower() in ['southwest', 'sw']:
         mngr.window.setGeometry(5, height-40-dy, dx, dy)
+    elif location.lower() in ['north', 'n']:
+        mngr.window.setGeometry((width-dx)//2, 30, dx, dy)
+    elif location.lower() in ['south', 's']:
+        mngr.window.setGeometry((width-dx)//2, height-40-dy, dx, dy)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

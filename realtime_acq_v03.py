@@ -56,8 +56,9 @@ print(f'Experiment path set to {MyDir}')
 ########################################################
 # Parameters and constants
 ########################################################
-Experiment_description = "Second test of plastic Colacao bottle.\n" \
-                        " Container filled with water.\n" \
+# For Experiment_description do NOT use '\n'.
+Experiment_description = "Second test of plastic Colacao bottle." \
+                        " Container filled with water." \
                         " Excitation_params: Pulse frequency (Hz)."
 Fs = 100.0e6                    # Sampling frequency - Hz
 Fs_Gencode_Generator = 200.0e6  # Sampling frequency for the gencodes generator - Hz
@@ -517,28 +518,28 @@ if Temperature:
 
 # -----------------
 # Outlier detection
-# ------------------
+# -----------------
 m = 0.6745
 Lc_no_outliers, Lc_outliers, Lc_outliers_indexes = USF.reject_outliers(Lc, m=m)
 if Charac_container:
     Cc_no_outliers, Cc_outliers, Cc_outliers_indexes = USF.reject_outliers(Cc, m=m)
     if Ts_acq is None:
-        axs[0].scatter(Cc_outliers_indexes, Cc_outliers, color='red')
-        axs[1].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red')
+        axs[0].scatter(Cc_outliers_indexes, Cc_outliers, color='red', zorder=3)
+        axs[1].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red', zorder=3)
     else:
-        axs[0].scatter(Time_axis[Cc_outliers_indexes], Cc_outliers, color='red')
-        axs[1].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red')
+        axs[0].scatter(Time_axis[Cc_outliers_indexes], Cc_outliers, color='red', zorder=3)
+        axs[1].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red', zorder=3)
 else:
     LM_no_outliers, LM_outliers, LM_outliers_indexes = USF.reject_outliers(LM, m=m)
     CM_no_outliers, CM_outliers, CM_outliers_indexes = USF.reject_outliers(CM, m=m)
     if Ts_acq is None:
-        axs[0].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red')
-        axs[1].scatter(LM_outliers_indexes, LM_outliers*1e6, color='red')
-        axs[2].scatter(CM_outliers_indexes, CM_outliers, color='red')
+        axs[0].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red', zorder=3)
+        axs[1].scatter(LM_outliers_indexes, LM_outliers*1e6, color='red', zorder=3)
+        axs[2].scatter(CM_outliers_indexes, CM_outliers, color='red', zorder=3)
     else:
-        axs[0].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red')
-        axs[1].scatter(Time_axis[LM_outliers_indexes], LM_outliers*1e6, color='red')
-        axs[2].scatter(Time_axis[CM_outliers_indexes], CM_outliers, color='red')
+        axs[0].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red', zorder=3)
+        axs[1].scatter(Time_axis[LM_outliers_indexes], LM_outliers*1e6, color='red', zorder=3)
+        axs[2].scatter(Time_axis[CM_outliers_indexes], CM_outliers, color='red', zorder=3)
 
 
 # -----------------------------
@@ -580,9 +581,9 @@ if Lc_outliers.size!=0:
     print('--------------------------------------')
     Lc_std_no_outliers = np.std(Lc_no_outliers)
     Lc_mean_no_outliers = np.mean(Lc_no_outliers)
-    print(f'Lc_mean = {Lc_mean*1e6} um')
-    print(f'Lc_std = {Lc_std*1e6} um')
-    print(f'Lc = {np.round(Lc_mean*1e6)} \u2a72 {np.round(3*Lc_std*1e6)} um')
+    print(f'Lc_mean = {Lc_mean_no_outliers*1e6} um')
+    print(f'Lc_std = {Lc_std_no_outliers*1e6} um')
+    print(f'Lc = {np.round(Lc_mean_no_outliers*1e6)} \u2a72 {np.round(3*Lc_std_no_outliers*1e6)} um')
 
 # Cc
 if Charac_container and Cc_outliers.size!=0:

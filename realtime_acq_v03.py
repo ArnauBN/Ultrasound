@@ -56,8 +56,9 @@ print(f'Experiment path set to {MyDir}')
 ########################################################
 # Parameters and constants
 ########################################################
-Experiment_description = "Second test of plastic Colacao bottle.\n" \
-                        " Container filled with water.\n" \
+# For Experiment_description do NOT use '\n'.
+Experiment_description = "Second test of plastic Colacao bottle." \
+                        " Container filled with water." \
                         " Excitation_params: Pulse frequency (Hz)."
 Fs = 100.0e6                    # Sampling frequency - Hz
 Fs_Gencode_Generator = 200.0e6  # Sampling frequency for the gencodes generator - Hz
@@ -65,12 +66,12 @@ RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
 Gain_Ch1 = 60                   # Gain of channel 1 - dB
 Gain_Ch2 = 35                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
-Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
+Attenuation_Ch2 = 0            # Attenuation of channel 2 - dB
 Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WORK
 Fc = 5*1e6                      # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
-Smin1, Smin2 = 5_000, 5_000     # starting point of the scan of each channel - samples
+Smin1, Smin2 = 4_500, 4_500     # starting point of the scan of each channel - samples
 Smax1, Smax2 = 9_000, 9_000   # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
@@ -85,10 +86,10 @@ Temperature = True              # If True, take temperature measurements at each
 Plot_temperature = True         # If True, plots temperature measuements at each acq. (has no effect if Temperature==False) - bool
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
-Loc_echo1 = 1000                # position of echo from front surface, approximation - samples
-Loc_echo2 = 3000                # position of echo from back surface, approximation - samples
-Loc_WP = 3000                   # position of Water Path, approximation - samples
-Loc_TT = 3000                   # position of Through Transmission, approximation - samples
+Loc_echo1 = 1300                # position of echo from front surface, approximation - samples
+Loc_echo2 = 3500                # position of echo from back surface, approximation - samples
+Loc_WP = 3500                   # position of Water Path, approximation - samples
+Loc_TT = 3500                   # position of Through Transmission, approximation - samples
 WinLen = Loc_echo1 * 2          # window length, approximation
 ID = True                       # use Iterative Deconvolution or find_peaks - bool
 
@@ -99,6 +100,9 @@ N_avg = 1                       # Number of temperature measurements to be avera
 
 if Ts_acq is not None:
     print(f'The experiment will take {time2str(N_acqs*Ts_acq)}.')
+
+
+#%% Start serial communication
 if Temperature:
     ser = serial.Serial(port, baudrate, timeout=None)  # open comms
 
@@ -221,6 +225,7 @@ if Temperature:
 Lc = np.zeros(N_acqs)
 LM = np.zeros_like(Lc)
 CM = np.zeros_like(Lc)
+Toftw = np.zeros_like(Lc); Tofr21 = np.zeros_like(Lc)
 
 Smin = (Smin1, Smin2)                   # starting points - samples
 Smax = (Smax1, Smax2)                   # last points - samples
@@ -316,8 +321,9 @@ for i in range(N_acqs):
         row = f'{means1[i]},{means2[i]},{Cw}'
         f.write(row+'\n')
     
+    _mode = 'wb' if i==0 else 'ab' # clear data from previous experiment before writing
     if Save_acq_data:
-        with open(Acqdata_path,'ab') as f:
+        with open(Acqdata_path, _mode) as f:
             TT_Ascan.tofile(f)
             PE_Ascan.tofile(f)
 
@@ -381,7 +387,8 @@ for i in range(N_acqs):
     ToF_R2 = np.max(ToF_RW)
     ToF_TR1R2 = ToF_TR1 - ToF_R2
     
-
+    Toftw[i] = ToF_TW
+    Tofr21[i] = ToF_R21
     # -----------------------------------
     # Velocity and thickness computations
     # -----------------------------------        
@@ -482,8 +489,8 @@ for i in range(N_acqs):
         line_Lc = axs[0].axhline(np.mean(Lc[:i]*1e6), color='black', linestyle='--', zorder=1) # Plot Lc mean
     plt.tight_layout()
     plt.pause(_plt_pause_time)
-            
-            
+    
+    
     # --------------------------------
     # Wait for user input or end timer
     # --------------------------------
@@ -492,7 +499,7 @@ for i in range(N_acqs):
     else:
         elapsed_time = time.time() - start_time
         time_to_wait = Ts_acq - elapsed_time # time until next acquisition
-        print(f'Acquisition #{i+1}/{N_acqs} done.')
+        print(f'Acquisition #{i+1}/{N_acqs} done. {ToF_TW=}  {ToF_R21=}')
         if time_to_wait < 0:
             print(f'Code is slower than Ts_acq = {Ts_acq} s at Acq #{i+1}. Elapsed time is {elapsed_time} s.')
             time_to_wait = 0
@@ -517,28 +524,28 @@ if Temperature:
 
 # -----------------
 # Outlier detection
-# ------------------
+# -----------------
 m = 0.6745
 Lc_no_outliers, Lc_outliers, Lc_outliers_indexes = USF.reject_outliers(Lc, m=m)
 if Charac_container:
     Cc_no_outliers, Cc_outliers, Cc_outliers_indexes = USF.reject_outliers(Cc, m=m)
     if Ts_acq is None:
-        axs[0].scatter(Cc_outliers_indexes, Cc_outliers, color='red')
-        axs[1].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red')
+        axs[0].scatter(Cc_outliers_indexes, Cc_outliers, color='red', zorder=3)
+        axs[1].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red', zorder=3)
     else:
-        axs[0].scatter(Time_axis[Cc_outliers_indexes], Cc_outliers, color='red')
-        axs[1].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red')
+        axs[0].scatter(Time_axis[Cc_outliers_indexes], Cc_outliers, color='red', zorder=3)
+        axs[1].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red', zorder=3)
 else:
     LM_no_outliers, LM_outliers, LM_outliers_indexes = USF.reject_outliers(LM, m=m)
     CM_no_outliers, CM_outliers, CM_outliers_indexes = USF.reject_outliers(CM, m=m)
     if Ts_acq is None:
-        axs[0].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red')
-        axs[1].scatter(LM_outliers_indexes, LM_outliers*1e6, color='red')
-        axs[2].scatter(CM_outliers_indexes, CM_outliers, color='red')
+        axs[0].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red', zorder=3)
+        axs[1].scatter(LM_outliers_indexes, LM_outliers*1e6, color='red', zorder=3)
+        axs[2].scatter(CM_outliers_indexes, CM_outliers, color='red', zorder=3)
     else:
-        axs[0].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red')
-        axs[1].scatter(Time_axis[LM_outliers_indexes], LM_outliers*1e6, color='red')
-        axs[2].scatter(Time_axis[CM_outliers_indexes], CM_outliers, color='red')
+        axs[0].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red', zorder=3)
+        axs[1].scatter(Time_axis[LM_outliers_indexes], LM_outliers*1e6, color='red', zorder=3)
+        axs[2].scatter(Time_axis[CM_outliers_indexes], CM_outliers, color='red', zorder=3)
 
 
 # -----------------------------
@@ -580,9 +587,9 @@ if Lc_outliers.size!=0:
     print('--------------------------------------')
     Lc_std_no_outliers = np.std(Lc_no_outliers)
     Lc_mean_no_outliers = np.mean(Lc_no_outliers)
-    print(f'Lc_mean = {Lc_mean*1e6} um')
-    print(f'Lc_std = {Lc_std*1e6} um')
-    print(f'Lc = {np.round(Lc_mean*1e6)} \u2a72 {np.round(3*Lc_std*1e6)} um')
+    print(f'Lc_mean = {Lc_mean_no_outliers*1e6} um')
+    print(f'Lc_std = {Lc_std_no_outliers*1e6} um')
+    print(f'Lc = {np.round(Lc_mean_no_outliers*1e6)} \u2a72 {np.round(3*Lc_std_no_outliers*1e6)} um')
 
 # Cc
 if Charac_container and Cc_outliers.size!=0:

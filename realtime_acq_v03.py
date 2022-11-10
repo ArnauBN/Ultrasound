@@ -57,8 +57,8 @@ print(f'Experiment path set to {MyDir}')
 # Parameters and constants
 ########################################################
 # For Experiment_description do NOT use '\n'.
-Experiment_description = "Second test of plastic Colacao bottle." \
-                        " Container filled with water." \
+Experiment_description = "Test no container." \
+                        " Solid cyanoacrlylate no abs(ToF)." \
                         " Excitation_params: Pulse frequency (Hz)."
 Fs = 100.0e6                    # Sampling frequency - Hz
 Fs_Gencode_Generator = 200.0e6  # Sampling frequency for the gencodes generator - Hz
@@ -66,18 +66,19 @@ RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
 Gain_Ch1 = 60                   # Gain of channel 1 - dB
 Gain_Ch2 = 35                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
-Attenuation_Ch2 = 0            # Attenuation of channel 2 - dB
+Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
 Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WORK
 Fc = 5*1e6                      # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
-Smin1, Smin2 = 4_500, 4_500     # starting point of the scan of each channel - samples
+Smin1, Smin2 = 6_500, 6_500     # starting point of the scan of each channel - samples
 Smax1, Smax2 = 9_000, 9_000   # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Ts_acq = 4                      # Time between acquisitions (if None, script waits for user input). Coding time is about 1.5s (so Ts_acq must be >1.5s) - seconds
 N_acqs = 500                   # Total number of acquisitions
-Charac_container = True         # If True, then the material inside the container is assumed to be water (Cc=Cw) - bool
+Charac_container = False         # If True, then the material inside the container is assumed to be water (Cc=Cw) - bool
+no_container = True             # If True, the material is held by itself, without a container (results are Lc and Cc) (has priority over Charac_container) - bool
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
 Save_acq_data = True            # If True, save all acq. data to {Acqdata_path} - bool
 Load_WP_from_bin = False        # If True, load WP data from {WP_path} instead of making an acquisiton - bool
@@ -86,10 +87,10 @@ Temperature = True              # If True, take temperature measurements at each
 Plot_temperature = True         # If True, plots temperature measuements at each acq. (has no effect if Temperature==False) - bool
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
-Loc_echo1 = 1300                # position of echo from front surface, approximation - samples
-Loc_echo2 = 3500                # position of echo from back surface, approximation - samples
-Loc_WP = 3500                   # position of Water Path, approximation - samples
-Loc_TT = 3500                   # position of Through Transmission, approximation - samples
+Loc_echo1 = 650                # position of echo from front surface, approximation - samples
+Loc_echo2 = 1300                # position of echo from back surface, approximation - samples
+Loc_WP = 1300                   # position of Water Path, approximation - samples
+Loc_TT = 1300                   # position of Through Transmission, approximation - samples
 WinLen = Loc_echo1 * 2          # window length, approximation
 ID = True                       # use Iterative Deconvolution or find_peaks - bool
 
@@ -218,7 +219,7 @@ print("========================================================================\
 # Initialize variables and window WP_Ascan
 # ----------------------------------------
 _plt_pause_time = 0.01
-if Charac_container:
+if Charac_container or no_container:
     Cc = np.zeros(N_acqs)
 if Temperature:
     Cw_vector = np.zeros(N_acqs)
@@ -259,12 +260,12 @@ WP = WP_Ascan * MyWin_WP # window Water Path
 # Write results header to text file
 # ---------------------------------
 if Ts_acq is None:
-    if Charac_container:
+    if Charac_container or no_container:
         header = 'Cc,Lc'
     else:
         header = 'Lc,LM,CM'
 else:
-    if Charac_container:
+    if Charac_container or no_container:
         header = 't,Lc,Cc'
     else:
         header = 't,Lc,LM,CM'
@@ -391,19 +392,23 @@ for i in range(N_acqs):
     Tofr21[i] = ToF_R21
     # -----------------------------------
     # Velocity and thickness computations
-    # -----------------------------------        
-    if Charac_container:
-        Cc[i] = Cw*(np.abs(ToF_TW/ToF_R21) + 1) # container speed - m/s
-        Lc[i] = Cw/2*(np.abs(ToF_TW) + np.abs(ToF_R21))/Fs # container thickness - m
+    # -----------------------------------
+    if Charac_container or no_container:
+        if no_container:
+            Cc[i] = Cw*(2*ToF_TW/np.abs(ToF_R21) + 1) # container speed - m/s
+            Lc[i] = Cw/2*(2*ToF_TW + np.abs(ToF_R21))/Fs # container thickness - m     
+        else:
+            Cc[i] = Cw*(ToF_TW/np.abs(ToF_R21) + 1) # container speed - m/s
+            Lc[i] = Cw/2*(ToF_TW + np.abs(ToF_R21))/Fs # container thickness - m
     else:
         Lc[i] = Cc*np.abs(ToF_R21)/2/Fs # container thickness - m
         LM[i] = (np.abs(ToF_R21) + ToF_TW + ToF_TR1R2/2)*Cw/Fs - 2*Lc[i] # material thickness - m
         CM[i] = 2*LM[i]/ToF_TR1R2*Fs # material speed - m/s
     
     
-    # -----------------------------------
-    # Save results to CSV file as we go 
-    # -----------------------------------
+    # ----------------------------------
+    # Save results to text file as we go 
+    # ----------------------------------
     with open(Results_path, 'a') as f:
         if Ts_acq is None:
             if Charac_container:
@@ -457,7 +462,7 @@ for i in range(N_acqs):
     # ------------
     # Plot points
     # ------------
-    if Charac_container:
+    if Charac_container or no_container:
         fig, axs = plt.subplots(2, num='Results', clear=True)
         USG.movefig(location='northeast')
         axs[0].set_ylabel('Cc (m/s)')
@@ -499,7 +504,7 @@ for i in range(N_acqs):
     else:
         elapsed_time = time.time() - start_time
         time_to_wait = Ts_acq - elapsed_time # time until next acquisition
-        print(f'Acquisition #{i+1}/{N_acqs} done. {ToF_TW=}  {ToF_R21=}')
+        print(f'Acquisition #{i+1}/{N_acqs} done.')
         if time_to_wait < 0:
             print(f'Code is slower than Ts_acq = {Ts_acq} s at Acq #{i+1}. Elapsed time is {elapsed_time} s.')
             time_to_wait = 0
@@ -527,7 +532,7 @@ if Temperature:
 # -----------------
 m = 0.6745
 Lc_no_outliers, Lc_outliers, Lc_outliers_indexes = USF.reject_outliers(Lc, m=m)
-if Charac_container:
+if Charac_container or no_container:
     Cc_no_outliers, Cc_outliers, Cc_outliers_indexes = USF.reject_outliers(Cc, m=m)
     if Ts_acq is None:
         axs[0].scatter(Cc_outliers_indexes, Cc_outliers, color='red', zorder=3)
@@ -570,7 +575,7 @@ print(f'Lc_std = {Lc_std*1e6} um')
 print(f'Lc = {np.round(Lc_mean*1e6)} \u2a72 {np.round(3*Lc_std*1e6)} um')
 
 # Cc
-if Charac_container:
+if Charac_container or no_container:
     Cc_std = np.std(Cc)
     Cc_mean = np.mean(Cc)
     print('--------------------------------------')
@@ -592,7 +597,7 @@ if Lc_outliers.size!=0:
     print(f'Lc = {np.round(Lc_mean_no_outliers*1e6)} \u2a72 {np.round(3*Lc_std_no_outliers*1e6)} um')
 
 # Cc
-if Charac_container and Cc_outliers.size!=0:
+if (Charac_container or no_container) and Cc_outliers.size!=0:
     Cc_std_no_outliers = np.std(Cc_no_outliers)
     Cc_mean_no_outliers = np.mean(Cc_no_outliers)
     print('--------------------------------------')

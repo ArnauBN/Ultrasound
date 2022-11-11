@@ -240,8 +240,17 @@ if ScanLen1 < ScanLen:
 
 N = int(np.ceil(np.log2(np.abs(ScanLen)))) + 1 # next power of 2 (+1)
 nfft = 2**N # Number of FFT points (power of 2)
+
+_xlabel = 'Acquisition number'
 if Ts_acq is not None:
     Time_axis = np.arange(N_acqs) * Ts_acq # time vector (one acq every Ts_acq seconds) - s
+    _plotmin = False
+    _xlabel = 'Time (s)'
+    _factor = 1
+    if Time_axis[-1] > 120:
+        _plotmin = True
+        _xlabel = 'Time (min)'
+        _factor = 60
 
 # windows are centered at approximated surfaces location
 MyWin1 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
@@ -423,57 +432,42 @@ for i in range(N_acqs):
         f.write(row+'\n')
 
 
-    # ----------------
-    # Plot temperature
-    # ----------------
-    if Plot_temperature:
-        fig, axs = plt.subplots(2, num='Temperature', clear=True)
-        USG.movefig(location='south')
-        axs[0].set_ylabel('Temperature 1 (\u2103)')
-        axs[1].set_ylabel('Temperature 2 (\u2103)')
-        
-        if Ts_acq is None:
-            axs[0].scatter(np.arange(i), means1[:i], color='white', marker='o', edgecolors='black')
-            axs[1].scatter(np.arange(i), means2[:i], color='white', marker='o', edgecolors='black')
-        else:
-            axs[1].set_xlabel('Time (s)')
-            axs[0].scatter(Time_axis[:i], means1[:i], color='white', marker='o', edgecolors='black')
-            axs[1].scatter(Time_axis[:i], means2[:i], color='white', marker='o', edgecolors='black')
-        plt.tight_layout()
-        plt.pause(_plt_pause_time)
-
-
-    # -------
+    # -----
+    # Plots
+    # -----
+    _xdata = np.arange(i) if Ts_acq is None else Time_axis[:i]/_factor
+    
     # Plot Cw
-    # -------
     if Temperature:       
         fig, ax = plt.subplots(1, num='Cw', clear=True)
         USG.movefig(location='north')
         ax.set_ylabel('Cw (m/s)')
-        if Ts_acq is None:
-            ax.scatter(np.arange(i), Cw_vector[:i], color='white', marker='o', edgecolors='black')
-        else:
-            ax.set_xlabel('Time (s)')
-            ax.scatter(Time_axis[:i], Cw_vector[:i], color='white', marker='o', edgecolors='black')
+        ax.set_xlabel(_xlabel)
+        ax.scatter(_xdata, Cw_vector[:i], color='white', marker='o', edgecolors='black')
         plt.tight_layout()
         plt.pause(_plt_pause_time)
         
-
-    # ------------
-    # Plot points
-    # ------------
+        # Plot temperature
+        if Plot_temperature:
+            fig, axs = plt.subplots(2, num='Temperature', clear=True)
+            USG.movefig(location='south')
+            axs[0].set_ylabel('Temperature 1 (\u2103)')
+            axs[1].set_ylabel('Temperature 2 (\u2103)')
+            axs[1].set_xlabel(_xlabel)
+            axs[0].scatter(_xdata, means1[:i], color='white', marker='o', edgecolors='black')
+            axs[1].scatter(_xdata, means2[:i], color='white', marker='o', edgecolors='black')
+            plt.tight_layout()
+            plt.pause(_plt_pause_time)
+            
+    # Plot results
     if Charac_container or no_container:
         fig, axs = plt.subplots(2, num='Results', clear=True)
         USG.movefig(location='northeast')
         axs[0].set_ylabel('Cc (m/s)')
         axs[1].set_ylabel('Lc (um)')
-        if Ts_acq is None:
-            axs[0].scatter(np.arange(i), Cc[:i], color='white', marker='o', edgecolors='black', zorder=2)
-            axs[1].scatter(np.arange(i), Lc[:i]*1e6, color='white', marker='o', edgecolors='black', zorder=2)
-        else:
-            axs[1].set_xlabel('Time (s)')
-            axs[0].scatter(Time_axis[:i], Cc[:i], color='white', marker='o', edgecolors='black', zorder=2)
-            axs[1].scatter(Time_axis[:i], Lc[:i]*1e6, color='white', marker='o', edgecolors='black', zorder=2)
+        axs[1].set_xlabel(_xlabel)
+        axs[0].scatter(_xdata, Cc[:i], color='white', marker='o', edgecolors='black', zorder=2)
+        axs[1].scatter(_xdata, Lc[:i]*1e6, color='white', marker='o', edgecolors='black', zorder=2)
         line_Cc = axs[0].axhline(np.mean(Cc[:i]), color='black', linestyle='--', zorder=1) # Plot Cc mean
         line_Lc = axs[1].axhline(np.mean(Lc[:i]*1e6), color='black', linestyle='--', zorder=1) # Plot Lc mean
     else:
@@ -482,15 +476,10 @@ for i in range(N_acqs):
         axs[0].set_ylabel('Lc (um)')
         axs[1].set_ylabel('LM (mm)')
         axs[2].set_ylabel('CM (m/s)')
-        if Ts_acq is None:
-            axs[0].scatter(np.arange(i), Lc[:i]*1e6, color='white', marker='o', edgecolors='black', zorder=2)
-            axs[1].scatter(np.arange(i), LM[:i]*1e3, color='white', marker='o', edgecolors='black', zorder=2)
-            axs[2].scatter(np.arange(i), CM[:i], color='white', marker='o', edgecolors='black', zorder=2)            
-        else:
-            axs[2].set_xlabel('Time (s)')
-            axs[0].scatter(Time_axis[:i], Lc[:i]*1e6, color='white', marker='o', edgecolors='black', zorder=2)
-            axs[1].scatter(Time_axis[:i], LM[:i]*1e3, color='white', marker='o', edgecolors='black', zorder=2)
-            axs[2].scatter(Time_axis[:i], CM[:i], color='white', marker='o', edgecolors='black', zorder=2)
+        axs[2].set_xlabel(_xlabel)
+        axs[0].scatter(_xdata, Lc[:i]*1e6, color='white', marker='o', edgecolors='black', zorder=2)
+        axs[1].scatter(_xdata, LM[:i]*1e3, color='white', marker='o', edgecolors='black', zorder=2)
+        axs[2].scatter(_xdata, CM[:i], color='white', marker='o', edgecolors='black', zorder=2)            
         line_Lc = axs[0].axhline(np.mean(Lc[:i]*1e6), color='black', linestyle='--', zorder=1) # Plot Lc mean
     plt.tight_layout()
     plt.pause(_plt_pause_time)
@@ -538,8 +527,8 @@ if Charac_container or no_container:
         axs[0].scatter(Cc_outliers_indexes, Cc_outliers, color='red', zorder=3)
         axs[1].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red', zorder=3)
     else:
-        axs[0].scatter(Time_axis[Cc_outliers_indexes], Cc_outliers, color='red', zorder=3)
-        axs[1].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red', zorder=3)
+        axs[0].scatter(Time_axis[Cc_outliers_indexes]/_factor, Cc_outliers, color='red', zorder=3)
+        axs[1].scatter(Time_axis[Lc_outliers_indexes]/_factor, Lc_outliers*1e6, color='red', zorder=3)
 else:
     LM_no_outliers, LM_outliers, LM_outliers_indexes = USF.reject_outliers(LM, m=m)
     CM_no_outliers, CM_outliers, CM_outliers_indexes = USF.reject_outliers(CM, m=m)
@@ -548,9 +537,9 @@ else:
         axs[1].scatter(LM_outliers_indexes, LM_outliers*1e6, color='red', zorder=3)
         axs[2].scatter(CM_outliers_indexes, CM_outliers, color='red', zorder=3)
     else:
-        axs[0].scatter(Time_axis[Lc_outliers_indexes], Lc_outliers*1e6, color='red', zorder=3)
-        axs[1].scatter(Time_axis[LM_outliers_indexes], LM_outliers*1e6, color='red', zorder=3)
-        axs[2].scatter(Time_axis[CM_outliers_indexes], CM_outliers, color='red', zorder=3)
+        axs[0].scatter(Time_axis[Lc_outliers_indexes]/_factor, Lc_outliers*1e6, color='red', zorder=3)
+        axs[1].scatter(Time_axis[LM_outliers_indexes]/_factor, LM_outliers*1e6, color='red', zorder=3)
+        axs[2].scatter(Time_axis[CM_outliers_indexes]/_factor, CM_outliers, color='red', zorder=3)
 
 
 # -----------------------------
@@ -587,7 +576,7 @@ print('--------------------------------------')
 print('\n============================================================================\n')
 
 # Lc
-if Lc_outliers.size!=0:
+if Lc_outliers.size != 0:
     print('Without outliers')
     print('--------------------------------------')
     Lc_std_no_outliers = np.std(Lc_no_outliers)
@@ -597,7 +586,7 @@ if Lc_outliers.size!=0:
     print(f'Lc = {np.round(Lc_mean_no_outliers*1e6)} \u2a72 {np.round(3*Lc_std_no_outliers*1e6)} um')
 
 # Cc
-if (Charac_container or no_container) and Cc_outliers.size!=0:
+if (Charac_container or no_container) and Cc_outliers.size != 0:
     Cc_std_no_outliers = np.std(Cc_no_outliers)
     Cc_mean_no_outliers = np.mean(Cc_no_outliers)
     print('--------------------------------------')

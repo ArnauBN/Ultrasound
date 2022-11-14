@@ -57,26 +57,27 @@ print(f'Experiment path set to {MyDir}')
 # Parameters and constants
 ########################################################
 # For Experiment_description do NOT use '\n'.
-Experiment_description = "Test no container." \
+Experiment_description = "Test 2 no container." \
                         " Solid cyanoacrlylate no abs(ToF)." \
+                        " Focused tx." \
                         " Excitation_params: Pulse frequency (Hz)."
 Fs = 100.0e6                    # Sampling frequency - Hz
 Fs_Gencode_Generator = 200.0e6  # Sampling frequency for the gencodes generator - Hz
 RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
-Gain_Ch1 = 60                   # Gain of channel 1 - dB
-Gain_Ch2 = 35                   # Gain of channel 2 - dB
+Gain_Ch1 = 70                   # Gain of channel 1 - dB
+Gain_Ch2 = 25                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
 Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
 Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WORK
 Fc = 5*1e6                      # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
-Smin1, Smin2 = 6_500, 6_500     # starting point of the scan of each channel - samples
-Smax1, Smax2 = 9_000, 9_000   # last point of the scan of each channel - samples
+Smin1, Smin2 = 3_900, 3_900     # starting point of the scan of each channel - samples
+Smax1, Smax2 = 7_500, 7_500   # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Ts_acq = 4                      # Time between acquisitions (if None, script waits for user input). Coding time is about 1.5s (so Ts_acq must be >1.5s) - seconds
-N_acqs = 500                   # Total number of acquisitions
+N_acqs = 10                   # Total number of acquisitions
 Charac_container = False         # If True, then the material inside the container is assumed to be water (Cc=Cw) - bool
 no_container = True             # If True, the material is held by itself, without a container (results are Lc and Cc) (has priority over Charac_container) - bool
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
@@ -87,10 +88,10 @@ Temperature = True              # If True, take temperature measurements at each
 Plot_temperature = True         # If True, plots temperature measuements at each acq. (has no effect if Temperature==False) - bool
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
-Loc_echo1 = 650                # position of echo from front surface, approximation - samples
-Loc_echo2 = 1300                # position of echo from back surface, approximation - samples
-Loc_WP = 1300                   # position of Water Path, approximation - samples
-Loc_TT = 1300                   # position of Through Transmission, approximation - samples
+Loc_echo1 = 1300                # position of echo from front surface, approximation - samples
+Loc_echo2 = 2700                # position of echo from back surface, approximation - samples
+Loc_WP = 2900                   # position of Water Path, approximation - samples
+Loc_TT = 2800                   # position of Through Transmission, approximation - samples
 WinLen = Loc_echo1 * 2          # window length, approximation
 ID = True                       # use Iterative Deconvolution or find_peaks - bool
 
@@ -252,6 +253,7 @@ if Ts_acq is not None:
         _xlabel = 'Time (min)'
         _factor = 60
 
+WinLen_TT = 200
 # windows are centered at approximated surfaces location
 MyWin1 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
                param1=0.25, param2=1, Span=ScanLen, Delay=0)
@@ -259,8 +261,8 @@ MyWin2 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_echo2 - int(WinLen/2))
 MyWin_WP = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_WP - int(WinLen/2))
-MyWin_TT = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
-               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_TT - int(WinLen/2))
+MyWin_TT = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_TT,
+               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_TT - int(WinLen_TT/2))
 
 WP = WP_Ascan * MyWin_WP # window Water Path
 
@@ -319,7 +321,7 @@ for i in range(N_acqs):
         start_time = time.time() # start timer
     
     if Temperature:
-        means1[i], means2[i] = ACQ.getTemperature(ser, N_avg, 'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', 'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        means1[i], means2[i] = ACQ.getTemperature(ser, N_avg, f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
         
         Cw = USF.speedofsound_in_water(means1[i], method='Abdessamad', method_param=148)
         Cw_vector[i] = Cw
@@ -379,6 +381,15 @@ for i in range(N_acqs):
         # Iterative Deconvolution: first face
         ToF_RW, StrMat = USF.deconvolution(PE_R, WP, stripIterNo=2, UseHilbEnv=False)
         ToF_R21 = ToF_RW[1] - ToF_RW[0]
+        # fig, axs = plt.subplots(3, num='StrMat', clear=True)
+        # USG.movefig(location='southwest')
+        # axs[1].set_ylabel('StrMat')
+        # axs[2].set_xlabel(_xlabel)
+        # axs[0].plot(StrMat[0,:])
+        # axs[1].plot(StrMat[1,:])
+        # axs[2].plot(StrMat[2,:])
+        # plt.tight_layout()
+        # plt.pause(_plt_pause_time)
         
         # Iterative Deconvolution: second face
         ToF_TRW, StrMat = USF.deconvolution(PE_TR, WP, stripIterNo=2, UseHilbEnv=False)

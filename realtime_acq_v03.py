@@ -326,6 +326,16 @@ for i in range(N_acqs):
         Cw = USF.speedofsound_in_water(means1[i], method='Abdessamad', method_param=148)
         Cw_vector[i] = Cw
     
+
+    # -----------------------------------------------------------
+    # Zero padding in case each channel has different scan length
+    # -----------------------------------------------------------
+    if ScanLen1 < ScanLen:
+        TT_Ascan = USF.zeroPadding(TT_Ascan, ScanLen)
+    elif ScanLen2 < ScanLen:
+        PE_Ascan = USF.zeroPadding(PE_Ascan, ScanLen)
+    
+    
     # -----------------------------
     # Save temperature and acq data
     # -----------------------------  
@@ -338,17 +348,8 @@ for i in range(N_acqs):
         with open(Acqdata_path, _mode) as f:
             TT_Ascan.tofile(f)
             PE_Ascan.tofile(f)
-
-
-    # -----------------------------------------------------------
-    # Zero padding in case each channel has different scan length
-    # -----------------------------------------------------------
-    if ScanLen1 < ScanLen:
-        TT_Ascan = USF.zeroPadding(TT_Ascan, ScanLen)
-    elif ScanLen2 < ScanLen:
-        PE_Ascan = USF.zeroPadding(PE_Ascan, ScanLen)
-    
-    
+            
+            
     # ------------
     # Window scans
     # ------------

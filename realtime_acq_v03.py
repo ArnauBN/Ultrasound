@@ -86,14 +86,17 @@ Load_WP_from_bin = False        # If True, load WP data from {WP_path} instead o
 Plot_all_acq = True             # If True, plot every acquisition - bool
 Temperature = True              # If True, take temperature measurements at each acq. (temperature data is always saved to file) and plot Cw - bool
 Plot_temperature = True         # If True, plots temperature measuements at each acq. (has no effect if Temperature==False) - bool
+ID = True                       # use Iterative Deconvolution or find_peaks - bool
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
-Loc_echo1 = 1300                # position of echo from front surface, approximation - samples
-Loc_echo2 = 2700                # position of echo from back surface, approximation - samples
-Loc_WP = 2900                   # position of Water Path, approximation - samples
 Loc_TT = 2800                   # position of Through Transmission, approximation - samples
-WinLen = Loc_echo1 * 2          # window length, approximation
-ID = True                       # use Iterative Deconvolution or find_peaks - bool
+Loc_WP = 2900                   # position of Water Path, approximation - samples
+Loc_PER = 1300                  # position of echo from front surface, approximation - samples
+Loc_PETR = 2700                 # position of echo from back surface, approximation (only used with container) - samples
+WinLen_TT = 200                 # window length of Through Transmission, approximation - samples
+WinLen_WP = 2*Loc_PER           # window length of Water Path, approximation - samples
+WinLen_PER = 2*Loc_PER          # window length echo from front surface, approximation - samples
+WinLen_PETR = 2*Loc_PER         # window length of echo from back surface, approximation (only used with container) - samples
 
 board = 'Arduino UNO'           # Board type
 baudrate = 9600                 # Baudrate (symbols/s)
@@ -253,14 +256,13 @@ if Ts_acq is not None:
         _xlabel = 'Time (min)'
         _factor = 60
 
-WinLen_TT = 200
 # windows are centered at approximated surfaces location
-MyWin1 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
-               param1=0.25, param2=1, Span=ScanLen, Delay=0)
-MyWin2 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
-               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_echo2 - int(WinLen/2))
-MyWin_WP = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
-               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_WP - int(WinLen/2))
+MyWin_PER = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_PER,
+               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_PER - int(WinLen_PER/2))
+MyWin_PETR = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_PETR,
+               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_PETR - int(WinLen_PETR/2))
+MyWin_WP = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_WP,
+               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_WP - int(WinLen_WP/2))
 MyWin_TT = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_TT,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_TT - int(WinLen_TT/2))
 
@@ -353,8 +355,8 @@ for i in range(N_acqs):
     # ------------
     # Window scans
     # ------------
-    PE_R = PE_Ascan * MyWin1 # extract front surface reflection
-    PE_TR = PE_Ascan * MyWin2 # extract back surface reflection
+    PE_R = PE_Ascan * MyWin_PER # extract front surface reflection
+    PE_TR = PE_Ascan * MyWin_PETR # extract back surface reflection
     TT = TT_Ascan * MyWin_TT
     
     

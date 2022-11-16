@@ -18,7 +18,7 @@ import US_Functions as USF
 from matplotlib import colors
 #import plotly.graph_objects as go
 from IPython.display import clear_output
-
+from matplotlib.widgets import Slider, Button
 # import plotly.io as pio
 # from plotly.offline import plot as plyplot
 #pio.renderers.default='browser'
@@ -1243,6 +1243,90 @@ def movefig(location: str):
         mngr.window.setGeometry((width-dx)//2, height-40-dy, dx, dy)
 
 
+def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1):
+    '''
+    Plot the data and a moveable window. The figure includes 2 sliders (one for
+    window length and another one for window location) and a Reset button.
+
+    Parameters
+    ----------
+    data : ndarray
+        data to be plotted (and normalized).
+
+    Returns
+    -------
+    None.
+
+    Arnau, 16/11/2022
+    '''
+    ScanLen = len(data)
+    
+    # Define initial parameters
+    init_WinLen = ScanLen//2
+    init_Loc = ScanLen//2
+
+    # Initial window
+    init_win = USF.makeWindow(SortofWin=SortofWin, WinLen=init_WinLen,
+                   param1=param1, param2=param2, Span=ScanLen, Delay=init_Loc - int(init_WinLen/2))
+
+    # Create the figure and the line that we will manipulate
+    fig, ax = plt.subplots()
+    ax.plot(USF.normalizeAscans(data), lw=2)
+    line, = ax.plot(init_win, lw=2)
+
+    # adjust the main plot to make room for the sliders
+    fig.subplots_adjust(left=0.25, bottom=0.25)
+
+    # Make a horizontal slider to control the window length.
+    axloc = fig.add_axes([0.25, 0.1, 0.65, 0.03])
+    Loc_slider = Slider(
+        ax=axloc,
+        label='Location',
+        valmin=10,
+        valmax=ScanLen,
+        valinit=init_Loc,
+        valstep=np.arange(10, ScanLen, dtype=int),
+    )
+
+    # Make a vertically oriented slider to control the position of the window
+    axwinlen = fig.add_axes([0.1, 0.25, 0.0225, 0.63])
+    WinLen_slider = Slider(
+        ax=axwinlen,
+        label="Window Length",
+        valmin=10,
+        valmax=ScanLen,
+        valinit=init_WinLen,
+        valstep=np.arange(10, ScanLen, dtype=int),
+        orientation="vertical"
+    )
+
+    # The function to be called anytime a slider's value changes
+    def update(val):
+        line.set_ydata(USF.makeWindow(SortofWin=SortofWin, WinLen=WinLen_slider.val,
+                       param1=param1, param2=param2, Span=ScanLen, Delay=Loc_slider.val - int(WinLen_slider.val/2)))
+        fig.canvas.draw_idle()
+
+    # register the update function with each slider
+    Loc_slider.on_changed(update)
+    WinLen_slider.on_changed(update)
+
+    # Create a `matplotlib.widgets.Button` to reset the sliders to initial values.
+    resetax = fig.add_axes([0.8, 0.025, 0.1, 0.04])
+    reset_button = Button(resetax, 'Reset', hovercolor='0.975')
+    def reset(event):
+        Loc_slider.reset()
+        WinLen_slider.reset()
+    reset_button.on_clicked(reset)
+    resetax._reset_button = reset_button # dummy reference to avoid garbage collector
+
+    # confirmax = fig.add_axes([0.5, 0.025, 0.1, 0.04])
+    # confirm_button = Button(confirmax, 'Confirm', hovercolor='0.975')
+    # def confirm(event):
+    #     pass
+    # confirm_button.on_clicked(confirm)
+    # confirmax._confirm_button = confirm_button # dummy reference to avoid garbage collector
+
+    plt.show()
 
 
 

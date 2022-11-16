@@ -12,7 +12,7 @@ import winsound
 from scipy.signal import find_peaks
 
 #TODO: ckeck the length of xcorr, maybe not correct to ensure valid samples
-def fastxcorr(x, y, Extend=False, Same=True):
+def fastxcorr(x, y, Extend=True, Same=False):
     """
     Calculate xcor using fft. Asumes vectors are columnwise.
 
@@ -108,7 +108,7 @@ def ShiftSubsampleByfft(Signal, Delay):
     FAxis2 = (np.arange(HalfN + 2, N + 1, 1) - (N + 1)) / N  # Negative semi-frequency axis
     FAxis = np.concatenate((FAxis1, FAxis2))  # Full reordered frequency axis
 
-    return np.real( np.fft.ifft(np.fft.fft(Signal) * np.exp(1j*2*np.pi*FAxis*Delay)))
+    return np.real( np.fft.ifft(np.fft.fft(Signal) * np.exp(-1j*2*np.pi*FAxis*Delay)))
 
 
 def CosineInterpMax(MySignal, UseHilbEnv=False):
@@ -138,24 +138,26 @@ def CosineInterpMax(MySignal, UseHilbEnv=False):
     N = MySignal.size  # signal length
     A = MaxLoc - 1  # left proxima
     B = MaxLoc + 1  # Right proxima
-    if MaxLoc == 0:  # Check if maxima is in the first of the last sample
-        A = MySignal.size - 1
-    elif MaxLoc == MySignal.size-1:
+    if MaxLoc == 0:  # Check if maxima is in the first or the last sample
+        A = N - 1
+    elif MaxLoc == N - 1:
         B = 0
         # calculate interpolation maxima according to cosine interpolation
     Alpha = np.arccos((MySignal[A] + MySignal[B]) / (2 * MySignal[MaxLoc]))
     Beta = np.arctan((MySignal[A] - MySignal[B]) / (2 * MySignal[MaxLoc] * np.sin(Alpha)))
     Px = Beta / Alpha
+
     # Calculate ToF in samples
     DeltaToF = MaxLoc - Px
-    # Check wherter if delay is to the right or to the left and correct ToF
+
+    # Check whether delay is to the right or to the left and correct ToF
     if MaxLoc > N/2:
         DeltaToF = -(N - DeltaToF)
     # Returned value is DeltaToF, the location of the maxima in subsample basis
     return DeltaToF
 
 
-def CalcToFAscanCosine_XCRFFT(Data, Ref, UseCentroid=False, UseHilbEnv=False, Extend=False):
+def CalcToFAscanCosine_XCRFFT(Data, Ref, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False):
     """
     Calculate cross correlation in frequency domain.
 
@@ -182,7 +184,7 @@ def CalcToFAscanCosine_XCRFFT(Data, Ref, UseCentroid=False, UseHilbEnv=False, Ex
     """
     try:
         # Calculates xcorr in frequency domain
-        MyXcor = fastxcorr(Data, Ref, Extend=Extend)
+        MyXcor = fastxcorr(Data, Ref, Extend=Extend, Same=Same)
         # determine time of flight
         if UseCentroid:
             DeltaToF = centroid(MyXcor, UseHilbEnv=UseHilbEnv)
@@ -298,7 +300,7 @@ def filtfilt(InData, SoF, CutOffFreq, Fs, FOrder=4):
         print('filtfilt, Check parameters, something is wonrg.')
 
 
-def deconvolution(Data, Ref, stripIterNo=2, UseHilbEnv=False):
+def deconvolution(Data, Ref, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=False):
     """
     Iterative deconvolution.
 
@@ -332,19 +334,11 @@ def deconvolution(Data, Ref, stripIterNo=2, UseHilbEnv=False):
     ToF = np.zeros(stripIterNo)  # preallocates ToF
     StrMat[0, :] = Data
     for LayerNo in np.arange(stripIterNo):
-        ToF[LayerNo] = CalcToFAscanCosine_XCRFFT(StrMat[LayerNo, :], Ref, UseHilbEnv=UseHilbEnv)[0]
-        RefShifted = ShiftSubsampleByfft(Ref, -ToF[LayerNo])  # Shift the ref to the Ascan position
+        ToF[LayerNo] = CalcToFAscanCosine_XCRFFT(StrMat[LayerNo, :], Ref, UseHilbEnv=UseHilbEnv, Extend=Extend, Same=Same)[0]
+        RefShifted = ShiftSubsampleByfft(Ref, ToF[LayerNo])  # Shift the ref to the Ascan position
         Amp = np.sum(StrMat[LayerNo, :] * RefShifted) / len(RefShifted) / RAmp  # Amplitude scaling factor
         StrMat[LayerNo+1, :] = StrMat[LayerNo, :] - RefShifted * Amp  # strip Ascan
     return ToF, StrMat
-
-# RAmp=np.sum(np.power(Ref,2))/ScanLen # mean power of refference 
-# for i in range(NumAscans):   
-#     DeltaToF = USF.CalcToFAscanCosine_XCRFFT(MyScan.Data[i,:],Ref,UseHilbEnv=True)[0] #time of flight of first echo        
-#     RefShifted = USF.ShiftSubsampleByfft(Ref,-DeltaToF) #  Shift the ref to the Ascan position
-#     Amp = np.sum(MyScan.Data[i,:] * RefShifted) / len(RefShifted) / RAmp # Amplitude Ponderation factor
-#     MyScan.Data[i,:] = MyScan.Data[i,:] - RefShifted*Amp # strip pulse
-
 
 def zeroPadding(Data, NewLen):
     """

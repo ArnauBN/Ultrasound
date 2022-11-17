@@ -1243,10 +1243,12 @@ def movefig(location: str):
         mngr.window.setGeometry((width-dx)//2, height-40-dy, dx, dy)
 
 
-def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1):
+def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1, fignum='SliderWindow'):
     '''
     Plot the data and a moveable window. The figure includes 2 sliders (one for
-    window length and another one for window location) and a Reset button.
+    window length and another one for window location) and a Reset button. The
+    function blocks the execution of the main program until any keyboard key is
+    pressed, then the selected window is returned.
 
     Parameters
     ----------
@@ -1255,7 +1257,8 @@ def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1):
 
     Returns
     -------
-    None.
+    new_window : ndarray.
+        the window selected.
 
     Arnau, 16/11/2022
     '''
@@ -1267,13 +1270,14 @@ def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1):
 
     # Initial window
     init_win = USF.makeWindow(SortofWin=SortofWin, WinLen=init_WinLen,
-                   param1=param1, param2=param2, Span=ScanLen, Delay=init_Loc - int(init_WinLen/2))
+                   param1=param1, param2=param2, Span=ScanLen, Delay=init_Loc - init_WinLen//2)
 
     # Create the figure and the line that we will manipulate
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(num=fignum)
+    ax.set_title('Press any key to return to main program')
     ax.plot(USF.normalizeAscans(data), lw=2)
     line, = ax.plot(init_win, lw=2)
-
+    
     # adjust the main plot to make room for the sliders
     fig.subplots_adjust(left=0.25, bottom=0.25)
 
@@ -1282,10 +1286,10 @@ def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1):
     Loc_slider = Slider(
         ax=axloc,
         label='Location',
-        valmin=10,
+        valmin=0,
         valmax=ScanLen,
         valinit=init_Loc,
-        valstep=np.arange(10, ScanLen, dtype=int),
+        valstep=1,
     )
 
     # Make a vertically oriented slider to control the position of the window
@@ -1293,19 +1297,21 @@ def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1):
     WinLen_slider = Slider(
         ax=axwinlen,
         label="Window Length",
-        valmin=10,
+        valmin=0,
         valmax=ScanLen,
         valinit=init_WinLen,
-        valstep=np.arange(10, ScanLen, dtype=int),
+        valstep=1,
         orientation="vertical"
     )
 
     # The function to be called anytime a slider's value changes
     def update(val):
-        line.set_ydata(USF.makeWindow(SortofWin=SortofWin, WinLen=WinLen_slider.val,
-                       param1=param1, param2=param2, Span=ScanLen, Delay=Loc_slider.val - int(WinLen_slider.val/2)))
+        global new_window
+        new_window = USF.makeWindow(SortofWin=SortofWin, WinLen=WinLen_slider.val,
+                       param1=param1, param2=param2, Span=ScanLen, Delay=Loc_slider.val - WinLen_slider.val//2)
+        line.set_ydata(new_window)
         fig.canvas.draw_idle()
-
+    
     # register the update function with each slider
     Loc_slider.on_changed(update)
     WinLen_slider.on_changed(update)
@@ -1322,11 +1328,16 @@ def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1):
     # confirmax = fig.add_axes([0.5, 0.025, 0.1, 0.04])
     # confirm_button = Button(confirmax, 'Confirm', hovercolor='0.975')
     # def confirm(event):
-    #     pass
+    #     plt.close()
+    #     return new_window
     # confirm_button.on_clicked(confirm)
     # confirmax._confirm_button = confirm_button # dummy reference to avoid garbage collector
 
     plt.show()
+    while not plt.waitforbuttonpress():
+        pass
+    plt.close()
+    return new_window
 
 
 

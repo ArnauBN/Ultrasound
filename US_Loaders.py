@@ -481,25 +481,27 @@ def load_config(Path: str):
     for s in data:
         key, value = s.split(',', maxsplit=1)
         d[key] = value
-    d['Fs']                     = float(d['Fs'])
-    d['Fs_Gencode_Generator']   = float(d['Fs_Gencode_Generator'])
-    d['Gain_Ch1']               = float(d['Gain_Ch1'])
-    d['Gain_Ch2']               = float(d['Gain_Ch2'])
-    d['Attenuation_Ch1']        = float(d['Attenuation_Ch1'])
-    d['Attenuation_Ch2']        = float(d['Attenuation_Ch2'])
-    d['Excitation_voltage']     = float(d['Excitation_voltage'])
-    d['Excitation_params']      = literal_eval(d['Excitation_params'])
-    d['Smin1']                  = int(d['Smin1'])
-    d['Smin2']                  = int(d['Smin2'])
-    d['Smax1']                  = int(d['Smax1'])
-    d['Smax2']                  = int(d['Smax2'])
-    d['AvgSamplesNumber']       = int(d['AvgSamplesNumber'])
-    d['Quantiz_Levels']         = int(d['Quantiz_Levels'])
-    d['Ts_acq']                 = float(d['Ts_acq'])
-    d['N_acqs']                 = int(d['N_acqs'])
-    d['N_avg']                  = int(d['N_avg'])
-    d['WP_temperature']         = float(d['WP_temperature'])        if d['WP_temperature']      != 'None' else None
-    d['Outside_temperature']    = float(d['Outside_temperature'])   if d['Outside_temperature'] != 'None' else None
+    if 'Fs' in d:                   d['Fs']                     = float(d['Fs'])
+    if 'Fs_Gencode_Generator' in d: d['Fs_Gencode_Generator']   = float(d['Fs_Gencode_Generator'])
+    if 'Gain_Ch1' in d:             d['Gain_Ch1']               = float(d['Gain_Ch1'])
+    if 'Gain_Ch2' in d:             d['Gain_Ch2']               = float(d['Gain_Ch2'])
+    if 'Attenuation_Ch1' in d:      d['Attenuation_Ch1']        = float(d['Attenuation_Ch1'])
+    if 'Attenuation_Ch2' in d:      d['Attenuation_Ch2']        = float(d['Attenuation_Ch2'])
+    if 'Excitation_voltage' in d:   d['Excitation_voltage']     = float(d['Excitation_voltage'])
+    if 'Excitation_params' in d:    d['Excitation_params']      = literal_eval(d['Excitation_params'])
+    if 'Smin1' in d:                d['Smin1']                  = int(d['Smin1'])
+    if 'Smin2' in d:                d['Smin2']                  = int(d['Smin2'])
+    if 'Smax1' in d:                d['Smax1']                  = int(d['Smax1'])
+    if 'Smax2' in d:                d['Smax2']                  = int(d['Smax2'])
+    if 'AvgSamplesNumber' in d:     d['AvgSamplesNumber']       = int(d['AvgSamplesNumber'])
+    if 'Quantiz_Levels' in d:       d['Quantiz_Levels']         = int(d['Quantiz_Levels'])
+    if 'Ts_acq' in d:               d['Ts_acq']                 = float(d['Ts_acq'])
+    if 'N_acqs' in d:               d['N_acqs']                 = int(d['N_acqs'])
+    if 'N_avg' in d:                d['N_avg']                  = int(d['N_avg'])
+    if 'ID' in d:                   d['ID']                     = d['ID'] == 'True'
+    if 'stripIterNo' in d:          d['stripIterNo']            = int(d['stripIterNo'])
+    if 'WP_temperature' in d:       d['WP_temperature']         = float(d['WP_temperature'])        if d['WP_temperature']      != 'None' else None
+    if 'Outside_temperature' in d:  d['Outside_temperature']    = float(d['Outside_temperature'])   if d['Outside_temperature'] != 'None' else None
     return d
 
 def load_columnvectors_fromtxt(Path: str, delimiter: str=',', header: bool=True):

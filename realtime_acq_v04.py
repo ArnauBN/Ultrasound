@@ -59,6 +59,7 @@ print(f'Experiment path set to {MyDir}')
 # Parameters and constants
 ########################################################
 # For Experiment_description do NOT use '\n'.
+# Suggestion: write material brand, model, dopong, etc. in Experiment_description
 Experiment_description = "Test 2 no container." \
                         " Solid cyanoacrlylate no abs(ToF)." \
                         " Focused tx." \
@@ -91,6 +92,7 @@ Plot_temperature = True         # If True, plots temperature measuements at each
 ID = True                       # use Iterative Deconvolution or find_peaks - bool
 PE_as_ref = True                # If True, both a WP and a PE traces are acquired. The resulting ref. signal has the PE pulse aligned at WP - str
 align_PEref = True              # If True, align PEref to zero - bool
+stripIterNo = 2                 # If 2, PER and PETR windows are used. If 4, only one deconvolution is used for all 4 echoes - int
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
 Loc_TT = 2800                   # position of Through Transmission, approximation - samples
@@ -172,10 +174,12 @@ config_dict = {'Fs': Fs,
                'WP_temperature' : None,
                'Outside_temperature': None,
                'N_avg' : N_avg,
+               'ID' : ID,
+               'stripIterNo' : stripIterNo,
                'Start_date': '',
                'End_date': '',
                'Experiment_description': Experiment_description}
-# Descripción material (marca, modelo, dopante)
+
 USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Configuration parameters saved to {Config_path}.')
 print("========================================================================\n")
@@ -411,30 +415,38 @@ for i in range(N_acqs):
     ToF_TW, Aligned_TW, _ = USF.CalcToFAscanCosine_XCRFFT(TT, WP, UseCentroid=False, UseHilbEnv=False, Extend=False)
     
     if ID:
-        # Iterative Deconvolution: first face
-        ToF_RW, StrMat = USF.deconvolution(PE_R, PEref_Ascan, stripIterNo=2, UseHilbEnv=False)
-        ToF_R21 = ToF_RW[1] - ToF_RW[0]
-        
-        # Plot StrMat
-        # -----------
-        # fig, axs = plt.subplots(3, num='StrMat', clear=True)
-        # USG.movefig(location='southwest')
-        # axs[1].set_ylabel('StrMat')
-        # axs[2].set_xlabel(_xlabel)
-        # axs[0].plot(StrMat[0,:])
-        # axs[1].plot(StrMat[1,:])
-        # axs[2].plot(StrMat[2,:])
-        # plt.tight_layout()
-        # plt.pause(_plt_pause_time)
-        
-        # Iterative Deconvolution: second face
-        ToF_TRW, StrMat = USF.deconvolution(PE_TR, PEref_Ascan, stripIterNo=2, UseHilbEnv=False)
-        ToF_TR21 = ToF_TRW[1] - ToF_TRW[0]
-        
+        if stripIterNo == 2:
+            # Iterative Deconvolution: first face
+            ToF_RW, StrMat = USF.deconvolution(PE_R, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
+            ToF_R21 = ToF_RW[1] - ToF_RW[0]
+            
+            # Plot StrMat
+            # -----------
+            # fig, axs = plt.subplots(3, num='StrMat', clear=True)
+            # USG.movefig(location='southwest')
+            # axs[1].set_ylabel('StrMat')
+            # axs[2].set_xlabel(_xlabel)
+            # axs[0].plot(StrMat[0,:])
+            # axs[1].plot(StrMat[1,:])
+            # axs[2].plot(StrMat[2,:])
+            # plt.tight_layout()
+            # plt.pause(_plt_pause_time)
+            
+            # Iterative Deconvolution: second face
+            ToF_TRW, StrMat = USF.deconvolution(PE_TR, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
+            ToF_TR21 = ToF_TRW[1] - ToF_TRW[0]
+        elif stripIterNo == 4:
+            # Iterative Deconvolution: first and second face
+            ToF_RW, StrMat = USF.deconvolution(PE_Ascan, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
+            ToF_R21 = ToF_RW[1] - ToF_RW[0]
+            ToF_TR21 = ToF_TRW[3] - ToF_TRW[2]
     else:
-        MyXcor_PE = USF.fastxcorr(PE_Ascan, PEref_Ascan, Extend=True)
+        MyXcor_PE = USF.fastxcorr(PE_Ascan, PEref_Ascan, Extend=True, Same=False)
         Env = USF.envelope(MyXcor_PE)
         Real_peaks = USF.find_Subsampled_peaks(Env, prominence=0.07*np.max(Env), width=20)
+        for i, r in enumerate(Real_peaks):
+            if r < len(Env)//2:
+                Real_peaks[i] = -(len(Env)-r)
         ToF_R21 = Real_peaks[1] - Real_peaks[0]
         ToF_TR21 = Real_peaks[3] - Real_peaks[2]
         ToF_RW = Real_peaks[:1]

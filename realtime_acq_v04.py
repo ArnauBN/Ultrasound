@@ -31,8 +31,6 @@ def time2str(seconds) -> str:
 # Paths and file names to use
 ########################################################
 Path = r'D:\Data\pruebas_acq'
-# Path = r'D:\Data\Arnau\Colacao_Plastic_Bottle_characterization'
-# Experiment_folder_name = 'test_3_charac_bottle_colacao'
 Experiment_folder_name = 'test' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
@@ -61,8 +59,9 @@ print(f'Experiment path set to {MyDir}')
 # For Experiment_description do NOT use '\n'.
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
 Experiment_description = "Test 2 no container." \
-                        " Solid cyanoacrlylate no abs(ToF)." \
+                        " Solid metacrlylate." \
                         " Focused tx." \
+                        " fastxcorr fixed (Extend=True, Same=False)." \
                         " Excitation_params: Pulse frequency (Hz)."
 Fs = 100.0e6                    # Sampling frequency - Hz
 Fs_Gencode_Generator = 200.0e6  # Sampling frequency for the gencodes generator - Hz
@@ -80,7 +79,7 @@ Smax1, Smax2 = 7500, 7500       # last point of the scan of each channel - sampl
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Ts_acq = 4                      # Time between acquisitions (if None, script waits for user input). Coding time is about 1.5s (so Ts_acq must be >1.5s) - seconds
-N_acqs = 10                   # Total number of acquisitions
+N_acqs = 500                   # Total number of acquisitions
 Charac_container = False         # If True, then the material inside the container is assumed to be water (Cc=Cw) - bool
 no_container = True             # If True, the material is held by itself, without a container (results are Lc and Cc) (has priority over Charac_container) - bool
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
@@ -96,13 +95,15 @@ stripIterNo = 2                 # If 2, PER and PETR windows are used. If 4, onl
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
 Loc_TT = 2800                   # position of Through Transmission, approximation - samples
-Loc_Ref = 2900                   # position of Water Path, approximation - samples
+Loc_WP = 2900                  # position of Water Path, approximation - samples
 Loc_PER = 1300                  # position of echo from front surface, approximation - samples
 Loc_PETR = 2700                 # position of echo from back surface, approximation (only used with container) - samples
-WinLen_TT = 200                 # window length of Through Transmission, approximation - samples
-WinLen_Ref = 2*Loc_PER           # window length of Water Path, approximation - samples
-WinLen_PER = 2*Loc_PER          # window length echo from front surface, approximation - samples
-WinLen_PETR = 2*Loc_PER         # window length of echo from back surface, approximation (only used with container) - samples
+WinLen_TT = 300                 # window length of Through Transmission, approximation - samples
+WinLen_WP = 300           # window length of Water Path, approximation - samples
+WinLen_PER = 1500          # window length echo from front surface, approximation - samples
+WinLen_PETR = 1500         # window length of echo from back surface, approximation (only used with container) - samples
+
+# Loc_PER, Loc_PETR, WinLen_PER and WinLen_PETR are not used if stripIterNo==4.
 
 board = 'Arduino UNO'           # Board type
 baudrate = 9600                 # Baudrate (symbols/s)
@@ -127,7 +128,7 @@ _sleep_time = 1
 print('Connected.')
 print(f'Sleeping for {_sleep_time} s...')
 time.sleep(_sleep_time) # wait to be sure
-print("------------------------------------------------------------------------")
+print("---------------------------------------------------")
 if Reset_Relay:
     print('Resetting relay...')
     SeDaq.SetRelay(1)
@@ -136,18 +137,18 @@ if Reset_Relay:
     time.sleep(1) # wait to be sure
     SeDaq.SetRelay(1)
     time.sleep(1) # wait to be sure
-    print("------------------------------------------------------------------------")
+    print("---------------------------------------------------")
 SeDaq.SetRecLen(RecLen) # initialize record length
 # SeDaq.SetExtVoltage(Excitation_voltage) - DOESN'T WORK
 SeDaq.SetGain1(Gain_Ch1)
 SeDaq.SetGain2(Gain_Ch2)
 print(f'Gain of channel 1 set to {SeDaq.GetGain(1)} dB') # return gain of channel 1
 print(f'Gain of channel 2 set to {SeDaq.GetGain(2)} dB') # return gain of channel 2
-print("------------------------------------------------------------------------")
+print("---------------------------------------------------")
 GenCode = USGC.MakeGenCode(Excitation=Excitation, ParamVal=Excitation_params)
 SeDaq.UpdateGenCode(GenCode)
 print('Generator code created and updated.')
-print("========================================================================\n")
+print("===================================================\n")
 
 
 #%% 
@@ -182,7 +183,7 @@ config_dict = {'Fs': Fs,
 
 USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Configuration parameters saved to {Config_path}.')
-print("========================================================================\n")
+print("===================================================\n")
 
 
 #%% 
@@ -206,17 +207,17 @@ else:
     print('Water path acquired.')
     if PE_as_ref:
         input("Press any key to acquire the pulse echo.")
-        PE_Ref_Ascan = ACQ.GetAscan_Ch2(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
-        MyWin_PEref = USG.SliderWindow(PE_Ref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
-        PE_Ref_Ascan = PE_Ref_Ascan * MyWin_PEref
+        PEref_Ascan = ACQ.GetAscan_Ch2(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
+        MyWin_PEref = USG.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
+        PEref_Ascan = PEref_Ascan * MyWin_PEref
         
         if align_PEref:
-            USF.align2zero(PE_Ref_Ascan, UseCentroid=False, UseHilbEnv=False)
+            USF.align2zero(PEref_Ascan, UseCentroid=False, UseHilbEnv=False)
         print('Pulse echo as reference acquired.')
     else:
         PEref_Ascan = WP_Ascan
         print('PE_as_ref is False. Setting PEref_Ascan = WP_Ascan.')
-print("========================================================================\n")
+print("===================================================\n")
 
 if Temperature:
     if not ser.isOpen():
@@ -228,7 +229,7 @@ if Temperature:
     USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
     print(f'Reference signal temperature is {mean1} \u00b0C.')
     print(f'Outside temperature is {mean2} \u00b0C.')
-    print("========================================================================\n")
+    print("===================================================\n")
     
 plt.figure()
 plt.plot(WP_Ascan)
@@ -240,10 +241,10 @@ if Save_acq_data:
     with open(WP_path, 'wb') as f:
         WP_Ascan.tofile(f)
     with open(PEref_path, 'wb') as f:
-        PE_Ref_Ascan.tofile(f)
+        PEref_Ascan.tofile(f)
 
 input("Press any key to start the experiment.")
-print("========================================================================\n")
+print("===================================================\n")
 
 
 #%% 
@@ -295,12 +296,12 @@ MyWin_PER = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_PER,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_PER - int(WinLen_PER/2))
 MyWin_PETR = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_PETR,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_PETR - int(WinLen_PETR/2))
-MyWin_Ref = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_Ref,
-               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_Ref - int(WinLen_Ref/2))
+MyWin_WP = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_WP,
+               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_WP - int(WinLen_WP/2))
 MyWin_TT = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_TT,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_TT - int(WinLen_TT/2))
 
-WP = WP_Ascan * MyWin_Ref # window Water Path
+WP = WP_Ascan * MyWin_WP # window Water Path
 
 
 # ---------------------------------
@@ -341,7 +342,7 @@ _start_time = time.strftime("%Y/%m/%d - %H:%M:%S")
 config_dict['Start_date'] = _start_time
 USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Experiment started at {_start_time}.')
-print("========================================================================\n")
+print("===================================================\n")
 
 
 # ---------
@@ -628,7 +629,7 @@ _end_time = time.strftime("%Y/%m/%d - %H:%M:%S")
 config_dict['End_date'] = _end_time
 USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Experiment ended at {_end_time}.')
-print("============================================================================\n")
+print("===================================================\n")
 
 
 # -------------------------------------
@@ -637,7 +638,7 @@ print("=========================================================================
 # Lc
 Lc_std = np.std(Lc)
 Lc_mean = np.mean(Lc)
-print('--------------------------------------')
+print("---------------------------------------------------")
 print(f'Lc_mean = {Lc_mean*1e6} um')
 print(f'Lc_std = {Lc_std*1e6} um')
 print(f'Lc = {np.round(Lc_mean*1e6)} \u2a72 {np.round(3*Lc_std*1e6)} um')
@@ -646,18 +647,18 @@ print(f'Lc = {np.round(Lc_mean*1e6)} \u2a72 {np.round(3*Lc_std*1e6)} um')
 if Charac_container or no_container:
     Cc_std = np.std(Cc)
     Cc_mean = np.mean(Cc)
-    print('--------------------------------------')
+    print("---------------------------------------------------")
     print(f'Cc_mean = {Cc_mean} m/s')
     print(f'Cc_std = {Cc_std} m/s')
     print(f'Cc = {np.round(Cc_mean)} \u2a72 {np.round(3*Cc_std)} m/s')
-print('--------------------------------------')
+print("---------------------------------------------------")
 
-print('\n============================================================================\n')
+print("===================================================\n")
 
 # Lc
 if Lc_outliers.size != 0:
     print('Without outliers')
-    print('--------------------------------------')
+    print("---------------------------------------------------")
     Lc_std_no_outliers = np.std(Lc_no_outliers)
     Lc_mean_no_outliers = np.mean(Lc_no_outliers)
     print(f'Lc_mean = {Lc_mean_no_outliers*1e6} um')
@@ -668,8 +669,8 @@ if Lc_outliers.size != 0:
 if (Charac_container or no_container) and Cc_outliers.size != 0:
     Cc_std_no_outliers = np.std(Cc_no_outliers)
     Cc_mean_no_outliers = np.mean(Cc_no_outliers)
-    print('--------------------------------------')
+    print("---------------------------------------------------")
     print(f'Cc_mean = {Cc_mean_no_outliers} m/s')
     print(f'Cc_std = {Cc_std_no_outliers} m/s')
     print(f'Cc = {np.round(Cc_mean_no_outliers)} \u2a72 {np.round(3*Cc_std_no_outliers)} m/s')
-print('--------------------------------------')
+print("---------------------------------------------------")

@@ -188,7 +188,7 @@ print("===================================================\n")
 
 #%% 
 ########################################################################
-# Water Path acquisition
+# Reference acquisition (Water Path and PEref)
 ########################################################################
 if Load_refs_from_bin:
     with open(WP_path, 'rb') as f:
@@ -207,7 +207,7 @@ else:
     print('Water path acquired.')
     if PE_as_ref:
         input("Press any key to acquire the pulse echo.")
-        PEref_Ascan = ACQ.GetAscan_Ch2(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
+        PEref_Ascan = ACQ.GetAscan_Ch2(Smin2, Smax2, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
         MyWin_PEref = USG.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
         PEref_Ascan = PEref_Ascan * MyWin_PEref
         
@@ -283,11 +283,9 @@ nfft = 2**N # Number of FFT points (power of 2)
 _xlabel = 'Acquisition number'
 if Ts_acq is not None:
     Time_axis = np.arange(N_acqs) * Ts_acq # time vector (one acq every Ts_acq seconds) - s
-    _plotmin = False
     _xlabel = 'Time (s)'
     _factor = 1
     if Time_axis[-1] > 120:
-        _plotmin = True
         _xlabel = 'Time (min)'
         _factor = 60
 

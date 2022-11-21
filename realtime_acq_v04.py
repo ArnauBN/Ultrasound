@@ -500,12 +500,12 @@ for i in range(N_acqs):
     # ----------------------------------
     with open(Results_path, 'a') as f:
         if Ts_acq is None:
-            if Charac_container:
+            if Charac_container or no_container:
                 row = f'{Cc[i]},{Lc[i]}'
             else:
                 row = f'{Lc[i]},{LM[i]},{CM[i]}'
         else:
-            if Charac_container:
+            if Charac_container or no_container:
                 row = f'{Time_axis[i]},{Lc[i]},{Cc[i]}'
             else:
                 row = f'{Time_axis[i]},{Lc[i]},{LM[i]},{CM[i]}'

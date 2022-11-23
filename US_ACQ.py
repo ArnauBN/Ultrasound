@@ -9,7 +9,9 @@ from SeDaq import *
 import matplotlib.pylab as plt
 import serial
 #import winsound
+
 # nuevo comentario
+
 ''' Get Ascans '''
 #Get Ascans ->
 def GetAscan_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):

@@ -11,6 +11,8 @@ import sys
 import winsound
 from scipy.signal import find_peaks
 
+
+# nuevo comentario
 #TODO: ckeck the length of xcorr, maybe not correct to ensure valid samples
 def fastxcorr(x, y, Extend=True, Same=False):
     """

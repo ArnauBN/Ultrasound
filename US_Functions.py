@@ -74,7 +74,7 @@ def nextpow2(i):
     Returns
     -------
     n : int
-        closet power of 2 so that 2**n>i.
+        closest power of 2 so that 2**n>i.
 
     Calculate next power of 2, i. e., minimum N so that 2*N>i
     Alberto, 10/11/2020

@@ -7,59 +7,82 @@ Created on Mon Nov 28 10:05:05 2022
 import numpy as np
 import matplotlib.pyplot as plt
 import ctypes
+from scipy import signal as scsig
 
 import Pico5000alib as plib
 
 
-#%% Arbitrary waveform to generate
-# sine wave
-_f0 = 5e6
-_T0 = 1/_f0
-waveformSize = 2**11
-_t = np.linspace(0,_T0,waveformSize)
-waveform = (np.sin(2*np.pi*_f0*_t)*32767).astype(np.int16) # temporary
-
-# square pulse
-# duty_cycle = 0.5
-# waveform = np.concatenate([np.ones(int(waveformSize*duty_cycle)), np.zeros(int(waveformSize*(1-duty_cycle)))])*32767
-# waveform[waveform==0] = -32768
-# waveform = waveform.astype(np.int16)
-
 #%% Parameters
 num_bits = 12               # Number of bits to use (8, 12, 14, 15 or 16) - int
-Fs = 125e6                  # Sampling frequency (Hz) - float
+Fs = 125e6                  # Desired sampling frequency (Hz) - float
 
+
+# ------------------
+# Arbitrary Waveform
+# ------------------
+waveform_f0 = 5e6           # Center Frequency of waveform (Hz) - float
+waveformSize = 2**11        # Waveform length (power of 2, max=2**15) - int
+win_params = ('gaussian', waveformSize/5) # type of windows and its parameters - str or tuple
+
+# Waveform computation (32767 = get_MinMax(chandle, status)[1])
+waveform_win = scsig.windows.get_window(win_params, waveformSize)
+waveform_t = np.arange(0, waveformSize)/Fs
+waveform = (np.sin(2*np.pi*waveform_f0*waveform_t)*waveform_win*32767).astype(np.int16)
+
+# Computation of the FFT of the waveform
+N = int(np.ceil(np.log2(np.abs(waveformSize)))) + 1 # next power of 2 (+1)
+nfft = 2**N # Number of FFT points (power of 2)
+freq = np.linspace(0, Fs/2, nfft//2)
+FFTwaveform = np.fft.fft(waveform-np.mean(waveform), nfft)/nfft
+FFTwaveform = FFTwaveform[:nfft//2]
+
+
+# ---------------
 # Channel A setup
+# ---------------
 coupling_A = 'DC'           # Coupling of channel A ('AC' or 'DC') - str
 voltage_range_A = '2V'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_A = 0                # Analog offset of channel A (in volts) - float
 enabled_A = 0               # Enable (1) or disable (0) channel A - int
 
+
+# ---------------
 # Channel B setup
+# ---------------
 coupling_B = 'DC'           # Coupling of channel B ('AC' or 'DC') - str
 voltage_range_B = '2V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_B = 0                # Analog offset of channel B (in volts) - float
 enabled_B = 1               # Enable (1) or disable (0) channel B - int
 
+
+# ---------------
 # Capture options
+# ---------------
 channels = 'B'           # 'A', 'B' or 'BOTH' - str
+nSegments = 20              # Number of traces to capture and average to reduce noise - int
 downsampling_ratio_mode = 0 # Downsampling ratio mode - int
 downsampling_ratio = 0      # Downsampling ratio - int
 time_indisposed = None      # For now, do not modify
 lpReady = None              # For now, do not modify
 pParameter = None           # For now, do not modify
 
+
+# ---------------
 # Trigger options
+# ---------------
 triggerChannel = 'B'        # 'A', 'B' or 'EXTERNAL' - str
 triggerThreshold = 500      # Trigger threshold in mV - float
 enabled_trigger = 1         # Enable (1) or disable (0) trigger - int
 direction = 2               # Check API (2=rising) - int
 delay = 0                   # time between trigger and first sample (s) - float
 auto_Trigger = 1000         # starts a capture if no trigger event occurs within the specified ms - float
-preTriggerSamples = 5500    # Number of samples to capture before the trigger - int
-postTriggerSamples = 5500   # Number of samples to capture after the trigger - int
+preTriggerSamples = 5000    # Number of samples to capture before the trigger - int
+postTriggerSamples = 5000   # Number of samples to capture after the trigger - int
 
+
+# ------------------------
 # Signal Generator options
+# ------------------------
 generate_builtin_signal = False      # If True, generate builtin signal - bool
 generate_arbitrary_signal = True   # If True, generate arbitrary signal (has priority over builtin) - bool
 gate_time = 1000                    # Gate time in milliseconds (only used for gated triggers) - float
@@ -75,14 +98,14 @@ BUILTIN_SIGNAL_GENERATOR_DICT = {
     'shots'                 : 20,            # Number of cycles per trigger. If 0, do sweeps - int
     'sweeps'                : 0,            # Number of sweeps per trigger. If 0, do shots - int
     'triggertype'           : 0,            # Type of trigger - int
-    'triggerSource'         : 0,            # Source of trigger - int
+    'triggerSource'         : 4,            # Source of trigger - int
     'extInThreshold'        : 0             # Trigger level for EXTERNAL trigger - int
 }
 ARBITRARY_SIGNAL_GENERATOR_DICT = {
     'offsetVoltage'         : 0,            # Offset Voltage (microvolts, uV) - int
     'pkToPk'                : 2_000_000,    # Peak-to-peak voltage (uV) - int
-    'startFrequency'        : 1e5,          # Initial frequency of waveform - float
-    'stopFrequency'         : 1e5,          # Final frequency before restarting or reversing sweep - float
+    'startFrequency'        : Fs/waveformSize, # Initial frequency of waveform - float
+    'stopFrequency'         : Fs/waveformSize, # Final frequency before restarting or reversing sweep - float
     'increment'             : 0,            # Amount of sweep in each dwell period - float
     'dwellCount'            : 0,            # Number of 50 ns steps. Determines the rate of sweep - int
     'arbitraryWaveform'     : waveform,     # The signal - array of np.int16
@@ -95,6 +118,21 @@ ARBITRARY_SIGNAL_GENERATOR_DICT = {
     'triggerSource'         : 4,            # Source of trigger - int
     'extInThreshold'        : 0             # Trigger level for EXTERNAL trigger - int
 }
+
+
+#%% Plot arbitrary waveform
+plt.figure('Waveform fft')
+plt.plot(freq*1e-6, np.abs(FFTwaveform))
+plt.xlabel('Frequency (MHz)')
+plt.ylabel('FFT Magnitude')
+plt.xlim([0,10])
+
+plt.figure('Waveform')
+plt.plot(waveform_t*1e9, waveform)
+plt.ylabel('Sample count')
+plt.xlabel('Sample')
+plt.title('Waveform to generate')
+plt.tight_layout()
 
 
 #%% Initial check
@@ -124,7 +162,14 @@ plib.set_simpleTrigger(chandle, status, enabled_trigger, triggerChannel, voltage
 #%% Get timebase
 # Get timebase
 timebase, timeIntervalns, maxSamples = plib.get_timebase(chandle, status, Fs, preTriggerSamples + postTriggerSamples, segmentIndex=0)
+Real_Fs = 1e9/(2**timebase) # Hz
 
+if generate_arbitrary_signal and ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency'] == ARBITRARY_SIGNAL_GENERATOR_DICT['stopFrequency']:
+    pulse_freq = Real_Fs/waveformSize
+    if pulse_freq != ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency']:
+        ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency'] = pulse_freq
+        ARBITRARY_SIGNAL_GENERATOR_DICT['stopFrequency'] = pulse_freq
+        print('Frequency of the arbitrary waveform changed to {pulse_freq} Hz.')
 
 #%% Generate signal (SINE)
 if generate_arbitrary_signal:
@@ -146,7 +191,9 @@ BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indis
     downsampling=(downsampling_ratio_mode, downsampling_ratio), segment_index=0)
 
 # Create time data
-t = np.linspace(0, (cmaxSamples.value - 1) * timeIntervalns.value, cmaxSamples.value)
+t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
+
+plt.figure()
 
 if channels.upper() in ['A', 'BOTH']:
     # Get buffer
@@ -177,18 +224,34 @@ plt.show()
 # Stop the scope
 plib.stop_pico5000a(chandle, status)
 
+#%% fft
+samples = preTriggerSamples + postTriggerSamples
+N = int(np.ceil(np.log2(np.abs(samples)))) + 1 # next power of 2 (+1)
+nfft = 2**N # Number of FFT points (power of 2)
 
-#%% Capture rapid data: 10 segments
-# Run rapid capture of 10 segments
+real_Fs = plib.timebase2fs(timebase)
+freq = np.linspace(0, real_Fs/2, nfft//2)
+FFTmeanB = np.fft.fft(adc2mVChBMax-np.mean(adc2mVChBMax), nfft)/nfft
+FFTmeanB = FFTmeanB[:nfft//2]
+
+plt.figure('fft')
+plt.plot(freq*1e-6, np.abs(FFTmeanB))
+plt.xlabel('Frequency (MHz)')
+plt.ylabel('FFT Magnitude (mV)')
+plt.xlim([0,10])
+
+
+#%% Capture rapid data: nSegments
+# Run rapid capture of nSegments
 BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = plib.rapid_capture(
     chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
-    10, trigger_sigGen, triggertype, gate_time,
+    nSegments, trigger_sigGen, triggertype, gate_time,
     downsampling=(downsampling_ratio_mode, downsampling_ratio))
 
 plib.print_triggerInfo(triggerInfo)
 
 # Create time data
-t = np.linspace(0, (cmaxSamples.value - 1) * timeIntervalns.value, cmaxSamples.value)
+t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
 
 arrayAMax, arrayBMax, arrayAMin, arrayBMin = plib.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)
 
@@ -199,75 +262,42 @@ for i, a in enumerate([arrayAMax, arrayBMax, arrayAMin, arrayBMin]):
     else:
         means[i] = np.full(len(t), None)
 
-if channels.upper() in ['A', 'BOTH']:
-    # Get buffer
-    # bufferAMax0 = BUFFERS_DICT["bufferA0"][0]
-    # bufferAMax1 = BUFFERS_DICT["bufferA1"][0]
-    # bufferAMax2 = BUFFERS_DICT["bufferA2"][0]
-    # bufferAMax3 = BUFFERS_DICT["bufferA3"][0]
-    # bufferAMax4 = BUFFERS_DICT["bufferA4"][0]
-    # bufferAMax5 = BUFFERS_DICT["bufferA5"][0]
-    # bufferAMax6 = BUFFERS_DICT["bufferA6"][0]
-    # bufferAMax7 = BUFFERS_DICT["bufferA7"][0]
-    # bufferAMax8 = BUFFERS_DICT["bufferA8"][0]
-    # bufferAMax9 = BUFFERS_DICT["bufferA9"][0]
-    
-    # convert ADC counts data to mV
-    # adc2mVChAMax = plib.adc2millivolts(chandle, status, bufferAMax, voltage_range_A)
+# Stop the scope
+plib.stop_pico5000a(chandle, status)
 
+
+#%% Plot data
+plt.figure()
+if channels.upper() in ['A', 'BOTH']:
     # Plot data
     plt.plot(t, arrayAMax.T, c='grey')
     plt.plot(t, means[0], lw=2, c='k')
     
 if channels.upper() in ['B', 'BOTH']:
-    # Get buffer
-    # bufferBMax0 = BUFFERS_DICT["bufferB0"][0]
-    # bufferBMax1 = BUFFERS_DICT["bufferB1"][0]
-    # bufferBMax2 = BUFFERS_DICT["bufferB2"][0]
-    # bufferBMax3 = BUFFERS_DICT["bufferB3"][0]
-    # bufferBMax4 = BUFFERS_DICT["bufferB4"][0]
-    # bufferBMax5 = BUFFERS_DICT["bufferB5"][0]
-    # bufferBMax6 = BUFFERS_DICT["bufferB6"][0]
-    # bufferBMax7 = BUFFERS_DICT["bufferB7"][0]
-    # bufferBMax8 = BUFFERS_DICT["bufferB8"][0]
-    # bufferBMax9 = BUFFERS_DICT["bufferB9"][0]
-    
-    # # convert ADC counts data to mV
-    # adc2mVChBMax0 = plib.adc2millivolts(chandle, status, bufferBMax0, voltage_range_B)
-    # adc2mVChBMax1 = plib.adc2millivolts(chandle, status, bufferBMax1, voltage_range_B)
-    # adc2mVChBMax2 = plib.adc2millivolts(chandle, status, bufferBMax2, voltage_range_B)
-    # adc2mVChBMax3 = plib.adc2millivolts(chandle, status, bufferBMax3, voltage_range_B)
-    # adc2mVChBMax4 = plib.adc2millivolts(chandle, status, bufferBMax4, voltage_range_B)
-    # adc2mVChBMax5 = plib.adc2millivolts(chandle, status, bufferBMax5, voltage_range_B)
-    # adc2mVChBMax6 = plib.adc2millivolts(chandle, status, bufferBMax6, voltage_range_B)
-    # adc2mVChBMax7 = plib.adc2millivolts(chandle, status, bufferBMax7, voltage_range_B)
-    # adc2mVChBMax8 = plib.adc2millivolts(chandle, status, bufferBMax8, voltage_range_B)
-    # adc2mVChBMax9 = plib.adc2millivolts(chandle, status, bufferBMax9, voltage_range_B)
-
-    # B = np.array([adc2mVChBMax0,
-    #               adc2mVChBMax1,
-    #               adc2mVChBMax2,
-    #               adc2mVChBMax3,
-    #               adc2mVChBMax4,
-    #               adc2mVChBMax5,
-    #               adc2mVChBMax6,
-    #               adc2mVChBMax7,
-    #               adc2mVChBMax8,
-    #               adc2mVChBMax9])
-    # avg_B = np.mean(B, axis=0)
-
     # Plot data
     plt.plot(t, arrayBMax.T, c='grey')
     plt.plot(t, means[1], lw=2, c='k')
 
-
-# Plot data
 plt.xlabel('Time (ns)')
 plt.ylabel('Voltage (mV)')
 plt.show()
 
-# Stop the scope
-plib.stop_pico5000a(chandle, status)
+
+#%% fft
+samples = preTriggerSamples + postTriggerSamples
+N = int(np.ceil(np.log2(np.abs(samples)))) + 1 # next power of 2 (+1)
+nfft = 2**N # Number of FFT points (power of 2)
+
+real_Fs = plib.timebase2fs(timebase)
+freq = np.linspace(0, real_Fs/2, nfft//2)
+FFTmeanB = np.fft.fft(means[1]-np.mean(means[1]), nfft)/nfft
+FFTmeanB = FFTmeanB[:nfft//2]
+
+plt.figure('fft')
+plt.plot(freq*1e-6, np.abs(FFTmeanB))
+plt.xlabel('Frequency (MHz)')
+plt.ylabel('FFT Magnitude (mV)')
+# plt.xlim([0,10])
 
 
 #%% Close

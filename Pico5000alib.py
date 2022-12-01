@@ -10,6 +10,7 @@ Dependencies
 - PicoSDK: <https://www.picotech.com/downloads/_lightbox/pico-software-development-kit-64bit>
 - Python wrappers for PicoSDK: <https://github.com/picotech/picosdk-python-wrappers>
 - numpy
+- pandas
 - ctypes
 - time
 
@@ -79,6 +80,21 @@ Trigger source
 4 - SOFTWARE
 
 
+Trigger Time Offset Units
+-------------------------
+0 - FS
+
+1 - PS
+
+2 - NS
+
+3 - US
+
+4 - MS
+
+5 - S
+
+
 Threshold direction
 -------------------
 0 - ABOVE
@@ -121,8 +137,10 @@ from picosdk.discover import find_all_units
 from picosdk.ps5000a import ps5000a as ps
 from picosdk.functions import assert_pico_ok, mV2adc, adc2mV
 import numpy as np
+import pandas as pd
 import ctypes
 import time
+
 
 #%% ========== PARSERS ==========
 def _parseResolution(num_bits):
@@ -313,7 +331,7 @@ def stop_pico5000a(chandle, status):
     # Stop the scope
     status["stop"] = ps.ps5000aStop(chandle)
     assert_pico_ok(status["stop"])
-    print(status)
+    print(f'Stopped with status:\n{status}')
 
 def close_pico5000a(chandle, status):
     '''
@@ -335,7 +353,7 @@ def close_pico5000a(chandle, status):
     # Close the unit
     status["close"] = ps.ps5000aCloseUnit(chandle)
     assert_pico_ok(status["close"])
-    print(status)
+    print(f'Closed with status:\n{status}')
 
 #%% ========== FUNCTIONS ==========
 def set_resolution(chandle, status, num_bits):
@@ -515,15 +533,12 @@ def print_triggerInfo(triggerInfo):
 
     Arnau, 29/11/2022
     '''
+    lst = []
     for i in triggerInfo:
-        print("------------------------------")
-        print("segmentIndex = ", i.segmentIndex)
-        print("PICO_STATUS = ", i.status)
-        print("triggerTime = ", i.triggerTime)
-        print("timeUnits = ", i.timeUnits)
-        print("timeStampCounter = ", i.timeStampCounter)
-        print("------------------------------")
-
+        lst.append([i.segmentIndex, i.status, i.triggerIndex, i.triggerTime, i.timeUnits, i.timeStampCounter])
+    df = pd.DataFrame(lst, columns=['segmentIndex', 'PICO_STATUS', 'triggerIndex', 'triggerTime', 'timeUnits', 'timeStampCounter'])
+    print(df.to_string(index=False))
+    
 #%% ========== CAPTURE DATA ==========
 def capture(chandle, status, channels, samples, timebase, trigger_sigGen, sigGen_triggertype, sigGen_gate_time, downsampling=(0,0), segment_index=0):
     '''
@@ -568,13 +583,19 @@ def capture(chandle, status, channels, samples, timebase, trigger_sigGen, sigGen
                 BUFFERS_DICT[f'bufferX{segment_index}'] = [bufferMax, bufferMin]
             
             where X is A or B. The bufferMin is only used for downsampling.
-    cmaxSamples : ctypes.c_int32
+    cmaxSamples : int
         The actual number of samples.
-    triggerTimeOffset : ctypes.c_int64
+    triggerTimeOffset : int
         Time offset of waveform with respect to trigger.
-    triggerTimeOffsetUnits : ctypes.c_char
+    triggerTimeOffsetUnits : int
         Units of the time offset.
-    time_indisposed : ctypes.c_int32
+            0 - FS
+            1 - PS
+            2 - NS
+            3 - US
+            4 - MS
+            5 - S
+    time_indisposed : int
         Time, in milliseconds, that the scope spent collecting samples.
     
     Arnau, 29/11/2022
@@ -634,7 +655,7 @@ def capture(chandle, status, channels, samples, timebase, trigger_sigGen, sigGen
     status["GetTriggerTimeOffset64"] = ps.ps5000aGetTriggerTimeOffset64(chandle, ctypes.byref(triggerTimeOffset), ctypes.byref(triggerTimeOffsetUnits), 0)
     assert_pico_ok(status["GetTriggerTimeOffset64"])   
     
-    return BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indisposed
+    return BUFFERS_DICT, cmaxSamples.value, triggerTimeOffset.value, int.from_bytes(triggerTimeOffsetUnits.value, 'big'), time_indisposed.value
 
 def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigger_sigGen, sigGen_triggertype, sigGen_gate_time, downsampling=(0,0)):
     '''
@@ -681,13 +702,19 @@ def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigg
             
             where X is A or B and i refers to each segment index. The bufferMin
             is only used for downsampling.
-    cmaxSamples : ctypes.c_int32()
+    cmaxSamples : int
         The actual number of samples.
-    triggerTimeOffsets : array of ctypes.c_int64()
+    triggerTimeOffsets : ndarray of int
         Time offset of every segment captured.
-    triggerTimeOffsetUnits : ctypes.c_char()
+    triggerTimeOffsetUnits : int
         Units of the TriggerTimeOffsets vector.
-    time_indisposed : ctypes.c_int32
+            0 - FS
+            1 - PS
+            2 - NS
+            3 - US
+            4 - MS
+            5 - S
+    time_indisposed : int
         Time, in milliseconds, that the scope spent collecting samples.
     triggerInfo : array of ps.PS5000A_TRIGGER_INFO
         Trigger information of every segment.
@@ -772,7 +799,7 @@ def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigg
     status["GetTriggerInfoBulk"] = ps.ps5000aGetTriggerInfoBulk(chandle, ctypes.byref(triggerInfo), 0, nSegments-1)
     assert_pico_ok(status["GetTriggerInfoBulk"])
 
-    return BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo
+    return BUFFERS_DICT, cmaxSamples.value, np.array(list(map(int,triggerTimeOffsets))), int.from_bytes(triggerTimeOffsetUnits.value, 'big'), time_indisposed.value, triggerInfo
 
 #%% ========== GETS ==========
 def get_maxADC(chandle, status):
@@ -800,7 +827,7 @@ def get_maxADC(chandle, status):
 
 def get_minADC(chandle, status):
     '''
-    Find maximum ADC count value
+    Find minimum ADC count value
 
     Parameters
     ----------
@@ -811,8 +838,8 @@ def get_minADC(chandle, status):
 
     Returns
     -------
-    maxADC : ctypes.c_int16()
-        The maximum ADC count value.
+    minADC : ctypes.c_int16()
+        The minimum ADC count value.
 
     Arnau, 29/11/2022
     '''
@@ -847,9 +874,9 @@ def get_timebase(chandle, status, Fs, samples, segmentIndex=0):
     -------
     timebase : int
         The timebase so that 2**timebase == sampling_period in nanoseconds
-    timeIntervalns : ctypes.c_float()
+    timeIntervalns : float
         The returned time interval in nanoseconds.
-    returnedMaxSamples : ctypes.c_int32()
+    returnedMaxSamples : int
         The returned number of samples.
 
     Arnau, 29/11/2022
@@ -861,7 +888,7 @@ def get_timebase(chandle, status, Fs, samples, segmentIndex=0):
     returnedMaxSamples = ctypes.c_int32()
     status["getTimebase2"] = ps.ps5000aGetTimebase2(chandle, timebase, samples, ctypes.byref(timeIntervalns), ctypes.byref(returnedMaxSamples), segmentIndex)
     assert_pico_ok(status["getTimebase2"])
-    return timebase, timeIntervalns, returnedMaxSamples
+    return timebase, timeIntervalns.value, returnedMaxSamples.value
     
 def get_MinMax(chandle, status):
     '''
@@ -894,7 +921,7 @@ def get_MinMax(chandle, status):
     MaxSize = ctypes.c_int32()
     status["sigGenArbitraryMinMaxValues"] = ps.ps5000aSigGenArbitraryMinMaxValues(chandle, ctypes.byref(MinVal), ctypes.byref(MaxVal), ctypes.byref(MinSize), ctypes.byref(MaxSize))
     assert_pico_ok(status["sigGenArbitraryMinMaxValues"])
-    return MinVal, MaxVal, MinSize, MaxSize
+    return -MinVal.value, MaxVal.value, MinSize.value, MaxSize.value
 
 def _get_deltaPhase(chandle, status, frequency, indexMode, bufferLength):
     '''
@@ -917,7 +944,7 @@ def _get_deltaPhase(chandle, status, frequency, indexMode, bufferLength):
             symmetric half of the waveform. The resulting waveform will be
             twice as long.
     bufferLength : int
-        Length of the waveform.
+        Length of the waveform. Maximum value is 2**15.
 
     Returns
     -------
@@ -1096,7 +1123,7 @@ def generate_arbitrary_signal(
         The desired waveform to be generated. Elements of the array must be of 
         16-bit integer, e.g. np.int16.
     arbitraryWaveformSize : int
-        The length of the waveform.
+        The length of the waveform. Maximum value is 2**15.
     sweepType : int
         Code of the type of sweep. Available types:
             0 - UP

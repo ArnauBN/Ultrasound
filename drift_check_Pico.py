@@ -1,21 +1,27 @@
 # -*- coding: utf-8 -*-
 """
-Created on Mon Nov 28 10:05:05 2022
+Created on Fri Dec  2 12:46:20 2022
+Python version: Python 3.8
 
 @author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
+
 """
 import numpy as np
 import matplotlib.pyplot as plt
 import ctypes
+import time
 
 import Pico5000alib as plib
 import US_Functions as USF
 import US_GenCode as USGC
+import US_Graphics as USG
 
 #%% Parameters
 num_bits = 12               # Number of bits to use (8, 12, 14, 15 or 16) - int
 Fs = 125e6                  # Desired sampling frequency (Hz) - float
 
+Ts_acq = 4
+N_acqs = 500
 
 # ------------------
 # Arbitrary Waveform
@@ -118,7 +124,6 @@ ARBITRARY_SIGNAL_GENERATOR_DICT = {
 
 #%% Plot arbitrary waveform
 plt.figure('Waveform fft')
-# plt.plot(freq*1e-6, 20*np.log10(np.abs(FFTwaveform)))
 plt.plot(freq*1e-6, np.abs(FFTwaveform))
 plt.xlabel('Frequency (MHz)')
 plt.ylabel('FFT Magnitude')
@@ -168,7 +173,7 @@ if generate_arbitrary_signal and ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency
         ARBITRARY_SIGNAL_GENERATOR_DICT['stopFrequency'] = pulse_freq
         print('Frequency of the arbitrary waveform changed to {pulse_freq} Hz.')
 
-#%% Generate signal (SINE)
+#%% Generate signal
 if generate_arbitrary_signal:
     plib.generate_arbitrary_signal(chandle, status, **ARBITRARY_SIGNAL_GENERATOR_DICT)
     triggertype = ARBITRARY_SIGNAL_GENERATOR_DICT['triggertype']
@@ -180,114 +185,56 @@ elif generate_builtin_signal:
 
 trigger_sigGen = True if triggerSource==4 else False
 
-#%% Capture data
-# Run block capture
-BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indisposed = plib.capture(
-    chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
-    trigger_sigGen, triggertype, gate_time,
-    downsampling=(downsampling_ratio_mode, downsampling_ratio), segment_index=0)
-
-# Create time data
-t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
-
-plt.figure()
-
-if channels.upper() in ['A', 'BOTH']:
-    # Get buffer
-    bufferAMax = BUFFERS_DICT["bufferA0"][0]
-    
-    # convert ADC counts data to mV
-    adc2mVChAMax = plib.adc2millivolts(chandle, status, bufferAMax, voltage_range_A)
-
-    # Plot data
-    plt.plot(t, adc2mVChAMax)
-    
-if channels.upper() in ['B', 'BOTH']:
-    # Get buffer
-    bufferBMax = BUFFERS_DICT["bufferB0"][0]
-    
-    # convert ADC counts data to mV
-    adc2mVChBMax = plib.adc2millivolts(chandle, status, bufferBMax, voltage_range_B)
-
-    # Plot data
-    plt.plot(t, adc2mVChBMax)
-
-
-# Plot data
-plt.xlabel('Time (ns)')
-plt.ylabel('Voltage (mV)')
-plt.show()
-
-# Stop the scope
-plib.stop_pico5000a(chandle, status)
-
-#%% fft
-samples = preTriggerSamples + postTriggerSamples
-N = int(np.ceil(np.log2(np.abs(samples)))) + 1 # next power of 2 (+1)
-nfft = 2**N # Number of FFT points (power of 2)
-
-real_Fs = plib.timebase2fs(timebase)
-freq = np.linspace(0, real_Fs/2, nfft//2)
-FFTmeanB = np.fft.fft(adc2mVChBMax-np.mean(adc2mVChBMax), nfft)/nfft
-FFTmeanB = FFTmeanB[:nfft//2]
-
-plt.figure('fft')
-plt.plot(freq*1e-6, np.abs(FFTmeanB))
-plt.xlabel('Frequency (MHz)')
-plt.ylabel('FFT Magnitude (mV)')
-plt.xlim([0,10])
-
 
 #%% Capture rapid data: nSegments
-# Run rapid capture of nSegments
-BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = plib.rapid_capture(
-    chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
-    nSegments, trigger_sigGen, triggertype, gate_time,
-    downsampling=(downsampling_ratio_mode, downsampling_ratio))
+for i in range(len(N_acqs)):
+    # Run rapid capture of nSegments
+    BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = plib.rapid_capture(
+        chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
+        nSegments, trigger_sigGen, triggertype, gate_time,
+        downsampling=(downsampling_ratio_mode, downsampling_ratio))
+    
+    start_time = time.time()
+    
+    # Create time data
+    t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
+    
+    means = plib.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
+    
+    TT = means[0]
+    if i==0: TT0 = means[0]
+    
+    fig, ax = plt.subplots(1, num='Signal', clear=True)
+    USG.movefig(location='southeast')
+    ax.set_ylabel('V')
+    ax.set_xlabel('Sample')
+    ax.plot(np.arange(len(TT0)), TT0*1e-3, label='TT0')
+    ax.plot(np.arange(len(TT)), TT*1e-3, label='TT')
+    plt.legend()
+    plt.pause(0.05)
+    
+    
+    ToF = USF.CalcToFAscanCosine_XCRFFT(TT, TT0, UseCentroid=False, UseHilbEnv=False, Extend=False)[0]
+    
+    fig, ax = plt.subplots(1, num='ToF', clear=True)
+    USG.movefig(location='northeast')
+    ax.set_ylabel('ToF (samples)')
+    ax.set_xlabel('Sample')
+    ax.scatter(np.arange(i), ToF[:i], color='white', marker='o', edgecolors='black')
+    plt.pause(0.05)
 
-plib.print_triggerInfo(triggerInfo)
 
-# Create time data
-t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
+    elapsed_time = time.time() - start_time
+    time_to_wait = Ts_acq - elapsed_time # time until next acquisition
+    print(f'Acquisition #{i+1}/{N_acqs} done.')
+    if time_to_wait < 0:
+        print(f'Code is slower than Ts_acq = {Ts_acq} s at Acq #{i+1}. Elapsed time is {elapsed_time} s.')
+        time_to_wait = 0
+    time.sleep(time_to_wait)
 
-arrayAMax, arrayBMax, arrayAMin, arrayBMin, means = plib.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)
 
 # Stop the scope
 plib.stop_pico5000a(chandle, status)
-
-
-#%% Plot data
-plt.figure()
-if channels.upper() in ['A', 'BOTH']:
-    # Plot data
-    plt.plot(t, arrayAMax.T, c='grey')
-    plt.plot(t, means[0], lw=2, c='k')
-    
-if channels.upper() in ['B', 'BOTH']:
-    # Plot data
-    plt.plot(t, arrayBMax.T, c='grey')
-    plt.plot(t, means[1], lw=2, c='k')
-
-plt.xlabel('Time (ns)')
-plt.ylabel('Voltage (mV)')
-plt.show()
-
-
-#%% fft
-samples = preTriggerSamples + postTriggerSamples
-N = int(np.ceil(np.log2(np.abs(samples)))) + 1 # next power of 2 (+1)
-nfft = 2**N # Number of FFT points (power of 2)
-
-real_Fs = plib.timebase2fs(timebase)
-freq = np.linspace(0, real_Fs/2, nfft//2)
-FFTmeanB = np.fft.fft(means[1]-np.mean(means[1]), nfft)/nfft
-FFTmeanB = FFTmeanB[:nfft//2]
-
-plt.figure('fft')
-plt.plot(freq*1e-6, np.abs(FFTmeanB))
-plt.xlabel('Frequency (MHz)')
-plt.ylabel('FFT Magnitude (mV)')
-# plt.xlim([0,10])
 
 
 #%% Close

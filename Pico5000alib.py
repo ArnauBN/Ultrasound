@@ -702,7 +702,7 @@ def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigg
             
             where X is A or B and i refers to each segment index. The bufferMin
             is only used for downsampling.
-    cmaxSamples : int
+    maxSamples : int
         The actual number of samples.
     triggerTimeOffsets : ndarray of int
         Time offset of every segment captured.

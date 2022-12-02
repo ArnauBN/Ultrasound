@@ -5,6 +5,10 @@ Python version: Python 3.8
 
 @author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
 
+
+This script uses the Lithuanian acquisition system.
+Last updated: 02/12/2022.
+
 """
 import time
 import numpy as np

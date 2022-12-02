@@ -814,3 +814,95 @@ def speedofsound_in_water(T, method: str, method_param=None):
             c = 1.567302324e3*np.exp(-((T-6.101414576e1)/(-3.388027429e2))**2) - \
                 1.468922269e4*np.exp(-((T+3.255477156e2)/(-1.478114724e2))**2)
     return c
+
+def winwidth2n(win, width):
+    '''
+    Return the number of samples that a window should have in order to obtain 
+    the desired main lobe spectral width (defined to the first null).
+
+    Parameters
+    ----------
+    win : str or tuple
+        Window type.
+    width : float
+        Spectral width in descrete frequency.
+
+    Raises
+    ------
+    NotImplementedError
+        Window not available.
+
+    Returns
+    -------
+    n : int
+        The number of samples that the window should have.
+
+    Arnau, 02/12/22
+    '''
+    if isinstance(win, tuple):
+        if win[0]=='kaiser':
+            return np.sqrt(1 + win[1]**2)/width
+        else:
+            raise NotImplementedError('Window not available.')
+    else:
+        AVAILABLE_WINS_DICT = {'boxcar' : 2/width,
+                                'rect' : 2/width,
+                                'rectangular' : 2/width,
+                                'triang' : 4/width, 
+                                'blackman' : 6/width,
+                                'hamming' : 4/width,
+                                'hann' : 4/width,
+                                'bartlett' : 4/width,
+                                'flattop' : 10/width,
+                                'parzen' : 8/width,
+                                'blackmanharris' : 8/width,
+                                'exponential' : 4.4375/width}
+        if win not in AVAILABLE_WINS_DICT:
+            raise NotImplementedError('Window not available.')
+        return int(AVAILABLE_WINS_DICT[win])
+
+def n2winwidth(win, n):
+    '''
+    Return the main lobe spectral width (defined to the first null) of the
+    specified window for a given sample length.
+
+    Parameters
+    ----------
+    win : str or tuple
+        Window type.
+    n : int
+        The number of samples of the window.
+
+    Raises
+    ------
+    NotImplementedError
+        Window not available.
+
+    Returns
+    -------
+    width : float
+        The width of the window in descrete frequency.
+
+    Arnau, 02/12/22
+    '''
+    if isinstance(win, tuple):
+        if win[0]=='kaiser':
+            return np.sqrt(1 + win[1]**2)/n
+        else:
+            raise NotImplementedError('Window not available.')
+    else:
+        AVAILABLE_WINS_DICT = {'boxcar' : 2/n,
+                                'rect' : 2/n,
+                                'rectangular' : 2/n,
+                                'triang' : 4/n, 
+                                'blackman' : 6/n,
+                                'hamming' : 4/n,
+                                'hann' : 4/n,
+                                'bartlett' : 4/n,
+                                'flattop' : 10/n,
+                                'parzen' : 8/n,
+                                'blackmanharris' : 8/n,
+                                'exponential' : 4.4375/n}
+        if win not in AVAILABLE_WINS_DICT:
+            raise NotImplementedError('Window not available.')
+        return AVAILABLE_WINS_DICT[win]

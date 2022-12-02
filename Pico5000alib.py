@@ -800,7 +800,8 @@ def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigg
     assert_pico_ok(status["GetTriggerInfoBulk"])
 
     return BUFFERS_DICT, cmaxSamples.value, np.array(list(map(int,triggerTimeOffsets))), int.from_bytes(triggerTimeOffsetUnits.value, 'big'), time_indisposed.value, triggerInfo
-
+   
+    
 #%% ========== GETS ==========
 def get_maxADC(chandle, status):
     '''
@@ -961,8 +962,14 @@ def _get_deltaPhase(chandle, status, frequency, indexMode, bufferLength):
     
 def get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, buffers_dict: dict):
     '''
-    Converts the data in the dictionary to mV. The function returns 4 numpy 
-    arrays: arrayAMax, arrayBMax, arrayAMin and arrayBMin.
+    Converts the data in the dictionary to mV. The function returns 5 numpy 
+    arrays: arrayAMax, arrayBMax, arrayAMin, arrayBMin and means.
+    
+    The first 4 arrays contain the raw data (Max) or the downsampled data (Min)
+    for every trace. The last array contains the mean trace of the first 4 
+    arrays. This means that the first 4 arrays have shapes NxL and the 5th
+    has shape 4xL, where N is the number of traces found and L is the length of
+    every trace.
 
     Parameters
     ----------
@@ -986,19 +993,19 @@ def get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B,
     Returns
     -------
     arrayAMax : ndarray
-        Array of raw data from channel A in millivolts. Traces are stored 
-        row-wise.
+        Array of shape NxL of raw data from channel A in millivolts.
     arrayBMax : ndarray
-        Array of raw data from channel B in millivolts. Traces are stored 
-        row-wise.
+        Array of shape NxL of raw data from channel B in millivolts.
     arrayAMin : ndarray
-        Array of downsampled data from channel A in millivolts. Traces are 
-        stored row-wise.
+        Array of shape NxL of downsampled data from channel A in millivolts.
     arrayBMin : ndarray
-        Array of downsampled data from channel B in millivolts. Traces are 
-        stored row-wise.
-
-    Arnau, 01/12/2022
+        Array of shape NxL of downsampled data from channel B in millivolts.
+    means : ndarray
+        Matrix of shape 4xL containing the average trace of the previous 4
+        arrays. If one of the arrays has no data, the corresponding fow of this
+        vector is filled with None.
+    
+    Arnau, 02/12/2022
     '''
     lstAMax = []
     lstBMax = []
@@ -1022,7 +1029,15 @@ def get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B,
     arrayAMin = np.array(lstAMin)
     arrayBMin = np.array(lstBMin)   
     
-    return arrayAMax, arrayBMax, arrayAMin, arrayBMin
+    L = len(arrayAMax[0])
+    means = np.zeros([4, L])
+    for i, a in enumerate([arrayAMax, arrayBMax, arrayAMin, arrayBMin]):
+        if len(a) != 0:
+            means[i] = np.mean(a, axis=0)
+        else:
+            means[i] = np.full(len(L, None))
+    
+    return arrayAMax, arrayBMax, arrayAMin, arrayBMin, means
     
 #%% ========== TRIGGERS ==========
 def set_simpleTrigger(chandle, status, enabled, channel, chRange, threshold, direction, delay, auto_Trigger):

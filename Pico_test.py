@@ -7,10 +7,10 @@ Created on Mon Nov 28 10:05:05 2022
 import numpy as np
 import matplotlib.pyplot as plt
 import ctypes
-from scipy import signal as scsig
 
 import Pico5000alib as plib
-
+import US_Functions as USF
+import US_GenCode as USGen
 
 #%% Parameters
 num_bits = 12               # Number of bits to use (8, 12, 14, 15 or 16) - int
@@ -22,12 +22,12 @@ Fs = 125e6                  # Desired sampling frequency (Hz) - float
 # ------------------
 waveform_f0 = 5e6           # Center Frequency of waveform (Hz) - float
 waveformSize = 2**11        # Waveform length (power of 2, max=2**15) - int
-win_params = ('gaussian', waveformSize/5) # type of windows and its parameters - str or tuple
 
-# Waveform computation (32767 = get_MinMax(chandle, status)[1])
-waveform_win = scsig.windows.get_window(win_params, waveformSize)
-waveform_t = np.arange(0, waveformSize)/Fs
-waveform = (np.sin(2*np.pi*waveform_f0*waveform_t)*waveform_win*32767).astype(np.int16)
+pulse = USGen.GC_MakePulse(Param='frequency', ParamVal=waveform_f0, SignalPolarity=2, Fs=Fs)
+pulse = pulse[1:-1]*32767
+waveform = USF.zeroPadding(pulse, waveformSize)
+waveform_t = np.arange(0,waveformSize)/Fs
+
 
 # Computation of the FFT of the waveform
 N = int(np.ceil(np.log2(np.abs(waveformSize)))) + 1 # next power of 2 (+1)
@@ -43,7 +43,7 @@ FFTwaveform = FFTwaveform[:nfft//2]
 coupling_A = 'DC'           # Coupling of channel A ('AC' or 'DC') - str
 voltage_range_A = '2V'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_A = 0                # Analog offset of channel A (in volts) - float
-enabled_A = 0               # Enable (1) or disable (0) channel A - int
+enabled_A = 1               # Enable (1) or disable (0) channel A - int
 
 
 # ---------------
@@ -58,7 +58,7 @@ enabled_B = 1               # Enable (1) or disable (0) channel B - int
 # ---------------
 # Capture options
 # ---------------
-channels = 'B'           # 'A', 'B' or 'BOTH' - str
+channels = 'BOTH'           # 'A', 'B' or 'BOTH' - str
 nSegments = 20              # Number of traces to capture and average to reduce noise - int
 downsampling_ratio_mode = 0 # Downsampling ratio mode - int
 downsampling_ratio = 0      # Downsampling ratio - int
@@ -76,8 +76,8 @@ enabled_trigger = 1         # Enable (1) or disable (0) trigger - int
 direction = 2               # Check API (2=rising) - int
 delay = 0                   # time between trigger and first sample (s) - float
 auto_Trigger = 1000         # starts a capture if no trigger event occurs within the specified ms - float
-preTriggerSamples = 5000    # Number of samples to capture before the trigger - int
-postTriggerSamples = 5000   # Number of samples to capture after the trigger - int
+preTriggerSamples = 1000    # Number of samples to capture before the trigger - int
+postTriggerSamples = 10_000   # Number of samples to capture after the trigger - int
 
 
 # ------------------------
@@ -122,10 +122,11 @@ ARBITRARY_SIGNAL_GENERATOR_DICT = {
 
 #%% Plot arbitrary waveform
 plt.figure('Waveform fft')
+# plt.plot(freq*1e-6, 20*np.log10(np.abs(FFTwaveform)))
 plt.plot(freq*1e-6, np.abs(FFTwaveform))
 plt.xlabel('Frequency (MHz)')
 plt.ylabel('FFT Magnitude')
-plt.xlim([0,10])
+plt.xlim([0,15])
 
 plt.figure('Waveform')
 plt.plot(waveform_t*1e9, waveform)

@@ -12,8 +12,10 @@ import Pico5000alib as plib
 import US_Functions as USF
 import US_GenCode as USGC
 
+from scipy import signal as scsig
+
 #%% Parameters
-num_bits = 12               # Number of bits to use (8, 12, 14, 15 or 16) - int
+num_bits = 15               # Number of bits to use (8, 12, 14, 15 or 16) - int
 Fs = 125e6                  # Desired sampling frequency (Hz) - float
 
 
@@ -21,13 +23,17 @@ Fs = 125e6                  # Desired sampling frequency (Hz) - float
 # Arbitrary Waveform
 # ------------------
 waveform_f0 = 5e6           # Center Frequency of waveform (Hz) - float
-waveformSize = 2**11        # Waveform length (power of 2, max=2**15) - int
+waveformSize = 2**10        # Waveform length (power of 2, max=2**15) - int
 
 pulse = USGC.GC_MakePulse(Param='frequency', ParamVal=waveform_f0, SignalPolarity=2, Fs=Fs)
 pulse = pulse[1:-1]*32767
 waveform = USF.zeroPadding(pulse, waveformSize)
+waveform = waveform.astype(np.int16)
 waveform_t = np.arange(0,waveformSize)/Fs
-    
+
+# win = scsig.get_window(('gaussian', 15), waveformSize)
+# waveform = (np.sin(2*np.pi*waveform_f0*waveform_t)*32767*win).astype(np.int16)
+
 # Computation of the FFT of the waveform
 N = int(np.ceil(np.log2(np.abs(waveformSize)))) + 1 # next power of 2 (+1)
 nfft = 2**N # Number of FFT points (power of 2)
@@ -39,8 +45,8 @@ FFTwaveform = FFTwaveform[:nfft//2]
 # ---------------
 # Channel A setup
 # ---------------
-coupling_A = 'DC'           # Coupling of channel A ('AC' or 'DC') - str
-voltage_range_A = '2V'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
+coupling_A = 'AC'           # Coupling of channel A ('AC' or 'DC') - str
+voltage_range_A = '10mV'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_A = 0                # Analog offset of channel A (in volts) - float
 enabled_A = 1               # Enable (1) or disable (0) channel A - int
 
@@ -48,8 +54,8 @@ enabled_A = 1               # Enable (1) or disable (0) channel A - int
 # ---------------
 # Channel B setup
 # ---------------
-coupling_B = 'DC'           # Coupling of channel B ('AC' or 'DC') - str
-voltage_range_B = '2V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
+coupling_B = 'AC'           # Coupling of channel B ('AC' or 'DC') - str
+voltage_range_B = '5V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_B = 0                # Analog offset of channel B (in volts) - float
 enabled_B = 1               # Enable (1) or disable (0) channel B - int
 
@@ -67,13 +73,13 @@ downsampling_ratio = 0      # Downsampling ratio - int
 # Trigger options
 # ---------------
 triggerChannel = 'B'        # 'A', 'B' or 'EXTERNAL' - str
-triggerThreshold = 500      # Trigger threshold in mV - float
+triggerThreshold = 1000      # Trigger threshold in mV - float
 enabled_trigger = 1         # Enable (1) or disable (0) trigger - int
 direction = 2               # Check API (2=rising) - int
-delay = 0                   # time between trigger and first sample (s) - float
+delay = 0                   # time between trigger and first sample (samples) - int
 auto_Trigger = 1000         # starts a capture if no trigger event occurs within the specified ms - float
 preTriggerSamples = 1000    # Number of samples to capture before the trigger - int
-postTriggerSamples = 10_000   # Number of samples to capture after the trigger - int
+postTriggerSamples = 15_000   # Number of samples to capture after the trigger - int
 
 
 # ------------------------
@@ -99,7 +105,7 @@ BUILTIN_SIGNAL_GENERATOR_DICT = {
 }
 ARBITRARY_SIGNAL_GENERATOR_DICT = {
     'offsetVoltage'         : 0,            # Offset Voltage (microvolts, uV) - int
-    'pkToPk'                : 2_000_000,    # Peak-to-peak voltage (uV) - int
+    'pkToPk'                : 4_000_000,    # Peak-to-peak voltage (uV) - int
     'startFrequency'        : Fs/waveformSize, # Initial frequency of waveform - float
     'stopFrequency'         : Fs/waveformSize, # Final frequency before restarting or reversing sweep - float
     'increment'             : 0,            # Amount of sweep in each dwell period - float
@@ -111,7 +117,7 @@ ARBITRARY_SIGNAL_GENERATOR_DICT = {
     'shots'                 : 1,            # Number of cycles per trigger. If 0, do sweeps - int
     'sweeps'                : 0,            # Number of sweeps per trigger. If 0, do shots - int
     'triggertype'           : 0,            # Type of trigger - int
-    'triggerSource'         : 4,            # Source of trigger - int
+    'triggerSource'         : 1,            # Source of trigger - int
     'extInThreshold'        : 0             # Trigger level for EXTERNAL trigger - int
 }
 
@@ -190,7 +196,7 @@ BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indis
 # Create time data
 t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
 
-plt.figure()
+fig, axs = plt.subplots(2)
 
 if channels.upper() in ['A', 'BOTH']:
     # Get buffer
@@ -200,7 +206,7 @@ if channels.upper() in ['A', 'BOTH']:
     adc2mVChAMax = plib.adc2millivolts(chandle, status, bufferAMax, voltage_range_A)
 
     # Plot data
-    plt.plot(t, adc2mVChAMax)
+    axs[0].plot(t*1e-3, adc2mVChAMax)
     
 if channels.upper() in ['B', 'BOTH']:
     # Get buffer
@@ -210,12 +216,18 @@ if channels.upper() in ['B', 'BOTH']:
     adc2mVChBMax = plib.adc2millivolts(chandle, status, bufferBMax, voltage_range_B)
 
     # Plot data
-    plt.plot(t, adc2mVChBMax)
+    axs[1].plot(t*1e-3, adc2mVChBMax)
 
 
-# Plot data
-plt.xlabel('Time (ns)')
-plt.ylabel('Voltage (mV)')
+# Plot config
+axs[0].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
+axs[1].set_ylim([-plib.str2V(voltage_range_B)*1e3, plib.str2V(voltage_range_B)*1e3])
+axs[1].set_xlabel('Time (us)')
+axs[0].set_ylabel('Voltage (mV)')
+axs[1].set_ylabel('Voltage (mV)')
+axs[0].set_title('A')
+axs[1].set_title('B')
+plt.tight_layout()
 plt.show()
 
 # Stop the scope
@@ -257,19 +269,28 @@ plib.stop_pico5000a(chandle, status)
 
 
 #%% Plot data
-plt.figure()
+fig, axs = plt.subplots(2)
 if channels.upper() in ['A', 'BOTH']:
     # Plot data
-    plt.plot(t, arrayAMax.T, c='grey')
-    plt.plot(t, means[0], lw=2, c='k')
-    
+    # plt.plot(t*1e-3, arrayAMax.T, c='grey')
+    # plt.plot(t*1e-3, arrayAMax.T)
+    axs[0].plot(t*1e-3, means[0], lw=2)
+    pass
 if channels.upper() in ['B', 'BOTH']:
     # Plot data
-    plt.plot(t, arrayBMax.T, c='grey')
-    plt.plot(t, means[1], lw=2, c='k')
+    # plt.plot(t*1e-3, arrayBMax.T, c='grey')
+    axs[1].plot(t*1e-3, means[1], lw=2)
+    pass
 
-plt.xlabel('Time (ns)')
-plt.ylabel('Voltage (mV)')
+# Plot config
+# axs[0].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
+axs[1].set_ylim([-plib.str2V(voltage_range_B)*1e3, plib.str2V(voltage_range_B)*1e3])
+axs[1].set_xlabel('Time (us)')
+axs[0].set_ylabel('Voltage (mV)')
+axs[1].set_ylabel('Voltage (mV)')
+axs[0].set_title('A')
+axs[1].set_title('B')
+plt.tight_layout()
 plt.show()
 
 

@@ -17,7 +17,7 @@ import US_GenCode as USGC
 import US_Graphics as USG
 
 #%% Parameters
-num_bits = 12               # Number of bits to use (8, 12, 14, 15 or 16) - int
+num_bits = 15               # Number of bits to use (8, 12, 14, 15 or 16) - int
 Fs = 125e6                  # Desired sampling frequency (Hz) - float
 
 Ts_acq = 4
@@ -32,6 +32,7 @@ waveformSize = 2**11        # Waveform length (power of 2, max=2**15) - int
 pulse = USGC.GC_MakePulse(Param='frequency', ParamVal=waveform_f0, SignalPolarity=2, Fs=Fs)
 pulse = pulse[1:-1]*32767
 waveform = USF.zeroPadding(pulse, waveformSize)
+waveform = waveform.astype(np.int16)
 waveform_t = np.arange(0,waveformSize)/Fs
     
 # Computation of the FFT of the waveform
@@ -46,7 +47,7 @@ FFTwaveform = FFTwaveform[:nfft//2]
 # Channel A setup
 # ---------------
 coupling_A = 'DC'           # Coupling of channel A ('AC' or 'DC') - str
-voltage_range_A = '2V'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
+voltage_range_A = '10mV'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_A = 0                # Analog offset of channel A (in volts) - float
 enabled_A = 1               # Enable (1) or disable (0) channel A - int
 
@@ -55,7 +56,7 @@ enabled_A = 1               # Enable (1) or disable (0) channel A - int
 # Channel B setup
 # ---------------
 coupling_B = 'DC'           # Coupling of channel B ('AC' or 'DC') - str
-voltage_range_B = '2V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
+voltage_range_B = '5V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_B = 0                # Analog offset of channel B (in volts) - float
 enabled_B = 1               # Enable (1) or disable (0) channel B - int
 
@@ -63,7 +64,7 @@ enabled_B = 1               # Enable (1) or disable (0) channel B - int
 # ---------------
 # Capture options
 # ---------------
-channels = 'BOTH'           # 'A', 'B' or 'BOTH' - str
+channels = 'A'           # 'A', 'B' or 'BOTH' - str
 nSegments = 20              # Number of traces to capture and average to reduce noise - int
 downsampling_ratio_mode = 0 # Downsampling ratio mode - int
 downsampling_ratio = 0      # Downsampling ratio - int
@@ -76,10 +77,10 @@ triggerChannel = 'B'        # 'A', 'B' or 'EXTERNAL' - str
 triggerThreshold = 500      # Trigger threshold in mV - float
 enabled_trigger = 1         # Enable (1) or disable (0) trigger - int
 direction = 2               # Check API (2=rising) - int
-delay = 0                   # time between trigger and first sample (s) - float
+delay = 0                   # time between trigger and first sample (samples) - int
 auto_Trigger = 1000         # starts a capture if no trigger event occurs within the specified ms - float
 preTriggerSamples = 1000    # Number of samples to capture before the trigger - int
-postTriggerSamples = 10_000   # Number of samples to capture after the trigger - int
+postTriggerSamples = 15_000   # Number of samples to capture after the trigger - int
 
 
 # ------------------------
@@ -117,29 +118,29 @@ ARBITRARY_SIGNAL_GENERATOR_DICT = {
     'shots'                 : 1,            # Number of cycles per trigger. If 0, do sweeps - int
     'sweeps'                : 0,            # Number of sweeps per trigger. If 0, do shots - int
     'triggertype'           : 0,            # Type of trigger - int
-    'triggerSource'         : 4,            # Source of trigger - int
+    'triggerSource'         : 1,            # Source of trigger - int
     'extInThreshold'        : 0             # Trigger level for EXTERNAL trigger - int
 }
 
 
 #%% Plot arbitrary waveform
-plt.figure('Waveform fft')
-plt.plot(freq*1e-6, np.abs(FFTwaveform))
-plt.xlabel('Frequency (MHz)')
-plt.ylabel('FFT Magnitude')
-plt.xlim([0,15])
+# plt.figure('Waveform fft')
+# plt.plot(freq*1e-6, np.abs(FFTwaveform))
+# plt.xlabel('Frequency (MHz)')
+# plt.ylabel('FFT Magnitude')
+# plt.xlim([0,15])
 
-plt.figure('Waveform')
-plt.plot(waveform_t*1e9, waveform)
-plt.ylabel('Sample count')
-plt.xlabel('Sample')
-plt.title('Waveform to generate')
-plt.tight_layout()
+# plt.figure('Waveform')
+# plt.plot(waveform_t*1e9, waveform)
+# plt.ylabel('Sample count')
+# plt.xlabel('Sample')
+# plt.title('Waveform to generate')
+# plt.tight_layout()
 
 
 #%% Initial check
 # Find out device model (5000a)
-plib.check_drivers()
+# plib.check_drivers()
 
 
 #%% Start
@@ -187,7 +188,8 @@ trigger_sigGen = True if triggerSource==4 else False
 
 
 #%% Capture rapid data: nSegments
-for i in range(len(N_acqs)):
+ToF = np.zeros(N_acqs)
+for i in range(N_acqs):
     # Run rapid capture of nSegments
     BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = plib.rapid_capture(
         chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
@@ -203,18 +205,21 @@ for i in range(len(N_acqs)):
     
     TT = means[0]
     if i==0: TT0 = means[0]
-    
-    fig, ax = plt.subplots(1, num='Signal', clear=True)
+
+    fig, axs = plt.subplots(2, num='Signal', clear=True)
     USG.movefig(location='southeast')
-    ax.set_ylabel('V')
-    ax.set_xlabel('Sample')
-    ax.plot(np.arange(len(TT0)), TT0*1e-3, label='TT0')
-    ax.plot(np.arange(len(TT)), TT*1e-3, label='TT')
-    plt.legend()
+    axs[0].plot(t*1e-3, TT0, lw=2)
+    axs[1].plot(t*1e-3, TT, lw=2)
+    axs[0].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
+    axs[1].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
+    axs[1].set_xlabel('Time (us)')
+    axs[0].set_ylabel('Voltage (mV)')
+    axs[1].set_ylabel('Voltage (mV)')
+    axs[0].set_title('A')
+    axs[1].set_title('B')
     plt.pause(0.05)
     
-    
-    ToF = USF.CalcToFAscanCosine_XCRFFT(TT, TT0, UseCentroid=False, UseHilbEnv=False, Extend=False)[0]
+    ToF[i] = USF.CalcToFAscanCosine_XCRFFT(TT, TT0, UseCentroid=False, UseHilbEnv=False, Extend=False)[0]
     
     fig, ax = plt.subplots(1, num='ToF', clear=True)
     USG.movefig(location='northeast')

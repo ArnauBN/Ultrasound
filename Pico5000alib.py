@@ -252,7 +252,7 @@ def _parseVoltageRange(voltage_range):
         raise ValueError("Wrong voltage range. Accepted values are:" \
                          "'10mV', '20mV', '50mV', '100mV', '200mV', '500mV', " \
                          "'1V', '2V', '5V', '10V', '20V', '50V' and 'MAX'.")
-    chRange = ps.PS5000A_RANGE["PS5000A_20V"]
+    chRange = ps.PS5000A_RANGE[key]
     return chRange
 
 #%% ========== DEVICE ==========
@@ -1078,7 +1078,7 @@ def get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B,
         if len(a) != 0:
             means[i] = np.mean(a, axis=0)
         else:
-            means[i] = np.full(len(L, None))
+            means[i] = np.full(L, None)
     
     return arrayAMax, arrayBMax, arrayAMin, arrayBMin, means
     

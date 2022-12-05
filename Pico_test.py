@@ -45,7 +45,7 @@ FFTwaveform = FFTwaveform[:nfft//2]
 # ---------------
 # Channel A setup
 # ---------------
-coupling_A = 'AC'           # Coupling of channel A ('AC' or 'DC') - str
+coupling_A = 'DC'           # Coupling of channel A ('AC' or 'DC') - str
 voltage_range_A = '10mV'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_A = 0                # Analog offset of channel A (in volts) - float
 enabled_A = 1               # Enable (1) or disable (0) channel A - int
@@ -54,7 +54,7 @@ enabled_A = 1               # Enable (1) or disable (0) channel A - int
 # ---------------
 # Channel B setup
 # ---------------
-coupling_B = 'AC'           # Coupling of channel B ('AC' or 'DC') - str
+coupling_B = 'DC'           # Coupling of channel B ('AC' or 'DC') - str
 voltage_range_B = '5V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_B = 0                # Analog offset of channel B (in volts) - float
 enabled_B = 1               # Enable (1) or disable (0) channel B - int
@@ -220,8 +220,8 @@ if channels.upper() in ['B', 'BOTH']:
 
 
 # Plot config
-axs[0].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
-axs[1].set_ylim([-plib.str2V(voltage_range_B)*1e3, plib.str2V(voltage_range_B)*1e3])
+# axs[0].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
+# axs[1].set_ylim([-plib.str2V(voltage_range_B)*1e3, plib.str2V(voltage_range_B)*1e3])
 axs[1].set_xlabel('Time (us)')
 axs[0].set_ylabel('Voltage (mV)')
 axs[1].set_ylabel('Voltage (mV)')
@@ -247,7 +247,7 @@ plt.figure('fft')
 plt.plot(freq*1e-6, np.abs(FFTmeanB))
 plt.xlabel('Frequency (MHz)')
 plt.ylabel('FFT Magnitude (mV)')
-plt.xlim([0,10])
+# plt.xlim([0,10])
 
 
 #%% Capture rapid data: nSegments

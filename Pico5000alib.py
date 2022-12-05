@@ -518,6 +518,49 @@ def adc2millivolts(chandle, status, bufferADC, voltage_range):
     buffermV = adc2mV(bufferADC, parsed_chRange, maxADC)
     return np.array(buffermV)
 
+def str2V(s: str):
+    '''
+    Parse voltage as string to volts as float.
+
+    Parameters
+    ----------
+    s : str
+        Voltage to convert to volts. 
+        Examples: '10mV', '3V', '346.123uV', '1.5kV'.
+
+    Raises
+    ------
+    ValueError
+        Wrong voltage.
+
+    Returns
+    -------
+    V : float
+        The voltage (in volts) as a float.
+
+    '''
+    if s[-1].upper() != 'V':
+        raise ValueError("Wrong voltage. String must end with uV, mV, V or kV")
+    if ' ' in s:
+        raise ValueError("Wrong voltage. Must not contain spaces.")
+    if '-' in s:
+        raise ValueError("Wrong voltage. Must not contain dashes.")
+    
+    if s[-2]=='u':
+        factor = 1e-6
+        v = s[:-2]
+    elif s[-2]=='m':
+        factor = 1e-3
+        v = s[:-2]
+    elif s[-2]=='k':
+        factor = 1e3
+        v = s[:-2]
+    else:
+        factor = 1
+        v = s[:-1]
+    return float(v)*factor
+
+
 def print_triggerInfo(triggerInfo):
     '''
     Print trigger information given the PS5000A_TRIGGER_INFO object.

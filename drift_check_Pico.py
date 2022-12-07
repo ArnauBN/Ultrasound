@@ -188,13 +188,19 @@ trigger_sigGen = True if triggerSource==4 else False
 
 
 #%% Capture rapid data: nSegments
+Cw = 1480 # speed of sound in water (m/s) - float
+ToF2dist = Cw*1e6/Fs # conversion factor (um) - float
 ToF = np.zeros(N_acqs)
 for i in range(N_acqs):
     # Run rapid capture of nSegments
-    BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = plib.rapid_capture(
-        chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
-        nSegments, trigger_sigGen, triggertype, gate_time,
-        downsampling=(downsampling_ratio_mode, downsampling_ratio))
+    # BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = plib.rapid_capture(
+    #     chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
+    #     nSegments, trigger_sigGen, triggertype, gate_time,
+    #     downsampling=(downsampling_ratio_mode, downsampling_ratio))
+    BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indisposed = plib.capture(
+            chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase, 
+            trigger_sigGen, triggertype, gate_time, downsampling=(downsampling_ratio_mode, downsampling_ratio), segment_index=0)
+    means = plib.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
     
     start_time = time.time()
     
@@ -226,6 +232,13 @@ for i in range(N_acqs):
     ax.set_ylabel('ToF (samples)')
     ax.set_xlabel('Sample')
     ax.scatter(np.arange(i), ToF[:i], color='white', marker='o', edgecolors='black')
+    
+    # Secondary y-axis with distance
+    ax2 = ax.twinx()
+    mn, mx = ax.get_ylim()
+    ax2.set_ylim([mn*ToF2dist, mx*ToF2dist])
+    ax2.set_ylabel('Distance (um)')
+    
     plt.pause(0.05)
 
 
@@ -236,8 +249,7 @@ for i in range(N_acqs):
         print(f'Code is slower than Ts_acq = {Ts_acq} s at Acq #{i+1}. Elapsed time is {elapsed_time} s.')
         time_to_wait = 0
     time.sleep(time_to_wait)
-
-
+    
 # Stop the scope
 plib.stop_pico5000a(chandle, status)
 

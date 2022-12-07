@@ -660,7 +660,9 @@ def capture(chandle, status, channels, samples, timebase, trigger_sigGen, sigGen
     BUFFERS_DICT = {} # BUFFERS_DICT[bufferX0] = (bufferMaxX0, bufferMinX0), bufferMinX0 is used for downsampling
     if channels.upper()=='A' or channels.upper()=='BOTH':
         key = f"bufferA{segment_index}"
-        BUFFERS_DICT[key] = [(ctypes.c_int16 * maxsamples)(), (ctypes.c_int16 * maxsamples)()]
+        a = (ctypes.c_int16 * maxsamples)()
+        b = (ctypes.c_int16 * maxsamples)()
+        BUFFERS_DICT[key] = [a, b]
 
         # Set data buffer location for data collection from channel A
         chA = _parseChannel('A')
@@ -669,7 +671,9 @@ def capture(chandle, status, channels, samples, timebase, trigger_sigGen, sigGen
     
     if channels.upper()=='B' or channels.upper()=='BOTH':
         key = f"bufferB{segment_index}"
-        BUFFERS_DICT[key] = [(ctypes.c_int16 * maxsamples)(), (ctypes.c_int16 * maxsamples)()]
+        c = (ctypes.c_int16 * maxsamples)()
+        d = (ctypes.c_int16 * maxsamples)()
+        BUFFERS_DICT[key] = [c, d]
         
         # Set data buffer location for data collection from channel B
         chB = _parseChannel('B')
@@ -793,8 +797,10 @@ def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigg
         chA = _parseChannel('A')
         for i in range(nSegments):
             # Create buffers ready for assigning pointers for data collection
-            BUFFERS_DICT[f"bufferA{i}"] = [(ctypes.c_int16 * maxsamples)(), (ctypes.c_int16 * maxsamples)()]
-            
+            a = (ctypes.c_int16 * maxsamples)()
+            b = (ctypes.c_int16 * maxsamples)()
+            BUFFERS_DICT[f"bufferA{i}"] = [a, b]
+
             # Setting the data buffer location for data collection from channel chA
             status["SetDataBuffers"] = ps.ps5000aSetDataBuffers(chandle, chA, 
                                     ctypes.byref(BUFFERS_DICT[f"bufferA{i}"][0]), 
@@ -806,7 +812,9 @@ def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigg
         chB = _parseChannel('B')
         for i in range(nSegments):
             # Create buffers ready for assigning pointers for data collection
-            BUFFERS_DICT[f"bufferB{i}"] = [(ctypes.c_int16 * maxsamples)(), (ctypes.c_int16 * maxsamples)()]
+            c = (ctypes.c_int16 * maxsamples)()
+            d = (ctypes.c_int16 * maxsamples)()
+            BUFFERS_DICT[f"bufferB{i}"] = [c, d]
             
             # Setting the data buffer location for data collection from channel chA
             status["SetDataBuffers"] = ps.ps5000aSetDataBuffers(chandle, chB, 
@@ -1235,6 +1243,7 @@ def generate_arbitrary_signal(
     cindexMode = ctypes.c_int32(indexMode)
     ctriggertype = ctypes.c_int32(triggertype)
     ctriggerSource = ctypes.c_int32(triggerSource)
+    coperation = ctypes.c_int32(0) # not used in Pico 5000a
     
     status["setSigGenArbitrary"] = ps.ps5000aSetSigGenArbitrary(
         chandle, 
@@ -1247,7 +1256,7 @@ def generate_arbitrary_signal(
         ctypes.byref(carbitraryWaveform),
         arbitraryWaveformSize,
         csweepType, 
-        ctypes.c_int32(0), # not used in Pico 5000a
+        coperation,
         cindexMode,
         shots, 
         sweeps, 

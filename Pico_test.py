@@ -8,9 +8,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import ctypes
 
-import Pico5000alib as plib
-import US_Functions as USF
-import US_GenCode as USGC
+# import Pico5000alib as plib
+# import US_Functions as USF
+# import US_GenCode as USGC
+import ultrasound as US
+import pico
 
 from scipy import signal as scsig
 
@@ -25,9 +27,9 @@ Fs = 125e6                  # Desired sampling frequency (Hz) - float
 waveform_f0 = 5e6           # Center Frequency of waveform (Hz) - float
 waveformSize = 2**10        # Waveform length (power of 2, max=2**15) - int
 
-pulse = USGC.GC_MakePulse(Param='frequency', ParamVal=waveform_f0, SignalPolarity=2, Fs=Fs)
+pulse = US.GC_MakePulse(Param='frequency', ParamVal=waveform_f0, SignalPolarity=2, Fs=Fs)
 pulse = pulse[1:-1]*32767
-waveform = USF.zeroPadding(pulse, waveformSize)
+waveform = US.zeroPadding(pulse, waveformSize)
 waveform = waveform.astype(np.int16)
 waveform_t = np.arange(0,waveformSize)/Fs
 
@@ -140,7 +142,7 @@ plt.tight_layout()
 
 #%% Initial check
 # Find out device model (5000a)
-plib.check_drivers()
+pico.check_drivers()
 
 
 #%% Start
@@ -149,22 +151,22 @@ chandle = ctypes.c_int16()
 status = {}
 
 # Start pico
-plib.start_pico5000a(chandle, status, num_bits)
+pico.start_pico5000a(chandle, status, num_bits)
 
 #%% Setup
 # Set up channel A
-plib.setup_channel(chandle, status, 'A', coupling_A, voltage_range_A, offset_A, enabled_A)
+pico.setup_channel(chandle, status, 'A', coupling_A, voltage_range_A, offset_A, enabled_A)
 
 # Set up channel B
-plib.setup_channel(chandle, status, 'B', coupling_B, voltage_range_B, offset_B, enabled_B)
+pico.setup_channel(chandle, status, 'B', coupling_B, voltage_range_B, offset_B, enabled_B)
 
 # Set up simple trigger
 voltage_range = voltage_range_B if triggerChannel=='B' else voltage_range_A
-plib.set_simpleTrigger(chandle, status, enabled_trigger, triggerChannel, voltage_range, triggerThreshold, direction, delay, auto_Trigger)
+pico.set_simpleTrigger(chandle, status, enabled_trigger, triggerChannel, voltage_range, triggerThreshold, direction, delay, auto_Trigger)
 
 #%% Get timebase
 # Get timebase
-timebase, timeIntervalns, maxSamples = plib.get_timebase(chandle, status, Fs, preTriggerSamples + postTriggerSamples, segmentIndex=0)
+timebase, timeIntervalns, maxSamples = pico.get_timebase(chandle, status, Fs, preTriggerSamples + postTriggerSamples, segmentIndex=0)
 Real_Fs = 1e9/(2**timebase) # Hz
 
 if generate_arbitrary_signal and ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency'] == ARBITRARY_SIGNAL_GENERATOR_DICT['stopFrequency']:
@@ -176,11 +178,11 @@ if generate_arbitrary_signal and ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency
 
 #%% Generate signal (SINE)
 if generate_arbitrary_signal:
-    plib.generate_arbitrary_signal(chandle, status, **ARBITRARY_SIGNAL_GENERATOR_DICT)
+    pico.generate_arbitrary_signal(chandle, status, **ARBITRARY_SIGNAL_GENERATOR_DICT)
     triggertype = ARBITRARY_SIGNAL_GENERATOR_DICT['triggertype']
     triggerSource = ARBITRARY_SIGNAL_GENERATOR_DICT['triggerSource']
 elif generate_builtin_signal:
-    plib.generate_builtin_signal(chandle, status, **BUILTIN_SIGNAL_GENERATOR_DICT)
+    pico.generate_builtin_signal(chandle, status, **BUILTIN_SIGNAL_GENERATOR_DICT)
     triggertype = BUILTIN_SIGNAL_GENERATOR_DICT['triggertype']
     triggerSource = BUILTIN_SIGNAL_GENERATOR_DICT['triggerSource']
 
@@ -188,7 +190,7 @@ trigger_sigGen = True if triggerSource==4 else False
 
 #%% Capture data
 # Run block capture
-BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indisposed = plib.capture(
+BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indisposed = pico.capture(
     chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
     trigger_sigGen, triggertype, gate_time,
     downsampling=(downsampling_ratio_mode, downsampling_ratio), segment_index=0)
@@ -203,7 +205,7 @@ if channels.upper() in ['A', 'BOTH']:
     bufferAMax = BUFFERS_DICT["bufferA0"][0]
     
     # convert ADC counts data to mV
-    adc2mVChAMax = plib.adc2millivolts(chandle, status, bufferAMax, voltage_range_A)
+    adc2mVChAMax = pico.adc2millivolts(chandle, status, bufferAMax, voltage_range_A)
 
     # Plot data
     axs[0].plot(t*1e-3, adc2mVChAMax)
@@ -213,7 +215,7 @@ if channels.upper() in ['B', 'BOTH']:
     bufferBMax = BUFFERS_DICT["bufferB0"][0]
     
     # convert ADC counts data to mV
-    adc2mVChBMax = plib.adc2millivolts(chandle, status, bufferBMax, voltage_range_B)
+    adc2mVChBMax = pico.adc2millivolts(chandle, status, bufferBMax, voltage_range_B)
 
     # Plot data
     axs[1].plot(t*1e-3, adc2mVChBMax)
@@ -231,14 +233,14 @@ plt.tight_layout()
 plt.show()
 
 # Stop the scope
-plib.stop_pico5000a(chandle, status)
+pico.stop_pico5000a(chandle, status)
 
 #%% fft
 samples = preTriggerSamples + postTriggerSamples
 N = int(np.ceil(np.log2(np.abs(samples)))) + 1 # next power of 2 (+1)
 nfft = 2**N # Number of FFT points (power of 2)
 
-real_Fs = plib.timebase2fs(timebase)
+real_Fs = pico.timebase2fs(timebase)
 freq = np.linspace(0, real_Fs/2, nfft//2)
 FFTmeanB = np.fft.fft(adc2mVChBMax-np.mean(adc2mVChBMax), nfft)/nfft
 FFTmeanB = FFTmeanB[:nfft//2]
@@ -252,20 +254,20 @@ plt.ylabel('FFT Magnitude (mV)')
 
 #%% Capture rapid data: nSegments
 # Run rapid capture of nSegments
-BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = plib.rapid_capture(
+BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = pico.rapid_capture(
     chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
     nSegments, trigger_sigGen, triggertype, gate_time,
     downsampling=(downsampling_ratio_mode, downsampling_ratio))
 
-plib.print_triggerInfo(triggerInfo)
+pico.print_triggerInfo(triggerInfo)
 
 # Create time data
 t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
 
-arrayAMax, arrayBMax, arrayAMin, arrayBMin, means = plib.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)
+arrayAMax, arrayBMax, arrayAMin, arrayBMin, means = pico.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)
 
 # Stop the scope
-plib.stop_pico5000a(chandle, status)
+pico.stop_pico5000a(chandle, status)
 
 
 #%% Plot data
@@ -284,7 +286,7 @@ if channels.upper() in ['B', 'BOTH']:
 
 # Plot config
 # axs[0].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
-axs[1].set_ylim([-plib.str2V(voltage_range_B)*1e3, plib.str2V(voltage_range_B)*1e3])
+axs[1].set_ylim([-pico.str2V(voltage_range_B)*1e3, pico.str2V(voltage_range_B)*1e3])
 axs[1].set_xlabel('Time (us)')
 axs[0].set_ylabel('Voltage (mV)')
 axs[1].set_ylabel('Voltage (mV)')
@@ -299,7 +301,7 @@ samples = preTriggerSamples + postTriggerSamples
 N = int(np.ceil(np.log2(np.abs(samples)))) + 1 # next power of 2 (+1)
 nfft = 2**N # Number of FFT points (power of 2)
 
-real_Fs = plib.timebase2fs(timebase)
+real_Fs = pico.timebase2fs(timebase)
 freq = np.linspace(0, real_Fs/2, nfft//2)
 FFTmeanB = np.fft.fft(means[1]-np.mean(means[1]), nfft)/nfft
 FFTmeanB = FFTmeanB[:nfft//2]
@@ -313,4 +315,4 @@ plt.ylabel('FFT Magnitude (mV)')
 
 #%% Close
 # Close the unit
-plib.close_pico5000a(chandle, status)
+pico.close_pico5000a(chandle, status)

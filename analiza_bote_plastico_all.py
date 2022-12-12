@@ -9,8 +9,9 @@ import sys
 sys.path.insert(0, r"G:\Unidades compartidas\Proyecto Cianocrilatos")
 
 import numpy as np
-import US_Loaders as USL
-import US_Functions as USF
+# import US_Loaders as USL
+# import US_Functions as USF
+import ultrasound as US
 
 # from scipy import signal
 # import matplotlib.pylab as plt
@@ -43,7 +44,7 @@ N_Specimens = len(Experiments)
 N_WP = len(WaterPaths)
 
 
-stdVar = USL.StdVar(DataPath + Experiments[0] + "_Experiment" + r"\standard.var")
+stdVar = US.StdVar(DataPath + Experiments[0] + "_Experiment" + r"\standard.var")
 ScanLen = int(stdVar.Smax-stdVar.Smin)
 AvgSamplesNumber = stdVar.AvgSamplesNumber
 
@@ -67,19 +68,19 @@ for i in range(N_Specimens):
     
     # Load PE
     filename_Ch2 = Specimen_Path + r'\ScanADCgenCod' + str(GenCode+1) + 'Ch2.bin' # load PE
-    data = USL.LoadBinAscan(filename_Ch2, Avg, ScanLen, N1=0, N2=0) / AvgSamplesNumber
-    PE_Ascan[i, :] = USF.zeroPadding(data[0:3000], ScanLen)
+    data = US.LoadBinAscan(filename_Ch2, Avg, ScanLen, N1=0, N2=0) / AvgSamplesNumber
+    PE_Ascan[i, :] = US.zeroPadding(data[0:3000], ScanLen)
 
     # Load TT
     filename_Ch1 = Specimen_Path + r'\ScanADCgenCod' + str(GenCode+1) + 'Ch1.bin' # load TT 
-    data = USL.LoadBinAscan(filename_Ch1, Avg, ScanLen, N1=0, N2=0) / AvgSamplesNumber
+    data = US.LoadBinAscan(filename_Ch1, Avg, ScanLen, N1=0, N2=0) / AvgSamplesNumber
     TT_Ascan[i, :] = data
 
     # Load WP
     if i<=2:
         WP_Path = DataPath + WaterPaths[i] + '_Experiment'
         filename_Ch1 = WP_Path + r'\ScanADCgenCod' + str(GenCode+1) + 'Ch1.bin' # load WP 
-        data = USL.LoadBinAscan(filename_Ch1, Avg, ScanLen, N1=0, N2=0) / AvgSamplesNumber
+        data = US.LoadBinAscan(filename_Ch1, Avg, ScanLen, N1=0, N2=0) / AvgSamplesNumber
         WP_Ascan[i, :] = data
 
 #%%
@@ -87,7 +88,7 @@ for i in range(N_Specimens):
 # Constants and variables
 ##############################################################################
 Fs = 100e6 # sampling frequency, in MHz
-nfft = 2**USF.nextpow2(ScanLen)
+nfft = 2**US.nextpow2(ScanLen)
 Freq_axis = np.arange(nfft) * Fs/nfft
 # Time_axis = np.arange(ScanLen)/Fs
 Cw = 1498 # speed of sound in water m/s
@@ -101,10 +102,10 @@ for i in range(N_Specimens):
     if i==3 or i==6:
         cont = cont + 1
     # Find ToF_TW
-    ToF_TW[i], _, _ = USF.CalcToFAscanCosine_XCRFFT(TT_Ascan[i,:], WP_Ascan[cont,:], UseCentroid=False, UseHilbEnv=False, Extend=False)
+    ToF_TW[i], _, _ = US.CalcToFAscanCosine_XCRFFT(TT_Ascan[i,:], WP_Ascan[cont,:], UseCentroid=False, UseHilbEnv=False, Extend=False)
     
     # Iterative Deconvolution
-    ToF_RW[i,:], StrMat = USF.deconvolution(PE_Ascan[i,:], WP_Ascan[cont,:], stripIterNo=2, UseHilbEnv=False)
+    ToF_RW[i,:], StrMat = US.deconvolution(PE_Ascan[i,:], WP_Ascan[cont,:], stripIterNo=2, UseHilbEnv=False)
     ToF21[i] = ToF_RW[i,1] - ToF_RW[i,0]
     
     # Compute velocity and thickness

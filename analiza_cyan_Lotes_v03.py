@@ -14,9 +14,10 @@ sys.path.insert(0, r"G:\Unidades compartidas\Proyecto Cianocrilatos")
 from scipy import signal
 import numpy as np
 import matplotlib.pylab as plt
-import US_Loaders as USL
-import US_Graphics as USG
-import US_Functions as USF
+# import US_Loaders as USL
+# import US_Graphics as USG
+# import US_Functions as USF
+import ultrasound as US
 import os
 from tkinter import Tk, ttk, filedialog
 
@@ -37,12 +38,12 @@ BATCH_DICT = {r'\CNC3-LOTE 310322-01'    : 12,
               r'\CNC1100-LOTE 290322-01' : 11,
               r'\CNC1500-LOTE 290322-01' : 12,}
 
-lettersList = USF.generateLettersList(N=max(BATCH_DICT.values()), backslash=True)
+lettersList = US.generateLettersList(N=max(BATCH_DICT.values()), backslash=True)
 Max_NSpecimens = len(lettersList)
 NLotes = len(BATCH_DICT)
 
 # Assuming the same for all experiments
-stdVar = USL.StdVar(DataPath + list(BATCH_DICT.keys())[0] + '\A' + '_Experiment' + r"\standard.var")
+stdVar = US.StdVar(DataPath + list(BATCH_DICT.keys())[0] + '\A' + '_Experiment' + r"\standard.var")
 ScanLen = int(stdVar.Smax-stdVar.Smin) # 7855
 Avg = 1 # number of Ascans to be read and averaged
 GenCode = 1 # 1:pulse, 2:burst, 3:chirp
@@ -56,19 +57,19 @@ Loc_echo2 = 4200 # position in samples of echo from back surface, approximation
 WinLen = Loc_echo1 * 2 # window length, approximation
 
 # windows are centered at approximated surfaces location
-MyWin1 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
+MyWin1 = US.makeWindow(SortofWin='tukey', WinLen=WinLen,
                param1=0.25, param2=1, Span=ScanLen, Delay=0)
-MyWin2 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
+MyWin2 = US.makeWindow(SortofWin='tukey', WinLen=WinLen,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_echo2 - int(WinLen/2))
 
 #%% 
 ##############################################################################
 # Load and window data
 ##############################################################################
-PE, TT, WP = USL.loadAscanBatches(BATCH_DICT, DataPath, lettersList, GenCode, Avg)
+PE, TT, WP = US.loadAscanBatches(BATCH_DICT, DataPath, lettersList, GenCode, Avg)
 for i, (batch, NSpecimens) in enumerate(BATCH_DICT.items()):
     for j in range(NSpecimens):
-        PE[i, j, :] = USF.zeroPadding(PE[i, j, :6000], ScanLen)
+        PE[i, j, :] = US.zeroPadding(PE[i, j, :6000], ScanLen)
         PE_R[i, j, :] = PE[i, j, :] * MyWin1 # extract front surface reflection
         PE_TR[i, j, :] = PE[i, j, :] * MyWin2 # extract back surface reflection
         
@@ -82,7 +83,7 @@ for i, (batch, NSpecimens) in enumerate(BATCH_DICT.items()):
 # Constants and variables
 ##############################################################################
 Fs = 100e6 # sampling frequency, in MHz
-nfft = 2**USF.nextpow2(ScanLen)
+nfft = 2**US.nextpow2(ScanLen)
 Freq_axis = np.arange(nfft) * Fs/nfft
 Cw = 1498 # speed of sound in water m/2
 Cc = 2300 # speed of sound in the plastic container m/s
@@ -91,7 +92,7 @@ ID = True # use Iterative deconvolution
 #%% Optional plot
 Nlot = 4
 Spec = 4
-USG.multiplot_tf(np.column_stack((PE[Nlot, Spec, :], TT[Nlot, Spec, :], WP[Nlot, :])).T, 
+US.multiplot_tf(np.column_stack((PE[Nlot, Spec, :], TT[Nlot, Spec, :], WP[Nlot, :])).T, 
                  Fs=Fs, nfft=nfft, Cs=343, t_units='samples',t_ylabel='amplitude',
                  t_Norm=False, t_xlims=None, t_ylims=None, f_xlims=([0, 20]),
                  f_ylims=None, f_units='MHz', f_Norm=False, PSD=False, dB=False,
@@ -115,22 +116,22 @@ Env = np.zeros_like(PE)
 for i in np.arange(NLotes):
     for j in np.arange(NSpecimens):
         # Find ToF_TW
-        ToF_TW[i, j], Aligned_TW, _ = USF.CalcToFAscanCosine_XCRFFT(TT[i, j, :], WP[i, :], UseCentroid=False, UseHilbEnv=False, Extend=False)
+        ToF_TW[i, j], Aligned_TW, _ = US.CalcToFAscanCosine_XCRFFT(TT[i, j, :], WP[i, :], UseCentroid=False, UseHilbEnv=False, Extend=False)
         
         if ID:
             # Iterative Deconvolution: first face
-            ToF_RW[i, j, :], StrMat = USF.deconvolution(PE_R[i, j, :], WP[i, :], stripIterNo=2, UseHilbEnv=False)
+            ToF_RW[i, j, :], StrMat = US.deconvolution(PE_R[i, j, :], WP[i, :], stripIterNo=2, UseHilbEnv=False)
             ToF_R21[i, j] = ToF_RW[i, j, 1] - ToF_RW[i, j, 0]              
             
             # Iterative Deconvolution: second face
-            ToF_TRW[i, j, :], StrMat = USF.deconvolution(PE_TR[i, j, :], WP[i, :], stripIterNo=2, UseHilbEnv=False)
+            ToF_TRW[i, j, :], StrMat = US.deconvolution(PE_TR[i, j, :], WP[i, :], stripIterNo=2, UseHilbEnv=False)
             ToF_TR21[i, j] = ToF_TRW[i, j, 1] - ToF_TRW[i, j, 0]
 
         else:
             # find_peaks instead of ID is worse (higher variance)
-            MyXcor_PE[i, j, :] = USF.fastxcorr(PE[i, j, :], WP[i, :], Extend=True)
-            Env[i, j, :] = USF.envelope(MyXcor_PE[i, j, :])
-            Real_peaks = USF.find_Subsampled_peaks(Env[i, j, :], prominence=0.07*np.max(Env[i, j, :]), width=20)
+            MyXcor_PE[i, j, :] = US.fastxcorr(PE[i, j, :], WP[i, :], Extend=True)
+            Env[i, j, :] = US.envelope(MyXcor_PE[i, j, :])
+            Real_peaks = US.find_Subsampled_peaks(Env[i, j, :], prominence=0.07*np.max(Env[i, j, :]), width=20)
             ToF_R21[i, j] = Real_peaks[1] - Real_peaks[0]
             ToF_TR21[i, j] = Real_peaks[3] - Real_peaks[2]
             ToF_RW[i, j, :] = Real_peaks[:1]

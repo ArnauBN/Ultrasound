@@ -11,10 +11,12 @@ import matplotlib.pyplot as plt
 import ctypes
 import time
 
-import Pico5000alib as plib
-import US_Functions as USF
-import US_GenCode as USGC
-import US_Graphics as USG
+# import Pico5000alib as plib
+# import US_Functions as USF
+# import US_GenCode as USGC
+# import US_Graphics as USG
+import ultrasound as US
+import pico
 
 #%% Parameters
 num_bits = 15               # Number of bits to use (8, 12, 14, 15 or 16) - int
@@ -29,9 +31,9 @@ N_acqs = 500
 waveform_f0 = 5e6           # Center Frequency of waveform (Hz) - float
 waveformSize = 2**11        # Waveform length (power of 2, max=2**15) - int
 
-pulse = USGC.GC_MakePulse(Param='frequency', ParamVal=waveform_f0, SignalPolarity=2, Fs=Fs)
+pulse = US.GC_MakePulse(Param='frequency', ParamVal=waveform_f0, SignalPolarity=2, Fs=Fs)
 pulse = pulse[1:-1]*32767
-waveform = USF.zeroPadding(pulse, waveformSize)
+waveform = US.zeroPadding(pulse, waveformSize)
 waveform = waveform.astype(np.int16)
 waveform_t = np.arange(0,waveformSize)/Fs
     
@@ -149,22 +151,22 @@ chandle = ctypes.c_int16()
 status = {}
 
 # Start pico
-plib.start_pico5000a(chandle, status, num_bits)
+pico.start_pico5000a(chandle, status, num_bits)
 
 #%% Setup
 # Set up channel A
-plib.setup_channel(chandle, status, 'A', coupling_A, voltage_range_A, offset_A, enabled_A)
+pico.setup_channel(chandle, status, 'A', coupling_A, voltage_range_A, offset_A, enabled_A)
 
 # Set up channel B
-plib.setup_channel(chandle, status, 'B', coupling_B, voltage_range_B, offset_B, enabled_B)
+pico.setup_channel(chandle, status, 'B', coupling_B, voltage_range_B, offset_B, enabled_B)
 
 # Set up simple trigger
 voltage_range = voltage_range_B if triggerChannel=='B' else voltage_range_A
-plib.set_simpleTrigger(chandle, status, enabled_trigger, triggerChannel, voltage_range, triggerThreshold, direction, delay, auto_Trigger)
+pico.set_simpleTrigger(chandle, status, enabled_trigger, triggerChannel, voltage_range, triggerThreshold, direction, delay, auto_Trigger)
 
 #%% Get timebase
 # Get timebase
-timebase, timeIntervalns, maxSamples = plib.get_timebase(chandle, status, Fs, preTriggerSamples + postTriggerSamples, segmentIndex=0)
+timebase, timeIntervalns, maxSamples = pico.get_timebase(chandle, status, Fs, preTriggerSamples + postTriggerSamples, segmentIndex=0)
 Real_Fs = 1e9/(2**timebase) # Hz
 
 if generate_arbitrary_signal and ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency'] == ARBITRARY_SIGNAL_GENERATOR_DICT['stopFrequency']:
@@ -176,11 +178,11 @@ if generate_arbitrary_signal and ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency
 
 #%% Generate signal
 if generate_arbitrary_signal:
-    plib.generate_arbitrary_signal(chandle, status, **ARBITRARY_SIGNAL_GENERATOR_DICT)
+    pico.generate_arbitrary_signal(chandle, status, **ARBITRARY_SIGNAL_GENERATOR_DICT)
     triggertype = ARBITRARY_SIGNAL_GENERATOR_DICT['triggertype']
     triggerSource = ARBITRARY_SIGNAL_GENERATOR_DICT['triggerSource']
 elif generate_builtin_signal:
-    plib.generate_builtin_signal(chandle, status, **BUILTIN_SIGNAL_GENERATOR_DICT)
+    pico.generate_builtin_signal(chandle, status, **BUILTIN_SIGNAL_GENERATOR_DICT)
     triggertype = BUILTIN_SIGNAL_GENERATOR_DICT['triggertype']
     triggerSource = BUILTIN_SIGNAL_GENERATOR_DICT['triggerSource']
 
@@ -193,31 +195,31 @@ ToF2dist = Cw*1e6/Fs # conversion factor (um) - float
 ToF = np.zeros(N_acqs)
 for i in range(N_acqs):
     # Run rapid capture of nSegments
-    # BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = plib.rapid_capture(
+    # BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = pico.rapid_capture(
     #     chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
     #     nSegments, trigger_sigGen, triggertype, gate_time,
     #     downsampling=(downsampling_ratio_mode, downsampling_ratio))
-    BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indisposed = plib.capture(
+    BUFFERS_DICT, cmaxSamples, triggerTimeOffset, triggerTimeOffsetUnits, time_indisposed = pico.capture(
             chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase, 
             trigger_sigGen, triggertype, gate_time, downsampling=(downsampling_ratio_mode, downsampling_ratio), segment_index=0)
-    means = plib.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
+    means = pico.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
     
     start_time = time.time()
     
     # Create time data
     t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
     
-    means = plib.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
+    means = pico.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
     
     TT = means[0]
     if i==0: TT0 = means[0]
 
     fig, axs = plt.subplots(2, num='Signal', clear=True)
-    USG.movefig(location='southeast')
+    US.movefig(location='southeast')
     axs[0].plot(t*1e-3, TT0, lw=2)
     axs[1].plot(t*1e-3, TT, lw=2)
-    axs[0].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
-    axs[1].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
+    axs[0].set_ylim([-pico.str2V(voltage_range_A)*1e3, pico.str2V(voltage_range_A)*1e3])
+    axs[1].set_ylim([-pico.str2V(voltage_range_A)*1e3, pico.str2V(voltage_range_A)*1e3])
     axs[1].set_xlabel('Time (us)')
     axs[0].set_ylabel('Voltage (mV)')
     axs[1].set_ylabel('Voltage (mV)')
@@ -225,10 +227,10 @@ for i in range(N_acqs):
     axs[1].set_title('B')
     plt.pause(0.05)
     
-    ToF[i] = USF.CalcToFAscanCosine_XCRFFT(TT, TT0, UseCentroid=False, UseHilbEnv=False, Extend=False)[0]
+    ToF[i] = US.CalcToFAscanCosine_XCRFFT(TT, TT0, UseCentroid=False, UseHilbEnv=False, Extend=False)[0]
     
     fig, ax = plt.subplots(1, num='ToF', clear=True)
-    USG.movefig(location='northeast')
+    US.movefig(location='northeast')
     ax.set_ylabel('ToF (samples)')
     ax.set_xlabel('Sample')
     ax.scatter(np.arange(i), ToF[:i], color='white', marker='o', edgecolors='black')
@@ -251,9 +253,9 @@ for i in range(N_acqs):
     time.sleep(time_to_wait)
     
 # Stop the scope
-plib.stop_pico5000a(chandle, status)
+pico.stop_pico5000a(chandle, status)
 
 
 #%% Close
 # Close the unit
-plib.close_pico5000a(chandle, status)
+pico.close_pico5000a(chandle, status)

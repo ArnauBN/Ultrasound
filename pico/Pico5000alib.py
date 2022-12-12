@@ -143,7 +143,7 @@ import time
 
 
 #%% ========== PARSERS ==========
-def _parseResolution(num_bits):
+def parseResolution(num_bits):
     '''
     Returns the resolution code corresponding to the specified number of bits.
 
@@ -170,7 +170,7 @@ def _parseResolution(num_bits):
     resolution = ps.PS5000A_DEVICE_RESOLUTION[key]
     return resolution
 
-def _parseChannel(channel):
+def parseChannel(channel):
     '''
     Returns the channel code corresponding to the specified string.
 
@@ -197,7 +197,7 @@ def _parseChannel(channel):
     ch = ps.PS5000A_CHANNEL[key]
     return ch
 
-def _parseCoupling(coupling):
+def parseCoupling(coupling):
     '''
     Returns the coupling code corresponding to the specified string.
 
@@ -224,7 +224,7 @@ def _parseCoupling(coupling):
     coupling_type = ps.PS5000A_COUPLING[key]
     return coupling_type
 
-def _parseVoltageRange(voltage_range):
+def parseVoltageRange(voltage_range):
     '''
     Returns the voltage range code corresponding to the specified string.
 
@@ -291,7 +291,7 @@ def start_pico5000a(chandle, status, num_bits):
     Arnau, 29/11/2022
     '''
     # Set resolution
-    resolution = _parseResolution(num_bits)
+    resolution = parseResolution(num_bits)
     
     # Returns handle to chandle for use in future API functions
     status["openunit"] = ps.ps5000aOpenUnit(ctypes.byref(chandle), None, resolution)
@@ -375,7 +375,7 @@ def set_resolution(chandle, status, num_bits):
 
     Arnau, 29/11/2022
     '''
-    resolution = _parseResolution(num_bits)
+    resolution = parseResolution(num_bits)
     status["setDeviceResolution"] = ps.ps5000aSetDeviceResolution(chandle, resolution)
     assert_pico_ok(status["setDeviceResolution"])
 
@@ -408,13 +408,13 @@ def setup_channel(chandle, status, channel, coupling, voltage_range, offset, ena
     Arnau, 29/11/2022
     '''
     # Set channel to use
-    ch = _parseChannel(channel)
+    ch = parseChannel(channel)
     
     # Coupling
-    coupling_type = _parseCoupling(coupling)
+    coupling_type = parseCoupling(coupling)
    
     # Voltage range
-    chRange = _parseVoltageRange(voltage_range)
+    chRange = parseVoltageRange(voltage_range)
     
     # Setup channel
     status["setChA"] = ps.ps5000aSetChannel(chandle, ch, enabled, coupling_type, chRange, offset)
@@ -485,7 +485,7 @@ def millivolts2adc(chandle, status, v, voltage_range):
 
     Arnau, 29/11/2022
     '''
-    parsed_chRange = _parseVoltageRange(voltage_range)
+    parsed_chRange = parseVoltageRange(voltage_range)
     maxADC = get_maxADC(chandle, status)
     v_adc = int(mV2adc(v, parsed_chRange, maxADC))
     return v_adc
@@ -513,7 +513,7 @@ def adc2millivolts(chandle, status, bufferADC, voltage_range):
 
     Arnau, 30/11/2022
     '''
-    parsed_chRange = _parseVoltageRange(voltage_range)
+    parsed_chRange = parseVoltageRange(voltage_range)
     maxADC = get_maxADC(chandle, status)
     buffermV = adc2mV(bufferADC, parsed_chRange, maxADC)
     return np.array(buffermV)
@@ -665,7 +665,7 @@ def capture(chandle, status, channels, samples, timebase, trigger_sigGen, sigGen
         BUFFERS_DICT[key] = [a, b]
 
         # Set data buffer location for data collection from channel A
-        chA = _parseChannel('A')
+        chA = parseChannel('A')
         status["setDataBuffersA"] = ps.ps5000aSetDataBuffers(chandle, chA, ctypes.byref(BUFFERS_DICT[key][0]), ctypes.byref(BUFFERS_DICT[key][1]), maxsamples, segment_index, downsampling[0])
         assert_pico_ok(status["setDataBuffersA"])
     
@@ -676,7 +676,7 @@ def capture(chandle, status, channels, samples, timebase, trigger_sigGen, sigGen
         BUFFERS_DICT[key] = [c, d]
         
         # Set data buffer location for data collection from channel B
-        chB = _parseChannel('B')
+        chB = parseChannel('B')
         status["setDataBuffersB"] = ps.ps5000aSetDataBuffers(chandle, chB, ctypes.byref(BUFFERS_DICT[key][0]), ctypes.byref(BUFFERS_DICT[key][1]), maxsamples, segment_index, downsampling[0])
         assert_pico_ok(status["setDataBuffersB"])
 
@@ -794,7 +794,7 @@ def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigg
     
     BUFFERS_DICT = {} # BUFFERS_DICT[bufferXi] = (bufferMaxXi, bufferMinXi), bufferMinXi is used for downsampling
     if channels.upper()=='A' or channels.upper()=='BOTH':
-        chA = _parseChannel('A')
+        chA = parseChannel('A')
         for i in range(nSegments):
             # Create buffers ready for assigning pointers for data collection
             a = (ctypes.c_int16 * maxsamples)()
@@ -809,7 +809,7 @@ def rapid_capture(chandle, status, channels, samples, timebase, nSegments, trigg
             assert_pico_ok(status["SetDataBuffers"])
     
     if channels.upper()=='B' or channels.upper()=='BOTH':
-        chB = _parseChannel('B')
+        chB = parseChannel('B')
         for i in range(nSegments):
             # Create buffers ready for assigning pointers for data collection
             c = (ctypes.c_int16 * maxsamples)()
@@ -975,7 +975,7 @@ def get_MinMax(chandle, status):
     assert_pico_ok(status["sigGenArbitraryMinMaxValues"])
     return -MinVal.value, MaxVal.value, MinSize.value, MaxSize.value
 
-def _get_deltaPhase(chandle, status, frequency, indexMode, bufferLength):
+def get_deltaPhase(chandle, status, frequency, indexMode, bufferLength):
     '''
     Transform the desired frequency to phase samples.
 
@@ -1124,7 +1124,7 @@ def set_simpleTrigger(chandle, status, enabled, channel, chRange, threshold, dir
 
     Arnau, 29/11/2022
     '''
-    ch = _parseChannel(channel)
+    ch = parseChannel(channel)
     threshold_adc = millivolts2adc(chandle, status, threshold, chRange)
     status["trigger"] = ps.ps5000aSetSimpleTrigger(chandle, enabled, ch, threshold_adc, direction, delay, auto_Trigger)
     assert_pico_ok(status["trigger"])
@@ -1234,9 +1234,9 @@ def generate_arbitrary_signal(
 
     Arnau, 30/11/2022
     '''
-    cstartDeltaPhase = _get_deltaPhase(chandle, status, startFrequency, indexMode, arbitraryWaveformSize)
-    cstopDeltaPhase = _get_deltaPhase(chandle, status, stopFrequency, indexMode, arbitraryWaveformSize)
-    cdeltaPhaseIncrement = _get_deltaPhase(chandle, status, increment, indexMode, arbitraryWaveformSize)
+    cstartDeltaPhase = get_deltaPhase(chandle, status, startFrequency, indexMode, arbitraryWaveformSize)
+    cstopDeltaPhase = get_deltaPhase(chandle, status, stopFrequency, indexMode, arbitraryWaveformSize)
+    cdeltaPhaseIncrement = get_deltaPhase(chandle, status, increment, indexMode, arbitraryWaveformSize)
 
     carbitraryWaveform = (ctypes.c_int16 * arbitraryWaveformSize)(*arbitraryWaveform) # convert numpy array to ctypes
     csweepType = ctypes.c_int32(sweepType)

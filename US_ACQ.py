@@ -13,18 +13,28 @@ import serial
 ''' Get Ascans '''
 #Get Ascans ->
 def GetAscan_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
-    '''Get Ascan fomr channel 2 only, and extract data between Smin and Smax
-    and normalizes according to quantization levels, and averages according to 
-    number of samples acquired at each point
-        Inputs
-            Sedaq = acq object
-            Smin = First sample
-            Smax = Last Sample
-            AvgSamplesNumber = Number of Ascan to average in each acq
-            Quantiz_Levels = Number of levels of acq (2^B)
-            
-        Outputs
-            AscanCh2 = acquired ascans
+    '''
+    Get Ascan from channel 2 only and extract data between Smin and Smax. Data
+    is normalized according to quantization levels and averaged according to
+    the number of samples acquired at each point.
+
+    Parameters
+    ----------
+    Smin : tuple or int
+        First sample.
+    Smax : tuple or int
+        Last Sample.
+    AvgSamplesNumber : int, optional
+        Number of Ascan to average in each acq. The default is 10.
+    Quantiz_Levels : int, optional
+        Number of levels of acq (2^B). The default is 1024.
+
+    Returns
+    -------
+    Ascan_Ch2 : ndarray
+        Acquired Ascan of channel 2.
+
+    Revised: Arnau, 12/12/2022
     '''
     SeDaq = SeDaqDLL()
     Ascan_Ch2 = np.zeros(Smax-Smin)
@@ -45,18 +55,28 @@ def GetAscan_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     return Ascan_Ch2
 
 def GetAscan_Ch1(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
-    '''Get Ascan fomr channel 1 only, and extract data between Smin and Smax
-    and normalizes according to quantization levels, and averages according to 
-    number of samples acquired at each point
-        Inputs
-            Sedaq = acq object
-            Smin = First sample
-            Smax = Last Sample
-            AvgSamplesNumber = Number of Ascan to average in each acq
-            Quantiz_Levels = Number of levels of acq (2^B)
-            
-        Outputs
-            AscanCh2 = acquired ascans
+    '''
+    Get Ascan from channel 1 only and extract data between Smin and Smax. Data
+    is normalized according to quantization levels and averaged according to
+    the number of samples acquired at each point.
+
+    Parameters
+    ----------
+    Smin : tuple or int
+        First sample.
+    Smax : tuple or int
+        Last Sample.
+    AvgSamplesNumber : int, optional
+        Number of Ascan to average in each acq. The default is 10.
+    Quantiz_Levels : int, optional
+        Number of levels of acq (2^B). The default is 1024.
+
+    Returns
+    -------
+    Ascan_Ch2 : ndarray
+        Acquired Ascan of channel 1.
+
+    Revised: Arnau, 12/12/2022
     '''
     SeDaq = SeDaqDLL()
     Ascan_Ch1 = np.zeros(Smax-Smin)
@@ -76,20 +96,40 @@ def GetAscan_Ch1(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     return Ascan_Ch1
 
 def GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
-    '''Get Ascans. It checks that Ascans are not zeroes, because sometimes happens...
-        Inputs
-            Sedaq = acq object
-            Smin = First sample
-            Smax = Last Sample
-            AvgSamplesNumber = Number of Ascan to average in each acq
-            Quantiz_Levels = Number of levels of acq (2^B)
-            
-        Outputs
-            AscanCh1, AscanCh2 = acquired ascans
-            
     '''
-    Smin1, Smin2 = Smin
-    Smax1, Smax2 = Smax
+    Get Ascans. It checks that Ascans are not zeros, because sometimes happens...
+
+    Parameters
+    ----------
+    Smin : tuple or int
+        First sample of both channels.
+    Smax : tuple or int
+        Last Sample of both channels.
+    AvgSamplesNumber : int, optional
+        Number of Ascan to average in each acq. The default is 10.
+    Quantiz_Levels : int, optional
+        Number of levels of acq (2^B). The default is 1024.
+
+    Returns
+    -------
+    Ascan_Ch1 : ndarray
+        Acquired Ascan of channel 1.
+    Ascan_Ch2 : ndarray
+        Acquired Ascan of channel 2.
+    
+    Revised: Arnau, 12/12/2022
+    '''
+    if isinstance(Smin, tuple):
+        Smin1, Smin2 = Smin
+    else:
+        Smin1 = Smin
+        Smin2 = Smin
+    if isinstance(Smax, tuple):
+        Smax1, Smax2 = Smax
+    else:
+        Smax1 = Smax
+        Smax2 = Smax      
+    
     SeDaq = SeDaqDLL()
     Ascan_Ch2 = np.zeros(Smax2-Smin2)
     Ascan_Ch1 = np.zeros(Smax1-Smin1)

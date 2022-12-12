@@ -11,28 +11,31 @@ import sys
 import winsound
 from scipy.signal import find_peaks
 
-
-# nuevo comentario
-#TODO: ckeck the length of xcorr, maybe not correct to ensure valid samples
 def fastxcorr(x, y, Extend=True, Same=False):
-    """
-    Calculate xcor using fft. Asumes vectors are columnwise.
+    '''
+    Calculate xcor using fft.
 
     Parameters
     ----------
-    x : comlumnwise np.array of floats. Is a 1D columnwise vector
-    y : comlumnwise np.array of floats. Is a 1D columnwise vector
-    Extend : boolean, if True, extend to correct dimensionality of result
-    Same : boolean, if True, return result with dimensions equal longest
+    x : 1D ndarray
+        First signal. Array of floats.
+    y : 1D ndarray
+        Second signal. Array of floats.
+    Extend : bool, optional
+        If True, extend to correct dimensionality of result. The default is
+        True.
+    Same : bool, optional
+        If True, return result with dimensions equal longest. The default is
+        False.
 
     Returns
     -------
-    cross correlation between x and y
+    xcor : ndarray
+        Cross correlation between x and y.
 
-    Calculates cross correlation between signals in the frequency domain.
-    Length of ffts is equal to the length of the longest signal.
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     if Extend:
         nfft = len(x)+len(y)-1
     else:
@@ -45,40 +48,46 @@ def fastxcorr(x, y, Extend=True, Same=False):
 
 
 def centroid(x, UseHilbEnv=False):
-    """
-    Calculate centorid of a vector.
+    '''
+    Calculate centorid of a signal or of its envelope. It is used mainly for
+    delays.
 
-    Inputs
-        x : np.array 1D, input vetor.
-        UseHilbEnv : bollean, if True use envelope. Initial False.
-    Outputs
-        centroid.
+    Parameters
+    ----------
+    x : 1D ndarray
+        Input signal. Array of floats.
+    UseHilbEnv : bool, optional
+        If True, use envelope to find the centroid. The default is False.
 
-    Calculates the centroid of a signal or of its envelope (UseHilbert=True).
-    It is used mainly for delays.
-    """
+    Returns
+    -------
+    c : float
+        The centroid of x.
+
+    Revised: Arnau, 12/12/2022
+    '''
     x = envelope(x)
     n = np.arange(len(x))
     return np.sum(n*(x**2))/np.sum(x**2)
 
 
 def nextpow2(i):
-    """
-    Calculate next power of 2.
+    '''
+    Calculate next power of 2, i. e., minimum N so that 2*N>i.
 
     Parameters
     ----------
     i : int
-        Numer to calculate next power of 2
+        Number to calculate its next power of 2.
 
     Returns
     -------
     n : int
-        closest power of 2 so that 2**n>i.
+        Closest power of 2 so that 2**n>i.
 
-    Calculate next power of 2, i. e., minimum N so that 2*N>i
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     n = int(np.log2(i))
     if 2**n < i:
         n += 1
@@ -86,24 +95,25 @@ def nextpow2(i):
 
 
 def ShiftSubsampleByfft(Signal, Delay):
-    """
-    Delay signal in subsample precision using FFT.
+    '''
+    Delay signal in subsample precision using FFT. Arbitrary subsampling delay
+    can be applied.
 
     Parameters
     ----------
-    Signal : np.array
-        Array to be shifted
-    Delay : +float
-        delay in subsample precision
+    Signal : ndarray
+        Array to be shifted.
+    Delay : float
+        Delay in subsample precision.
 
     Returns
     -------
-    Shifted signal
+    s : ndarray
+        Shifted signal
 
-    Delays a signal in frequency domain, so subsampling arbitrary delay can be
-    applied.
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     N = np.size(Signal)  # signal length
     HalfN = np.floor(N / 2)  # length of the semi-frequency axis in frequency domain
     FAxis1 = np.arange(HalfN + 1) / N  # Positive semi-frequency axis
@@ -114,26 +124,25 @@ def ShiftSubsampleByfft(Signal, Delay):
 
 
 def CosineInterpMax(MySignal, UseHilbEnv=False):
-    """
-    Calculate the location of the maximum in subsample basis.
-    Uses cosine interpolation.
+    '''
+    Calculate the location of the maximum in subsample basis using cosine
+    interpolation.
 
     Parameters
     ----------
-    MySignal : np.array
-        input signal
-    UseHilbEnv : boolean, optional
+    MySignal : ndarray
+        Input signal.
+    UseHilbEnv : bool, optional
         If True, uses envelope instead of raw signal. The default is False.
 
     Returns
     -------
-    DeltaToF : +float
-        Location of the maxim in subsample precision.
+    DeltaToF : float
+        Location of the maximum in subsample precision.
 
-    Calculates the location of the maximum of a signal in subsample basis
-    using cosine interpolation.
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     if UseHilbEnv:
         MySignal = np.absolute(signal.hilbert(MySignal))
     MaxLoc = np.argmax(np.abs(MySignal))  # find index of maximum
@@ -144,7 +153,8 @@ def CosineInterpMax(MySignal, UseHilbEnv=False):
         A = N - 1
     elif MaxLoc == N - 1:
         B = 0
-        # calculate interpolation maxima according to cosine interpolation
+    
+    # calculate interpolation maxima according to cosine interpolation
     Alpha = np.arccos((MySignal[A] + MySignal[B]) / (2 * MySignal[MaxLoc]))
     Beta = np.arctan((MySignal[A] - MySignal[B]) / (2 * MySignal[MaxLoc] * np.sin(Alpha)))
     Px = Beta / Alpha
@@ -160,30 +170,43 @@ def CosineInterpMax(MySignal, UseHilbEnv=False):
 
 
 def CalcToFAscanCosine_XCRFFT(Data, Ref, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False):
-    """
-    Calculate cross correlation in frequency domain.
-
-    Parameters
-    ----------
-      Data = Ascan
-      Ref = Reference to align
-      UseCentroid : Boolean, if True, use centroid instead of maximum
-      UseHilbEnv = Boolean, True to envelope instead of raw signal
-
-    Returns
-    -------
-      DeltaToF = Time of flight between pulses.
-      AlignedData = Aligned array to Ref.
-      MyXcor : cross correlation.
-
+    '''
     Used to align one Ascan to a Reference by ToF subsample estimate using
     cosine interpolation. Also returns ToFmap and Xcorr. Xcoor is calculated
     using FFT.
     It uses cosine interpolation or centroid (UseCentroid=True) to approximate
-    peak location. IF UseHilbEnv=True, uses envelope for the delay instead
+    peak location. If UseHilbEnv=True, uses envelope for the delay instead
     of raw signal.
+
+    Parameters
+    ----------
+    Data : ndarray
+        Ascan.
+    Ref : ndarray
+        Reference to align
+    UseCentroid : bool, optional
+        If True, use centroid instead of maximum. The default is False.
+    UseHilbEnv : boo, optional
+        If True, use envelope instead of raw signal. The default is False.
+    Extend : bool, optional
+        Used for the cross correlation. If True, extend xcor to correct 
+        dimensionality of result. The default is True.
+    Same : bool, optional
+        Used for the cross correlation. If True, the xcor has dimensions equal
+        longest. The default is False.
+    
+    Returns
+    -------
+    DeltaToF : float
+        Time of flight between pulses.
+    AlignedData : ndarray
+        Aligned array to Ref.
+    MyXcor : ndarray
+        Cross correlation.
+    
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     try:
         # Calculates xcorr in frequency domain
         MyXcor = fastxcorr(Data, Ref, Extend=Extend, Same=Same)
@@ -201,61 +224,70 @@ def CalcToFAscanCosine_XCRFFT(Data, Ref, UseCentroid=False, UseHilbEnv=False, Ex
 
 
 def align2zero(Data, UseCentroid=False, UseHilbEnv=False):
-    """
-    Align signal 2 zero. it is intended to flatten the phase.
-
-    Parameters
-    ----------
-      Data = Ascan
-      UseCentroid : Boolena, if True, use centroid instead of maximum
-      UseHilbEnv = boolean, True if using hilbert transform
-
-    Returns
-    -------
-      AlignedData = Aligned array to Ref
-      ZeroToF = Time of flight to zero.
-
+    '''
     Align signal to zero in order to flatten its phase. It delays the signal
     so that its maximum or centroid (UseCentroid=True) is located at the
     origin. It uses the signal or its envelope (UseHilbEnv=True).
+
+    Parameters
+    ----------
+    Data : ndarray
+        Ascan
+    UseCentroid : bool, optional
+        If True, use centroid instead of maximum. The default is False.
+    UseHilbEnv : bool, optional
+        If True, use envelope instead of raw signal. The default is False.
+
+    Returns
+    -------
+    AlignedData : ndarray
+        Aligned array to Ref
+    ZeroToF : float
+        Time of flight to zero.
+
     Alberto, 10/11/2020
-    """
-    # try:
+    Revised: Arnau, 12/12/2022
+    '''
     # determine time of flight
     if UseCentroid:
         ZeroToF = centroid(Data, UseHilbEnv=UseHilbEnv)
     else:
         ZeroToF = CosineInterpMax(Data, UseHilbEnv=UseHilbEnv)
+        
     # Delay to align
     AlignedData = ShiftSubsampleByfft(Data, ZeroToF)
     return ZeroToF, AlignedData
 
-    # except Exception as ex:
-    #     print(ex)
 
 
 def lfilt(InData, SoF, CutOffFreq, Fs, FOrder=4):
-    """
-    Filter Signal using butterworth filter.
+    '''
+    Filters data by linear filtering. The filter is a butterwoth, with
+    cut of frequency Fc=CutOffFreq in Hz according to given Fs in Hz. Note that
+    it is the teorethical nominal desired cutoff frequency. Filter can be
+    highpass or lowpass.
 
     Parameters
     ----------
-    InData : np.array pof float, Input signal
-    SoF : str, {'low','high'}, Choose between low or high pass filter
-    CutOffFreq : +float, Cut off frequency in Hz
-    Fs : +float, Sampling frequency in Hz
-    FOrder : +int, order of the filter, Order of the filter, default is 4.
+    InData : ndarray
+        Input signal.
+    SoF : str, {'low','high'}
+        Choose between low or high pass filter.
+    CutOffFreq : float
+        Cut off frequency in Hz.
+    Fs : float
+        Sampling frequency in Hz.
+    FOrder : int, optional
+        Order of the filter. The default is 4.
 
     Returns
     -------
-    filtered data
+    OutData : ndarray
+        Filtered data.
 
-    Filters data by linear filtering. The filter is a butterwoth, with
-    cut of frequency Fc=CutOffFreq in Hz according to given Fs in Hz. Note that
-    it is the teorethical nominal desired cut of frequency. Filter can be
-    highpass or lowpass.
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     try:
         Fc = CutOffFreq/Fs*2
         b, a = signal.butter(FOrder, Fc, SoF)
@@ -266,34 +298,35 @@ def lfilt(InData, SoF, CutOffFreq, Fs, FOrder=4):
 
 
 def filtfilt(InData, SoF, CutOffFreq, Fs, FOrder=4):
-    """
-    Filter Signal using filtfilt butterworth filter.
+    '''
+    Filters a signal using filtfilt algorithm  so that no delay is produced.
+    Note that the frequency response of the resulting filter is the square
+    of the original one. The filter is a butterwoth, with
+    cutoff frequency Fc=CutOffFreq in Hz according to given Fs in Hz. Note that
+    it is the teorethical nominal desired cut of frequency. Filter can be
+    highpass or lowpass.
 
     Parameters
     ----------
-    InData : np.array float
+    InData : ndrray float
         Inputa dato to filter
     SoF : str, {'low','hogh'}
-        Choose between low or high pass filter
-    CutOffFreq : +float
-        Cut off frequency in Hz
-    Fs : +float
-        Sampling frequency in Hz
-    FOrder : +int, order of the filter
+        Choose between low or high pass filter.
+    CutOffFreq : float
+        Cut off frequency in Hz.
+    Fs : float
+        Sampling frequency in Hz.
+    FOrder : int, optional
         Order of the filter to be applied. The default is 4.
 
     Returns
     -------
-    filtered data
+    OutData : ndarray
+        Filtered data.
 
-    Filters a signal using filtfilt algorithm  so that no delay is produced.
-    Note that the frequency response of the resulting filter is the square
-    of the original one. The filter is a butterwoth, with
-    cut of frequency Fc=CutOffFreq in Hz according to given Fs in Hz. Note that
-    it is the teorethical nominal desired cut of frequency. Filter can be
-    highpass or lowpass.
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     try:
         Fc = CutOffFreq/Fs*2
         b, a = signal.butter(FOrder, Fc, SoF)
@@ -303,24 +336,10 @@ def filtfilt(InData, SoF, CutOffFreq, Fs, FOrder=4):
 
 
 def deconvolution(Data, Ref, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=False):
-    """
-    Iterative deconvolution.
-
-    Parameters
-    ----------
-    Data : np.array of float, Ascan
-    Ref : np.array of float, Ascan
-    stripIterNo : +int, number of iterations of the deconvolution, default=2
-    UseHilbEnv : Boolean, if True use hilber envelope maximum. default False
-
-    Returns
-    -------
-    ToF np.array of succesive ToF, float, in subsample basis
-    StrMat striping matrix, no.array, (stripIterNo, len(Data)).
-
+    '''
     Applies iterative deconvolution to a signal using a reference signal.
-    It delays de reference to align it to the maximum (or centroid) of the
-    signal (or its envelope) and then subtract it (scaled to have the same
+    It delays the reference to align it to the maximum (or centroid) of the
+    signal (or its envelope) and then subtracts it (scaled to have the same
     amplitude), so that the remainder has the main echo supressed. The
     process can be repeated in a successive algorithm, stripping the succesive
     echoes. Note that due to errors (mainly if there is overlap between echoes)
@@ -329,8 +348,35 @@ def deconvolution(Data, Ref, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=
     envelopes), and also the matrix of the resulting striped signals at each
     iteration, including in the first row the original signal.
     It consumes a lot of memory when working with big Bscans or Cscans.
+
+    Parameters
+    ----------
+    Data : ndarray
+        Ascan
+    Ref : ndarray
+        Reference Ascan.
+    stripIterNo : int, optional
+        Number of iterations of the deconvolution. The default is 2.
+    UseHilbEnv : bool, optional
+        If True, use hilbert envelope maximum. The default is False.
+    Extend : bool, optional
+        Used for the cross correlation. If True, extend xcor to correct 
+        dimensionality of result. The default is True.
+    Same : bool, optional
+        Used for the cross correlation. If True, the xcor has dimensions equal
+        longest. The default is False.
+    
+    Returns
+    -------
+    ToF : ndarray
+        Succesive ToF in subsample basis.
+    StrMat : 2D-ndarray
+        Striping matrix with shape (stripIterNo, len(Data)).
+
+
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     RAmp = np.sum(np.power(Ref, 2)) / len(Ref)  # mean power of reference
     StrMat = np.zeros((stripIterNo+1, len(Data)))  # reallocates stripped matrix
     ToF = np.zeros(stripIterNo)  # preallocates ToF
@@ -343,50 +389,60 @@ def deconvolution(Data, Ref, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=
     return ToF, StrMat
 
 def zeroPadding(Data, NewLen):
-    """
+    '''
     Extend arrays (Ascans) by zero padding.
-
-    Parameters
-    ----------
-    Data : np.array, input matrix, 1D/2D/3D
-    NewLen : New length of the Ascans
-
-    Returns
-    -------
-    Data : Extended data
-
+    
     Used for zeropadding signals for 1D/2D/3D arrays. Signal must be in the 
     last dimension [-1]. If the signal is longer than the desired final 
     length (NewLen), it does nothing.
+
+    Parameters
+    ----------
+    Data : ndarray
+        Input matrix, 1D/2D/3D.
+    NewLen : int
+        New length of the Ascans.
+
+    Returns
+    -------
+    Data : ndarray
+        Extended data.
+
     Alberto, 10/11/2020.
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     OldLen = Data.shape[-1]
     if NewLen > OldLen:
         if Data.ndim == 1:
             Data = np.append(Data, np.zeros(NewLen - OldLen))
         elif Data.ndim == 2:
-            Data = np.concatenate((Data, np.zeros((Data.shape[0], NewLen - OldLen))),axis=1)
+            Data = np.concatenate((Data, np.zeros((Data.shape[0], NewLen - OldLen))), axis=1)
         else:
-            Data = np.concatenate((Data, np.zeros((Data.shape[0], Data.shape[1], NewLen - OldLen))),axis=2)
+            Data = np.concatenate((Data, np.zeros((Data.shape[0], Data.shape[1], NewLen - OldLen))), axis=2)
         return Data
 
 
 def findIndexInAxis(Data, Value):
-    """
+    '''
     Find index of value in sorted 1D array.
+    Find the index of the closest value in the input vector, which is a 
+    sorted array, usually an axis, so that Data[index] is the closes to Value.
 
     Parameters
     ----------
-    Data : Array
-    Value : Value we are looking for
+    Data : ndarray
+        Input vector.
+    Value : float
+        Value we are looking for.
+    
     Returns
     -------
-    Index or None.
+    idx : int
+        Index or None.
 
-    Find the index of the closest value in the input vector, which is a 
-    sorted array, usually an axis, so that Data[index] is the closes to Value.
     Alberto, 10/11/2020.
-    """
+    Docstring: Arnau, 12/12/2022
+    '''
     if Value in Data:  # if value is in array
         return np.where(Data == Value)[0][0]
     elif Value < Data[0]:  # if value is lower than any element of the array
@@ -401,53 +457,60 @@ def findIndexInAxis(Data, Value):
         else:
             return A
 
-
 def envelope(Data, axis=-1):
-    """
-    Calculate envelopes as absolute value of hilbert transform.
+    '''
+    Calculate the envelope of a signal as the absolute value of its hilbert
+    transform.
 
     Parameters
     ----------
-    Data : +float array
-    axis : int, axis along whcih to calculate, default -1
+    Data : ndarray
+        Input signal.
+    axis : int
+        Axis along which to calculate the envelope. The default is -1.
 
     Returns
     -------
-    envelope.
+    e : ndarray
+        The envelope of the input signal.
 
-    Calculate the envelope of a signal as the absolute value of its hilbert
-    transform.
     Alberto, 10/11/2020
-    """
+    Revised: Arnau, 12/12/2022
+    '''
     if Data.ndim > 1:
         return np.abs(signal.hilbert(Data, axis=axis))
     else:
         return np.abs(signal.hilbert(Data))
 
 def moving_average(Data, WinLen):
-    """
+    '''
     Apply undelayed moving average with rectangular window.
-
-    Parameters
-    ----------
-    Data : +float, input data (1D/2D/3D)
-    WinLen : +int odd, lenth of window
-
-    Returns
-    -------
-    Averaged signal
 
     It calculates undelayed moving average, that is, first zeropads signal and
     window, and then delays windows to zero to avoid delay in the output. Note
     that the zeropadding is made to the length of the resulting non-overlapped
     result, therefore only first samples are correct, that is, being DataLen
     the length of the signal and WinLen the length of the window, the zero
-    padding is that so that finale length is DataLen+WinLen-1, so after
+    padding is that so that the final length is DataLen+WinLen-1, so after
     processing only the first DataLen sampes are correct. That is why odd
     number of samples in window is mandatory.
     MA is calculated using correlation, as windows are symmetric.
+
+    Parameters
+    ----------
+    Data : ndarray
+        Input data (1D/2D/3D).
+    WinLen : int
+        Lenth of window. Must be odd.
+
+    Returns
+    -------
+    MAData : ndarray
+        Averaged signal.
+
     Alberto, 09/11/2020
-    """
+    Docstring: Arnau, 12/12/2022
+    '''
     if WinLen % 2 == 0:
         WinLen += 1
     DataLen = Data.shape[-1]
@@ -465,18 +528,21 @@ def moving_average(Data, WinLen):
         return fastxcorr(Data, MyWin)[:, :, 0:DataLen]
 
 def normalizeAscans(Data):
-    """
-    Normalize each Ascan separately
+    '''
+    Normalize each Ascan separately.
 
     Parameters
     ----------
-    Data : Data matrix to normalize
+    Data : ndarray
+        Matrix to normalize.
 
     Returns
     -------
-    Normalized matrix
+    NormData : ndarray
+        Normalized matrix.
 
-    """
+    Docstring: Arnau, 12/12/2022
+    '''
     copied = Data.copy()
     if Data.ndim == 1:
         copied = Data / np.amax(np.abs(Data))
@@ -492,28 +558,40 @@ def normalizeAscans(Data):
 
 def makeWindow(SortofWin='boxcar', WinLen=512,
                param1=1, param2=1, Span=0, Delay=0):
-    """
+    '''
     Make window.
     
     Parameters
     ----------
-    SortofWin : str, can be any of the following, entered as plaintext
-        boxcar, triang, blackman, hamming, hann, bartlett, flattop, parzen, bohman,
-        blackmanharris, nuttall, barthannkaiser (needs beta), gaussian (needs standard deviation),
-        general_gaussian (needs power, width), slepian (needs width), dpss (needs normalized half-bandwidth),
-        chebwin (needs attenuation), exponential (needs decay scale), tukey (needs taper fraction)
-    WinLen : +int, Length of the desired window
-    param1 = +float, beta (kaiser), std (Gaussian), power (general gaussian),
+    SortofWin : str, optional
+        can be any of the following (entered as plaintext):
+            boxcar, triang, blackman, hamming, hann, bartlett, flattop, parzen, bohman,
+            blackmanharris, nuttall, barthannkaiser (needs beta), gaussian (needs standard deviation),
+            general_gaussian (needs power, width), slepian (needs width), dpss (needs normalized half-bandwidth),
+            chebwin (needs attenuation), exponential (needs decay scale), tukey (needs taper fraction)
+        The default is 'boxcar'.
+    WinLen : int, optional
+        Length of the desired window. The default is 512.
+    param1 : float, optional
+        beta (kaiser), std (Gaussian), power (general gaussian),
         width (slepian), norm h-b (dpss), attenuation (chebwin),
-        decay scale (exponential), tapper fraction (tukey)
-    param2 : +float, width (general gaussian)
-    Span : final length of the required window, in case expansion needed
-    Delay : Required delay to the right, in samples
+        decay scale (exponential), tapper fraction (tukey).
+        The default is 1.
+    param2 : float, optional
+        Width (general gaussian). The default is 1.
+    Span : int, optional
+        Final length of the required window, in case expansion needed. The 
+        default is 0.
+    Delay : int, optional
+        Required delay to the right, in samples. The default is 0.
     
     Return
     ------
-    Window : 1D array of lenth WinLen or span
-    """
+    Window : ndarray
+        1D array of lenth WinLen or Span.
+        
+    Docstring: Arnau, 12/12/2022
+    '''
     
     lstWinWithParameter = ['barthannkaiser','gaussian','slepian','dpss',
                            'chebwin','exponential','tukey']
@@ -533,20 +611,25 @@ def makeWindow(SortofWin='boxcar', WinLen=512,
             MyWin = ShiftSubsampleByfft(MyWin, -Delay)  # if float use subsample
     return MyWin
 
-def CheckIntegrityScan(Scan,FixIt = True):
+def CheckIntegrityScan(Scan, FixIt=True):
     '''
-    Check integrity of Bascan or Csacn (non zero arrays)
+    Check integrity of Bascan or Csacn (non zero arrays).
 
     Parameters
     ----------
-    Ascan : Bascan or Cscan
-    FixIt : Boolean, if True, fix data
+    Scan : ndarray
+        Ascan, Bscan or Cscan.
+    FixIt : bool, optional
+        If True, fix data.
 
     Returns
     -------
-    Scan : fixed Ascan
-    FoundError : Boolean, if it found error Ascans
+    Scan : ndarray
+        Fixed Ascan.
+    FoundError : bool
+        If True, an error was found.
 
+    Docstring: Arnau, 12/12/2022
     '''
     def checkarr(arr):
         if np.isnan(np.dot(arr, arr)) or np.all(arr == 0):
@@ -576,6 +659,22 @@ def CheckIntegrityScan(Scan,FixIt = True):
                 
                     
 def makeBeep(frequency = 2500, duration = 1000):
+    '''
+    Make a beep sound with the given frequency and duration.
+
+    Parameters
+    ----------
+    frequency : float, optional
+        Frequency in Hz. The default is 2500.
+    duration : float, optional
+        Duration in milliseconds. The default is 1000.
+
+    Returns
+    -------
+    None.
+
+    Docstring: Arnau, 12/12/2022
+    '''
     #frequency = 2500  # Set Frequency To 2500 Hertz
     #duration = 1000  # Set Duration To 1000 ms == 1 second
     winsound.Beep(frequency, duration)            
@@ -583,20 +682,26 @@ def makeBeep(frequency = 2500, duration = 1000):
 
 def extendedHilbert(Data, NoSamples=None, Zeros=True):
     '''
-    Calculate hilbert transform extendindg signal before calculating
-    the anañitical signal, to prevent boundary problems.    
-    Extension is bilateral (starting and ending of signal)
+    Calculate hilbert transform extending signal before calculating
+    the analitical signal, to prevent boundary problems.    
+    Extension is bilateral (starting and ending of signal).
 
     Parameters
     ----------
-    Data : array of float, innput data 
-    NoSamples : number samples to be added, if None, calculate 10%
-    Zeros : bollean, if True, add zeros, otherwise reflect corresponding samples
+    Data : ndarray
+        Input data.
+    NoSamples : int or None, optional
+        Number of samples to be added. If None, calculate 10%. Default is None.
+    Zeros : bool, optional
+        If True, add zeros, otherwise reflect corresponding samples. The 
+        default is True.
 
     Returns
     -------
-    HT : Hilbert transform
+    HT : ndarray
+        The Hilbert transform.
 
+    Docstring: Arnau, 12/12/2022
     '''
     if NoSamples==None:
         NoSamples = int(len(Data/10))    
@@ -606,6 +711,20 @@ def extendedHilbert(Data, NoSamples=None, Zeros=True):
 
 
 def Normalize(Data):
+    '''
+    Normalize data.
+
+    Parameters
+    ----------
+    Data : ndarray
+        Input data.
+
+    Returns
+    -------
+    NormData : ndarray
+        Normalized data.
+
+    '''
     return Data/np.amax(np.abs(Data))
 
 
@@ -706,6 +825,7 @@ def Zscore(data):
     Z : ndarray
         The Z-score of every observation.
 
+    Arnau
     '''
     aux = np.array(data)
     Z = (aux - np.mean(aux))/np.std(aux)
@@ -732,6 +852,7 @@ def reject_outliers(data, m=0.6745):
     outliers_indexes : ndarray
         The indices of the outliers in the original data array.
 
+    Arnau
     '''
     aux = np.array(data)
     Z = Zscore(data)

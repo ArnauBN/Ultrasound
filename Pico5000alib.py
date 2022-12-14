@@ -1080,7 +1080,10 @@ def get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B,
     arrayAMin = np.array(lstAMin)
     arrayBMin = np.array(lstBMin)   
     
-    L = len(arrayAMax[0])
+    try:
+        L = len(arrayAMax[0])
+    except:
+        L = len(arrayBMax[0])
     means = np.zeros([4, L])
     for i, a in enumerate([arrayAMax, arrayBMax, arrayAMin, arrayBMin]):
         if len(a) != 0:

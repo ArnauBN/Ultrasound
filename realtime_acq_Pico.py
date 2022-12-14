@@ -84,13 +84,13 @@ Charac_container = False    # If True, then the material inside the container is
 no_container = True         # If True, the material is held by itself, without a container (results are Lc and Cc) (has priority over Charac_container) - bool
 Attenuation_ChA = 0         # Attenuation of channel A - dB
 Attenuation_ChB = 10        # Attenuation of channel B - dB
-Temperature = True          # If True, take temperature measurements at each acq. (temperature data is always saved to file) and plot Cw - bool
+Temperature = False          # If True, take temperature measurements at each acq. (temperature data is always saved to file) and plot Cw - bool
 
 
 # ---------
 # PicoScope
 # ---------
-num_bits = 12               # Number of bits to use (8, 12, 14, 15 or 16) - int
+num_bits = 15               # Number of bits to use (8, 12, 14, 15 or 16) - int
 Fs = 125e6                  # Desired sampling frequency (Hz) - float
 AvgSamplesNumber = 25       # Number of traces to average to improve SNR (up to 32) - int
 TT_channel = 0              # Which channel is the TT connected (0='A' or 1='B'). The PE will be the other one - str
@@ -99,13 +99,13 @@ PE_channel = int(not TT_channel) # PE channel (oposite of TT_channel) - DO NOT M
 
 # Channel A setup
 coupling_A = 'DC'           # Coupling of channel A ('AC' or 'DC') - str
-voltage_range_A = '2V'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
+voltage_range_A = '10mV'      # Voltage range of channel A ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_A = 0                # Analog offset of channel A (in volts) - float
 enabled_A = 1               # Enable (1) or disable (0) channel A - int
 
 # Channel B setup
 coupling_B = 'DC'           # Coupling of channel B ('AC' or 'DC') - str
-voltage_range_B = '2V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
+voltage_range_B = '5V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_B = 0                # Analog offset of channel B (in volts) - float
 enabled_B = 1               # Enable (1) or disable (0) channel B - int
 
@@ -119,7 +119,7 @@ triggerChannel = 'B'        # 'A', 'B' or 'EXTERNAL' - str
 triggerThreshold = 500      # Trigger threshold in mV - float
 enabled_trigger = 1         # Enable (1) or disable (0) trigger - int
 direction = 2               # Check API (2=rising) - int
-delay = 0                   # time between trigger and first sample (s) - float
+delay = 0                   # time between trigger and first sample (samples) - int
 auto_Trigger = 1000         # starts a capture if no trigger event occurs within the specified ms - float
 preTriggerSamples = 1000    # Number of samples to capture before the trigger - int
 postTriggerSamples = 10_000 # Number of samples to capture after the trigger - int
@@ -137,6 +137,7 @@ Excitation_params = [Fc, waveformSize] # All excitation params - list or float
 pulse = USGC.GC_MakePulse(Param='frequency', ParamVal=Fc, SignalPolarity=2, Fs=Fs)
 pulse = pulse[1:-1]*32767
 waveform = USF.zeroPadding(pulse, waveformSize)
+waveform = waveform.astype(np.int16) # MUST BE int16
 waveform_t = np.arange(0,waveformSize)/Fs
         
 

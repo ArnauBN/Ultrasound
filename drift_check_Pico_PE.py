@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Dec  2 12:46:20 2022
+Created on Wed Dec 14 11:16:07 2022
 Python version: Python 3.8
 
 @author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
@@ -65,7 +65,7 @@ enabled_A = 1               # Enable (1) or disable (0) channel A - int
 # Channel B setup
 # ---------------
 coupling_B = 'DC'           # Coupling of channel B ('AC' or 'DC') - str
-voltage_range_B = '5V'      # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
+voltage_range_B = '100mV'   # Voltage range of channel B ('10mV', '20mV', '50mV', '100mV', '200mV', '500mV', '1V', '2V', '5V', '10V', '20V', '50V' or 'MAX') - str
 offset_B = 0                # Analog offset of channel B (in volts) - float
 enabled_B = 1               # Enable (1) or disable (0) channel B - int
 
@@ -73,7 +73,7 @@ enabled_B = 1               # Enable (1) or disable (0) channel B - int
 # ---------------
 # Capture options
 # ---------------
-channels = 'A'           # 'A', 'B' or 'BOTH' - str
+channels = 'B'           # 'A', 'B' or 'BOTH' - str
 nSegments = 20              # Number of traces to capture and average to reduce noise - int
 downsampling_ratio_mode = 0 # Downsampling ratio mode - int
 downsampling_ratio = 0      # Downsampling ratio - int
@@ -83,7 +83,7 @@ downsampling_ratio = 0      # Downsampling ratio - int
 # Trigger options
 # ---------------
 triggerChannel = 'B'        # 'A', 'B' or 'EXTERNAL' - str
-triggerThreshold = 500      # Trigger threshold in mV - float
+triggerThreshold = 40      # Trigger threshold in mV - float
 enabled_trigger = 1         # Enable (1) or disable (0) trigger - int
 direction = 2               # Check API (2=rising) - int
 delay = 0                   # time between trigger and first sample (samples) - int
@@ -245,18 +245,20 @@ for i in range(N_acqs):
     
     means = plib.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
     
-    TT = means[0]
-    if i==0 or i==1: TT0 = means[0] # we take the second one in case the first is not valid
+    TT = means[1]
+    if i==0 or i==1: TT0 = means[1] # we take the second one in case the first is not valid
 
     fig, axs = plt.subplots(2, num='Signal', clear=True)
     USG.movefig(location='southeast')
     axs[0].plot(t*1e-3, TT0, lw=2)
     axs[1].plot(t*1e-3, TT, lw=2)
-    axs[0].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
-    axs[1].set_ylim([-plib.str2V(voltage_range_A)*1e3, plib.str2V(voltage_range_A)*1e3])
+    axs[0].set_ylim([-plib.str2V(voltage_range_B)*1e3, plib.str2V(voltage_range_B)*1e3])
+    axs[1].set_ylim([-plib.str2V(voltage_range_B)*1e3, plib.str2V(voltage_range_B)*1e3])
     axs[1].set_xlabel('Time (us)')
     axs[0].set_ylabel('Voltage (mV)')
     axs[1].set_ylabel('Voltage (mV)')
+    axs[0].set_title('A')
+    axs[1].set_title('B')
     plt.pause(0.05)
     
     ToF[i] = USF.CalcToFAscanCosine_XCRFFT(TT, TT0, UseCentroid=False, UseHilbEnv=False, Extend=False)[0]

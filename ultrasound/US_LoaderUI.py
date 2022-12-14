@@ -147,13 +147,13 @@ def run_from_ipython():
     except NameError:
         return False
 
-def getVars(ui):
+def LoaderUI_getVars(ui):
     return ui.PE_Ascan,  ui.TT_Ascan, ui.WP_Ascan, ui.ScanLen, ui.stdVar
 
 
 
 
-def main():
+def LoaderUI():
     MainWindow = QtWidgets.QMainWindow()
     ui = Ui_MainWindow()
     ui.setupUi(MainWindow)
@@ -162,11 +162,11 @@ def main():
 
 if __name__ == "__main__":
     if run_from_ipython():
-        MainWindow, ui = main()
+        MainWindow, ui = LoaderUI()
     else:
         import sys
         app = QtWidgets.QApplication(sys.argv)
-        MainWindow, ui = main()
+        MainWindow, ui = LoaderUI()
         sys.exit(app.exec_())
         
 

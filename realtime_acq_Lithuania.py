@@ -13,12 +13,14 @@ Last updated: 02/12/2022.
 import time
 import numpy as np
 import matplotlib.pylab as plt
+# import SeDaq as SD
+# import US_Functions as USF
+# import US_ACQ as ACQ
+# import US_GenCode as USGC
+# import US_Graphics as USG
+# import US_Loaders as USL
+import ultrasound as US
 import SeDaq as SD
-import US_Functions as USF
-import US_ACQ as ACQ
-import US_GenCode as USGC
-import US_Graphics as USG
-import US_Loaders as USL
 import os
 import serial
 
@@ -149,7 +151,7 @@ SeDaq.SetGain2(Gain_Ch2)
 print(f'Gain of channel 1 set to {SeDaq.GetGain(1)} dB') # return gain of channel 1
 print(f'Gain of channel 2 set to {SeDaq.GetGain(2)} dB') # return gain of channel 2
 print("---------------------------------------------------")
-GenCode = USGC.MakeGenCode(Excitation=Excitation, ParamVal=Excitation_params)
+GenCode = US.MakeGenCode(Excitation=Excitation, ParamVal=Excitation_params)
 SeDaq.UpdateGenCode(GenCode)
 print('Generator code created and updated.')
 print("===================================================\n")
@@ -185,7 +187,7 @@ config_dict = {'Fs': Fs,
                'End_date': '',
                'Experiment_description': Experiment_description}
 
-USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
+US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Configuration parameters saved to {Config_path}.')
 print("===================================================\n")
 
@@ -207,16 +209,16 @@ if Load_refs_from_bin:
         PEref_Ascan = WP_Ascan
         print(f'No {Experiment_PEref_file_name} found. Setting PEref_Ascan = WP_Ascan.')
 else:
-    WP_Ascan = ACQ.GetAscan_Ch1(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
+    WP_Ascan = US.GetAscan_Ch1(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
     print('Water path acquired.')
     if PE_as_ref:
         input("Press any key to acquire the pulse echo.")
-        PEref_Ascan = ACQ.GetAscan_Ch2(Smin2, Smax2, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
-        MyWin_PEref = USG.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
+        PEref_Ascan = US.GetAscan_Ch2(Smin2, Smax2, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
+        MyWin_PEref = US.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
         PEref_Ascan = PEref_Ascan * MyWin_PEref
         
         if align_PEref:
-            USF.align2zero(PEref_Ascan, UseCentroid=False, UseHilbEnv=False)
+            US.align2zero(PEref_Ascan, UseCentroid=False, UseHilbEnv=False)
         print('Pulse echo as reference acquired.')
     else:
         PEref_Ascan = WP_Ascan
@@ -226,11 +228,11 @@ print("===================================================\n")
 if Temperature:
     if not ser.isOpen():
         ser.open()
-    mean1, mean2 = ACQ.getTemperature(ser, N_avg, 'Warning: wrong temperature data for Water Path.', 'Warning: could not parse temperature data to float for Water Path.')
+    mean1, mean2 = US.getTemperature(ser, N_avg, 'Warning: wrong temperature data for Water Path.', 'Warning: could not parse temperature data to float for Water Path.')
     
     config_dict['WP_temperature'] = mean1
     config_dict['Outside_temperature'] = mean2
-    USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
+    US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
     print(f'Reference signal temperature is {mean1} \u00b0C.')
     print(f'Outside temperature is {mean2} \u00b0C.')
     print("===================================================\n")
@@ -238,7 +240,7 @@ if Temperature:
 plt.figure()
 plt.plot(WP_Ascan)
 plt.title('WP')
-USG.movefig(location='n')
+US.movefig(location='n')
 plt.pause(0.05)
 
 if Save_acq_data:
@@ -277,9 +279,9 @@ ScanLen = np.max([ScanLen1, ScanLen2])  # Total scan length for computations (ze
 
 # Zero pad WP in case each channel has different scan length
 if ScanLen1 < ScanLen:
-    WP_Ascan = USF.zeroPadding(WP_Ascan, ScanLen)
+    WP_Ascan = US.zeroPadding(WP_Ascan, ScanLen)
 elif ScanLen2 < ScanLen:
-    PEref_Ascan = USF.zeroPadding(PEref_Ascan, ScanLen)
+    PEref_Ascan = US.zeroPadding(PEref_Ascan, ScanLen)
 
 N = int(np.ceil(np.log2(np.abs(ScanLen)))) + 1 # next power of 2 (+1)
 nfft = 2**N # Number of FFT points (power of 2)
@@ -294,13 +296,13 @@ if Ts_acq is not None:
         _factor = 60
 
 # windows are centered at approximated surfaces location
-MyWin_PER = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_PER,
+MyWin_PER = US.makeWindow(SortofWin='tukey', WinLen=WinLen_PER,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_PER - int(WinLen_PER/2))
-MyWin_PETR = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_PETR,
+MyWin_PETR = US.makeWindow(SortofWin='tukey', WinLen=WinLen_PETR,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_PETR - int(WinLen_PETR/2))
-MyWin_WP = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_WP,
+MyWin_WP = US.makeWindow(SortofWin='tukey', WinLen=WinLen_WP,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_WP - int(WinLen_WP/2))
-MyWin_TT = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_TT,
+MyWin_TT = US.makeWindow(SortofWin='tukey', WinLen=WinLen_TT,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_TT - int(WinLen_TT/2))
 
 WP = WP_Ascan * MyWin_WP # window Water Path
@@ -342,7 +344,7 @@ if Temperature:
 # -------------------------------
 _start_time = time.strftime("%Y/%m/%d - %H:%M:%S")
 config_dict['Start_date'] = _start_time
-USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
+US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Experiment started at {_start_time}.')
 print("===================================================\n")
 
@@ -354,15 +356,15 @@ for i in range(N_acqs):
     # -------------------------------------------
     # Acquire signal, temperature and start timer
     # -------------------------------------------
-    TT_Ascan, PE_Ascan = ACQ.GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
+    TT_Ascan, PE_Ascan = US.GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
     
     if Ts_acq is not None:
         start_time = time.time() # start timer
     
     if Temperature:
-        means1[i], means2[i] = ACQ.getTemperature(ser, N_avg, f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        means1[i], means2[i] = US.getTemperature(ser, N_avg, f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
         
-        Cw = USF.speedofsound_in_water(means1[i], method='Abdessamad', method_param=148)
+        Cw = US.speedofsound_in_water(means1[i], method='Abdessamad', method_param=148)
         Cw_vector[i] = Cw
     
 
@@ -370,9 +372,9 @@ for i in range(N_acqs):
     # Zero padding in case each channel has different scan length
     # -----------------------------------------------------------
     if ScanLen1 < ScanLen:
-        TT_Ascan = USF.zeroPadding(TT_Ascan, ScanLen)
+        TT_Ascan = US.zeroPadding(TT_Ascan, ScanLen)
     elif ScanLen2 < ScanLen:
-        PE_Ascan = USF.zeroPadding(PE_Ascan, ScanLen)
+        PE_Ascan = US.zeroPadding(PE_Ascan, ScanLen)
     
     
     # -----------------------------
@@ -403,11 +405,11 @@ for i in range(N_acqs):
     # Plot every acquisition if Plot_all_acq==True
     # Plot one acquisition in the middle of experiment to see how things are going
     if Plot_all_acq or i==N_acqs//2:
-        USG.multiplot_tf(np.column_stack((PE_Ascan, TT, WP, PEref_Ascan)).T, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
+        US.multiplot_tf(np.column_stack((PE_Ascan, TT, WP, PEref_Ascan)).T, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
                     t_ylabel='amplitude', t_Norm=False, t_xlims=None, t_ylims=None,
                     f_xlims=([0, 20]), f_ylims=None, f_units='MHz', f_Norm=False,
                     PSD=False, dB=False, label=['PE', 'TT', 'WP', 'PEref'], Independent=True, FigNum='Signals', FgSize=(6.4,4.8))
-        USG.movefig(location='southeast')
+        US.movefig(location='southeast')
         plt.pause(_plt_pause_time)
 
 
@@ -415,12 +417,12 @@ for i in range(N_acqs):
     # TOF computations
     # ----------------
     # Find ToF_TW
-    ToF_TW, Aligned_TW, _ = USF.CalcToFAscanCosine_XCRFFT(TT, WP, UseCentroid=False, UseHilbEnv=False, Extend=False)
+    ToF_TW, Aligned_TW, _ = US.CalcToFAscanCosine_XCRFFT(TT, WP, UseCentroid=False, UseHilbEnv=False, Extend=False)
     
     if ID:
         if stripIterNo == 2:
             # Iterative Deconvolution: first face
-            ToF_RW, StrMat = USF.deconvolution(PE_R, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
+            ToF_RW, StrMat = US.deconvolution(PE_R, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
             ToF_R21 = ToF_RW[1] - ToF_RW[0]
             
             # Plot StrMat
@@ -436,17 +438,17 @@ for i in range(N_acqs):
             # plt.pause(_plt_pause_time)
             
             # Iterative Deconvolution: second face
-            ToF_TRW, StrMat = USF.deconvolution(PE_TR, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
+            ToF_TRW, StrMat = US.deconvolution(PE_TR, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
             ToF_TR21 = ToF_TRW[1] - ToF_TRW[0]
         elif stripIterNo == 4:
             # Iterative Deconvolution: first and second face
-            ToF_RW, StrMat = USF.deconvolution(PE_Ascan, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
+            ToF_RW, StrMat = US.deconvolution(PE_Ascan, PEref_Ascan, stripIterNo=stripIterNo, UseHilbEnv=False)
             ToF_R21 = ToF_RW[1] - ToF_RW[0]
             ToF_TR21 = ToF_TRW[3] - ToF_TRW[2]
     else:
-        MyXcor_PE = USF.fastxcorr(PE_Ascan, PEref_Ascan, Extend=True, Same=False)
-        Env = USF.envelope(MyXcor_PE)
-        Real_peaks = USF.find_Subsampled_peaks(Env, prominence=0.07*np.max(Env), width=20)
+        MyXcor_PE = US.fastxcorr(PE_Ascan, PEref_Ascan, Extend=True, Same=False)
+        Env = US.envelope(MyXcor_PE)
+        Real_peaks = US.find_Subsampled_peaks(Env, prominence=0.07*np.max(Env), width=20)
         for i, r in enumerate(Real_peaks):
             if r < len(Env)//2:
                 Real_peaks[i] = -(len(Env)-r)
@@ -522,7 +524,7 @@ for i in range(N_acqs):
     # Plot Cw
     if Temperature:       
         fig, ax = plt.subplots(1, num='Cw', clear=True)
-        USG.movefig(location='north')
+        US.movefig(location='north')
         ax.set_ylabel('Cw (m/s)')
         ax.set_xlabel(_xlabel)
         ax.scatter(_xdata, Cw_vector[:i], color='white', marker='o', edgecolors='black')
@@ -532,7 +534,7 @@ for i in range(N_acqs):
         # Plot temperature
         if Plot_temperature:
             fig, axs = plt.subplots(2, num='Temperature', clear=True)
-            USG.movefig(location='south')
+            US.movefig(location='south')
             axs[0].set_ylabel('Temperature 1 (\u2103)')
             axs[1].set_ylabel('Temperature 2 (\u2103)')
             axs[1].set_xlabel(_xlabel)
@@ -544,7 +546,7 @@ for i in range(N_acqs):
     # Plot results
     if Charac_container or no_container:
         fig, axs = plt.subplots(2, num='Results', clear=True)
-        USG.movefig(location='northeast')
+        US.movefig(location='northeast')
         axs[0].set_ylabel('Cc (m/s)')
         axs[1].set_ylabel('Lc (um)')
         axs[1].set_xlabel(_xlabel)
@@ -554,7 +556,7 @@ for i in range(N_acqs):
         line_Lc = axs[1].axhline(np.mean(Lc[:i]*1e6), color='black', linestyle='--', zorder=1) # Plot Lc mean
     else:
         fig, axs = plt.subplots(3, num='Results', clear=True)
-        USG.movefig(location='northeast')
+        US.movefig(location='northeast')
         axs[0].set_ylabel('Lc (um)')
         axs[1].set_ylabel('LM (mm)')
         axs[2].set_ylabel('CM (m/s)')
@@ -602,9 +604,9 @@ if Temperature:
 # Outlier detection
 # -----------------
 m = 0.6745
-Lc_no_outliers, Lc_outliers, Lc_outliers_indexes = USF.reject_outliers(Lc, m=m)
+Lc_no_outliers, Lc_outliers, Lc_outliers_indexes = US.reject_outliers(Lc, m=m)
 if Charac_container or no_container:
-    Cc_no_outliers, Cc_outliers, Cc_outliers_indexes = USF.reject_outliers(Cc, m=m)
+    Cc_no_outliers, Cc_outliers, Cc_outliers_indexes = US.reject_outliers(Cc, m=m)
     if Ts_acq is None:
         axs[0].scatter(Cc_outliers_indexes, Cc_outliers, color='red', zorder=3)
         axs[1].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red', zorder=3)
@@ -612,8 +614,8 @@ if Charac_container or no_container:
         axs[0].scatter(Time_axis[Cc_outliers_indexes]/_factor, Cc_outliers, color='red', zorder=3)
         axs[1].scatter(Time_axis[Lc_outliers_indexes]/_factor, Lc_outliers*1e6, color='red', zorder=3)
 else:
-    LM_no_outliers, LM_outliers, LM_outliers_indexes = USF.reject_outliers(LM, m=m)
-    CM_no_outliers, CM_outliers, CM_outliers_indexes = USF.reject_outliers(CM, m=m)
+    LM_no_outliers, LM_outliers, LM_outliers_indexes = US.reject_outliers(LM, m=m)
+    CM_no_outliers, CM_outliers, CM_outliers_indexes = US.reject_outliers(CM, m=m)
     if Ts_acq is None:
         axs[0].scatter(Lc_outliers_indexes, Lc_outliers*1e6, color='red', zorder=3)
         axs[1].scatter(LM_outliers_indexes, LM_outliers*1e6, color='red', zorder=3)
@@ -629,7 +631,7 @@ else:
 # -----------------------------
 _end_time = time.strftime("%Y/%m/%d - %H:%M:%S")
 config_dict['End_date'] = _end_time
-USL.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
+US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Experiment ended at {_end_time}.')
 print("===================================================\n")
 

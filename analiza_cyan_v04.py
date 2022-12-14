@@ -13,10 +13,11 @@ sys.path.insert(0, r"G:\Unidades compartidas\Proyecto Cianocrilatos")
 from scipy import signal
 import numpy as np
 import matplotlib.pylab as plt
-import US_Loaders as USL
-import US_LoaderUI
-import US_Graphics as USG
-import US_Functions as USF
+# import US_Loaders as USL
+# import US_LoaderUI
+# import US_Graphics as USG
+# import US_Functions as USF
+import ultrasound as US
 import os
 from tkinter import Tk, ttk, filedialog
 from scipy.signal import find_peaks
@@ -31,9 +32,9 @@ from pathlib import Path
 # This will open a window to load the specified data. You may keep the window open.
 # After pressing the 'Load' button, execute the next cell to get the variables loaded
 # to the environment.
-_, ui = US_LoaderUI.main()
+_, ui = US.LoaderUI()
 #%%
-PE_Ascan,  TT_Ascan, WP_Ascan, ScanLen, stdVar = US_LoaderUI.getVars(ui)
+PE_Ascan,  TT_Ascan, WP_Ascan, ScanLen, stdVar = US.LoaderUI_getVars(ui)
 
 
 
@@ -46,20 +47,20 @@ PE_Ascan,  TT_Ascan, WP_Ascan, ScanLen, stdVar = US_LoaderUI.getVars(ui)
 # Constants and variables
 ##############################################################################
 Fs = 100e6 # sampling frequency, in MHz
-nfft = 2**USF.nextpow2(ScanLen)
+nfft = 2**US.nextpow2(ScanLen)
 Freq_axis = np.arange(nfft) * Fs/nfft
 Time_axis = np.arange(ScanLen)/Fs
 Cw = 1498 # speed of sound in water m/s
 Cc = 2300 # speed of sound in the plastic container m/s
 
 #%%
-USG.plot_tf(PE_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
+US.plot_tf(PE_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
             t_ylabel='amplitude', t_Norm=False, t_xlims=None, t_ylims=None,
             f_xlims=([0, 10]), f_ylims=None, f_units='MHz', f_Norm=False,
             PSD=False, dB=False, Phase=False, D1label='PE Ascan',
             D2label='TT_Ascan', FigNum='PE vs TT')
 
-USG.plot_tf(WP_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
+US.plot_tf(WP_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
             t_ylabel='amplitude', t_Norm=False, t_xlims=None, t_ylims=None,
             f_xlims=([0, 10]), f_ylims=None, f_units='MHz', f_Norm=False,
             PSD=False, dB=False, Phase=False, D1label='WP Ascan',
@@ -68,18 +69,18 @@ USG.plot_tf(WP_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples
 #%% Zero padding
 # From PE, we can remove the echoes after the backsurface reflection
 # we will remove the samples and replace with zeros
-PE_Ascan = USF.zeroPadding(PE_Ascan[0:6000], ScanLen)
-TT_Ascan = USF.zeroPadding(TT_Ascan[0:6000], ScanLen)
-WP_Ascan = USF.zeroPadding(WP_Ascan[0:6000], ScanLen)
+PE_Ascan = US.zeroPadding(PE_Ascan[0:6000], ScanLen)
+TT_Ascan = US.zeroPadding(TT_Ascan[0:6000], ScanLen)
+WP_Ascan = US.zeroPadding(WP_Ascan[0:6000], ScanLen)
 
 #%%
-USG.plot_tf(PE_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
+US.plot_tf(PE_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
             t_ylabel='amplitude', t_Norm=False, t_xlims=None, t_ylims=None,
             f_xlims=([0, 10]), f_ylims=None, f_units='MHz', f_Norm=False,
             PSD=False, dB=False, Phase=False, D1label='PE Ascan',
             D2label='TT_Ascan', FigNum='PE vs TT')
 
-USG.plot_tf(WP_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
+US.plot_tf(WP_Ascan, Data2=TT_Ascan, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
             t_ylabel='amplitude', t_Norm=False, t_xlims=None, t_ylims=None,
             f_xlims=([0, 10]), f_ylims=None, f_units='MHz', f_Norm=False,
             PSD=False, dB=False, Phase=False, D1label='WP Ascan',
@@ -106,12 +107,12 @@ Loc_echo2 = 4200 # position in samples of echo from back surface, approximation
 WinLen = Loc_echo1 * 2 # window length, approximation
 
 # windows are centered at approximated surfaces location
-MyWin1 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
+MyWin1 = US.makeWindow(SortofWin='tukey', WinLen=WinLen,
                param1=0.25, param2=1, Span=ScanLen, Delay=0)
-MyWin2 = USF.makeWindow(SortofWin='tukey', WinLen=WinLen,
+MyWin2 = US.makeWindow(SortofWin='tukey', WinLen=WinLen,
                param1=0.25, param2=1, Span=ScanLen, Delay=Loc_echo2 - int(WinLen/2))
 
-USG.multiplot_tf(np.column_stack((PE_Ascan, MyWin1, MyWin2)).T, Fs=Fs,
+US.multiplot_tf(np.column_stack((PE_Ascan, MyWin1, MyWin2)).T, Fs=Fs,
                   nfft=nfft, Cs=343, t_units='samples', t_ylabel='amplitude',
                   t_Norm=True, t_xlims=None, t_ylims=None, f_xlims=([0, 20]),
                   f_ylims=None, f_units='MHz', f_Norm=True, PSD=False, dB=False,
@@ -122,7 +123,7 @@ PE_TR = PE_Ascan * MyWin2 # extract back surface reflection
 
 # We can see the high frequency attenuation in back surface echoes, as well as 
 # the resonant spectrum
-USG.multiplot_tf(np.column_stack((PE_R, PE_TR)).T, Fs=Fs,
+US.multiplot_tf(np.column_stack((PE_R, PE_TR)).T, Fs=Fs,
                   nfft=nfft, Cs=343, t_units='samples', t_ylabel='amplitude',
                   t_Norm=True, t_xlims=None, t_ylims=None, f_xlims=([0, 20]),
                   f_ylims=None, f_units='MHz', f_Norm=False, PSD=False, dB=False,
@@ -144,7 +145,7 @@ be located at pulse locations aprox
 TT = TT_Ascan * MyWin1 # extract echo from TT
 WP = WP_Ascan * MyWin1 # extract echo from WP
 
-USG.multiplot_tf(np.column_stack((TT, WP)).T, Fs=Fs,
+US.multiplot_tf(np.column_stack((TT, WP)).T, Fs=Fs,
                   nfft=nfft, Cs=343, t_units='samples', t_ylabel='amplitude',
                   t_Norm=False, t_xlims=None, t_ylims=None, f_xlims=([0, 20]),
                   f_ylims=None, f_units='MHz', f_Norm=False, PSD=False, dB=False,
@@ -152,12 +153,12 @@ USG.multiplot_tf(np.column_stack((TT, WP)).T, Fs=Fs,
                   Independent=True, FigNum='TT & WP windowed')
 
 #%% Find ToF_TW
-ToF_TW, Aligned_TW, _ = USF.CalcToFAscanCosine_XCRFFT(TT_Ascan, WP_Ascan, UseCentroid=False, UseHilbEnv=False, Extend=False)
+ToF_TW, Aligned_TW, _ = US.CalcToFAscanCosine_XCRFFT(TT_Ascan, WP_Ascan, UseCentroid=False, UseHilbEnv=False, Extend=False)
 print(f'ToF_TW = {ToF_TW}')
 
 
 #%% Iterative Deconvolution: first face
-ToF_RW, StrMat = USF.deconvolution(PE_R, WP_Ascan, stripIterNo=2, UseHilbEnv=False)
+ToF_RW, StrMat = US.deconvolution(PE_R, WP_Ascan, stripIterNo=2, UseHilbEnv=False)
 ToF_R21 = ToF_RW[1] - ToF_RW[0]
 print(f'ToF_RW = {ToF_RW}')
 print(f'ToF_R21 = {ToF_R21}')
@@ -178,7 +179,7 @@ ax3.set_ylim([-0.12, 0.12])
 plt.tight_layout()
 
 #%% Iterative Deconvolution: second face
-ToF_TRW, StrMat = USF.deconvolution(PE_TR, WP_Ascan, stripIterNo=2, UseHilbEnv=False)
+ToF_TRW, StrMat = US.deconvolution(PE_TR, WP_Ascan, stripIterNo=2, UseHilbEnv=False)
 ToF_TR21 = ToF_TRW[1] - ToF_TRW[0]
 print(f'ToF_TRW = {ToF_TRW}')
 print(f'ToF_TR21 = {ToF_TR21}')
@@ -220,9 +221,9 @@ print(f'CM = {CM} m/s')
 
 
 #%% Without iterative deconvolution
-ToF_PE, AlignedData1, MyXcor_PE = USF.CalcToFAscanCosine_XCRFFT(PE_Ascan, WP_Ascan, UseCentroid=True, UseHilbEnv=False, Extend=True)
+ToF_PE, AlignedData1, MyXcor_PE = US.CalcToFAscanCosine_XCRFFT(PE_Ascan, WP_Ascan, UseCentroid=True, UseHilbEnv=False, Extend=True)
 
-USG.multiplot_tf(np.column_stack((PE_Ascan, MyXcor_PE)).T, Fs=Fs,
+US.multiplot_tf(np.column_stack((PE_Ascan, MyXcor_PE)).T, Fs=Fs,
                   nfft=nfft, Cs=343, t_units='samples', t_ylabel='amplitude',
                   t_Norm=False, t_xlims=None, t_ylims=None, f_xlims=([0, 7.5]),
                   f_ylims=None, f_units='MHz', f_Norm=False, PSD=False, dB=False,
@@ -230,9 +231,9 @@ USG.multiplot_tf(np.column_stack((PE_Ascan, MyXcor_PE)).T, Fs=Fs,
                   Independent=True, FigNum='XC PE & WP')
 
 
-Env_PE = USF.envelope(MyXcor_PE)
+Env_PE = US.envelope(MyXcor_PE)
 
-USG.multiplot_tf(np.column_stack((Env_PE, MyXcor_PE)).T, Fs=Fs,
+US.multiplot_tf(np.column_stack((Env_PE, MyXcor_PE)).T, Fs=Fs,
                   nfft=nfft, Cs=343, t_units='samples', t_ylabel='amplitude',
                   t_Norm=False, t_xlims=None, t_ylims=None, f_xlims=([0, 7.5]),
                   f_ylims=None, f_units='MHz', f_Norm=False, PSD=False, dB=False,

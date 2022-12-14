@@ -217,8 +217,15 @@ def GenCodeList_Info(FileName):
         return ''
 
 
+def _parseTemperatureData(line, twoSensors=True, intDigits=2, floatDigits=3, sepLength=0):
+    if twoSensors:
+        threshold = intDigits + floatDigits + 1 # +1 due to the decimal point itself
+        temp1 = float(''.join(list(map(chr, line[:threshold]))))
+        temp2 = float(''.join(list(map(chr, line[threshold+sepLength:-1]))))
+        return temp1, temp2
+    return float(line)
 
-def getTemperature(ser: serial.Serial, N_avg: int=1, error_msg: str=None, exception_msg: str=None):
+def getTemperature(ser: serial.Serial, N_avg: int=1, twoSensors: bool=True, intDigits: int=2, floatDigits: int=3, sepLength: int=0, error_msg: str=None, exception_msg: str=None):
     '''
     Get a temperature reading via serial communication (ser). The expected 
     format of the readings are b'12.34567.890' which is then parsed to floats
@@ -255,7 +262,9 @@ def getTemperature(ser: serial.Serial, N_avg: int=1, error_msg: str=None, except
     Arnau, 08/11/2022
     '''
     lines = [None]*N_avg # init. list of lines
-    temp1 = np.zeros(N_avg); temp2 = np.zeros(N_avg) # init. float temperature vectors
+    temp1 = np.zeros(N_avg);
+    if twoSensors:
+        temp2 = np.zeros(N_avg) # init. float temperature vectors
     GoodMeasurement = False
     while not GoodMeasurement:
         ser.reset_input_buffer()
@@ -271,9 +280,15 @@ def getTemperature(ser: serial.Serial, N_avg: int=1, error_msg: str=None, except
         
         for i in range(N_avg):
             try:
-                if lines[i] != b'' and len(lines[i])==13:
-                    temp1[i] = float(''.join(list(map(chr, lines[i][:6]))))
-                    temp2[i] = float(''.join(list(map(chr, lines[i][6:-1]))))
+                if lines[i] != b'':
+                    if twoSensors:
+                        temp1[i], temp2[i] = _parseTemperatureData(lines[i],
+                                                                   twoSensors=twoSensors,
+                                                                   intDigits=intDigits,
+                                                                   floatDigits=floatDigits,
+                                                                   sepLength=sepLength)
+                    else:
+                        temp1[i] = _parseTemperatureData(lines[i], twoSensors=False)
                 else:
                     if error_msg is not None:
                         print(error_msg)
@@ -285,6 +300,7 @@ def getTemperature(ser: serial.Serial, N_avg: int=1, error_msg: str=None, except
                 GoodMeasurement = False
                 
         mean1 = np.mean(temp1)
-        mean2 = np.mean(temp2)
-        
-    return mean1, mean2
+        if twoSensors:
+            mean2 = np.mean(temp2)
+            return mean1, mean2
+    return mean1

@@ -20,6 +20,7 @@ import matplotlib.pylab as plt
 # import US_Graphics as USG
 # import US_Loaders as USL
 import ultrasound as US
+import SeDaq as SD
 import os
 import serial
 
@@ -128,7 +129,7 @@ if Temperature:
 ########################################################################
 # Initialize ACQ equipment, GenCode to use, and set all parameters
 ########################################################################
-SeDaq = US.SeDaqDLL() # connect ACQ (32-bit architecture only)
+SeDaq = SD.SeDaqDLL() # connect ACQ (32-bit architecture only)
 _sleep_time = 1
 print('Connected.')
 print(f'Sleeping for {_sleep_time} s...')

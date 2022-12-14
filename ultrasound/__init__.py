@@ -13,4 +13,3 @@ from .US_GenCode import *
 from .US_Graphics import *
 from .US_Loaders import *
 from .US_LoaderUI import *
-from .SeDaq import *

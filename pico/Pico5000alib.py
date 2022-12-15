@@ -1271,8 +1271,8 @@ def generate_arbitrary_signal(
 
 def generate_builtin_signal(
         chandle, status, offsetVoltage, pkToPk, wavetype, startFrequency,
-        stopFrequency, increment, dwellTime, sweepType, operation, shots,
-        sweeps, triggertype, triggerSource, extInThreshold):
+        stopFrequency, increment, dwellTime, sweepType, shots, sweeps, 
+        triggertype, triggerSource, extInThreshold):
     '''
     Generate builtin signal.
 
@@ -1312,8 +1312,6 @@ def generate_builtin_signal(
             1 - DOWN
             2 - UPDOWN
             3 - DOWNUP
-    operation : int
-        Code of the extra operations for the waveform type. Not used in 5000a.
     shots : int
         Number of cycles of the waveform to be produced after a trigger event.
         If 0, sweep the frequency as specified by sweeps.
@@ -1346,7 +1344,7 @@ def generate_builtin_signal(
     '''
     cwavetype = ctypes.c_int32(wavetype)
     csweepType = ctypes.c_int32(sweepType)
-    coperation = ctypes.c_int32(operation)
+    coperation = ctypes.c_int32(0) # not used in Pico 5000a
     ctriggertype = ctypes.c_int32(triggertype)
     ctriggerSource = ctypes.c_int32(triggerSource)
     

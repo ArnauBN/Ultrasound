@@ -1408,3 +1408,22 @@ def trigger_generator(chandle, status, triggertype, gate_time=1000):
         time.sleep(gate_time*1e-3)
         status["sigGenSoftwareControl"] = ps.ps5000aSigGenSoftwareControl(chandle, 0)
         assert_pico_ok(status["sigGenSoftwareControl"])
+
+def stopSigGen(chandle, status):
+    '''
+    Stop the signal generator. This is done by generating a DC voltage of zero
+    volts.
+
+    Parameters
+    ----------
+    chandle : ctypes.c_int16
+        handle.
+    status : dict
+        status dictionary.
+
+    Returns
+    -------
+    None.
+
+    '''
+    generate_builtin_signal(chandle, status, 0, 0, 8, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0)

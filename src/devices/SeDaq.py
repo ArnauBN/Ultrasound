@@ -2,7 +2,7 @@ from ctypes import *
 import numpy as np
 import time
 import _thread, threading
-
+from pathlib import Path
 
 def Gencode_from_file(f_n):
     f = open(f_n, 'r')
@@ -12,20 +12,20 @@ def Gencode_from_file(f_n):
         lines.append(line)
     f.close()
     return lines
-  
+
 def ClosestPowerOf2(gencode_len):
     # Cambiado ligeramente del original, que esta comentado
-#    N = 0
-#    while 2**N < gencode_len:
-#        N = N + 1
-#    
-#    return N
+    # N = 0
+    # while 2**N < gencode_len:
+    #     N = N + 1
+    
+    # return N
     return int(np.ceil(np.log2(np.abs(gencode_len))))
-
 
 class SeDaqDLL:
     def __init__(self):
-        cmd = cdll.LoadLibrary(r"SeDaqDLL.dll") 
+        # cmd = cdll.LoadLibrary(r"SeDaqDLL.dll")
+        cmd = cdll.LoadLibrary(Path(__file__).parents[2] / "./DLL/SeDaqDLL.dll")
 
         self.SeDaqDLL_SetExcVoltage = cmd.SeDaqDLL_SetExcVoltage
         self.SeDaqDLL_SetSoftTrig = cmd.SeDaqDLL_SetSoftTrig

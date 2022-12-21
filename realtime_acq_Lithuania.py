@@ -13,23 +13,11 @@ Last updated: 02/12/2022.
 import time
 import numpy as np
 import matplotlib.pylab as plt
-# import SeDaq as SD
-# import US_Functions as USF
-# import US_ACQ as ACQ
-# import US_GenCode as USGC
-# import US_Graphics as USG
-# import US_Loaders as USL
-import ultrasound as US
-import SeDaq as SD
 import os
 import serial
 
-def time2str(seconds) -> str:
-    hours = seconds//3600
-    minutes = seconds%3600//60
-    seconds = seconds - hours*3600 - minutes*60
-    s = f'{hours} h, {minutes} min, {seconds} s'
-    return s
+import src.ultrasound as US
+from src.devices import SeDaq as SD
 
 
 #%%
@@ -117,7 +105,7 @@ port = 'COM3'                   # Port to connect to
 N_avg = 1                       # Number of temperature measurements to be averaged - int
 
 if Ts_acq is not None:
-    print(f'The experiment will take {time2str(N_acqs*Ts_acq)}.')
+    print(f'The experiment will take {US.time2str(N_acqs*Ts_acq)}.')
 
 
 #%% Start serial communication

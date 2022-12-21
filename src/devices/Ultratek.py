@@ -10,11 +10,11 @@ Created on Mon Jul 23 13:30:31 2012
 import time, os
 import os
 import ctypes
-
-#dir_path = os.getcwd()
-dir_path = "C:\Windows" #location of USBUT.dll, USBUT.lib
+from pathlib import Path
 import numpy as np
 
+# dir_path = os.getcwd()
+# dir_path = "C:\Windows" #location of USBUT.dll, USBUT.lib
 
 class Ultratek:
     def __init__(self):
@@ -23,7 +23,8 @@ class Ultratek:
 
         """
 
-        self.usbUT = ctypes.windll.LoadLibrary(dir_path + "\USBUT.dll")
+        # self.usbUT = ctypes.windll.LoadLibrary(dir_path + "\USBUT.dll")
+        self.usbUT = ctypes.windll.LoadLibrary(Path(__file__).parents[2] / "./DLL/USBUT.dll")
         self.number = ctypes.create_string_buffer('\000' * 20)
         self.data = ctypes.create_string_buffer('\000' * 8191)
 
@@ -344,7 +345,7 @@ class Ultratek:
         """
         GETMODELNUMBER = 1023
         self.usbUT.USBUTParms(GETMODELNUMBER, 0, self.number, 0)
-        print  "Model Number: ", repr(self.number.value)
+        print("Model Number: ", repr(self.number.value))
 
 
     def getSerialNumber(self):
@@ -357,7 +358,7 @@ class Ultratek:
         """
         GETSERIALNUMBER = 1024
         self.usbUT.USBUTParms(GETSERIALNUMBER, 0, self.number, 0);
-        print  "Serial Number: ", repr(self.number.value)
+        print("Serial Number: ", repr(self.number.value))
 
 
     def getOptionByte1(self):
@@ -508,35 +509,29 @@ class Ultratek:
 
 
 if __name__ == '__main__':
-
     import matplotlib.pyplot as plt
-    import numpy as np
-    import time
 
-    tarjeta = Ultratek()
-    handler = tarjeta.init()
+    card = Ultratek()
+    handler = card.init()
     if handler:
-        tarjeta.setSamplingRate(6.25)
-        tarjeta.setBufferLength(1800)
-        tarjeta.setGain(40)
-        tarjeta.setTriggerDelay(10)
-        tarjeta.setADTriggerSource('software')
+        card.setSamplingRate(6.25)
+        card.setBufferLength(1800)
+        card.setGain(40)
+        card.setTriggerDelay(10)
+        card.setADTriggerSource('software')
 
+    print("Single acquisition mode")
 
-    #Single acquisition mode
-    print  "Single acquisition mode"
+    card.softwareTrigger()
 
-    tarjeta.softwareTrigger()
-
-    while tarjeta.isDataReady():    #Wait for the data to be available
-
+    while card.isDataReady(): # Wait for the data to be available
         start = time.time()
-        data = tarjeta.getData(1800)            #Discard initial garbage packet
-        print (time.time() - start) * 1e3
-        data = tarjeta.getData(1800)
+        data = card.getData(1800) # Discard initial garbage packet
+        print((time.time() - start) * 1e3)
+        data = card.getData(1800)
 
-    plt.figure();
-    plt.plot(data);
+    plt.figure()
+    plt.plot(data)
     plt.show()
 
 

@@ -26,4 +26,3 @@ the folder name:
 Note that any functions/classes/globals which start with an underscore (_) will
 not be imported unless specified by __all__.
 """
-from .Ultratek import *

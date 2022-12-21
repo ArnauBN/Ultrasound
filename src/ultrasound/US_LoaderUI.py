@@ -7,7 +7,7 @@
 
 from PyQt5 import QtCore, QtWidgets
 import glob
-import US_Loaders as USL
+from . import US_Loaders as USL
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):

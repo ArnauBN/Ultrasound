@@ -9,21 +9,15 @@ Python version: Python 3.9
 
 import sys
 sys.path.insert(0, r"G:\Unidades compartidas\Proyecto Cianocrilatos")
-
 from scipy import signal
 import numpy as np
 import matplotlib.pylab as plt
-# import US_Loaders as USL
-# import US_LoaderUI
-# import US_Graphics as USG
-# import US_Functions as USF
-import ultrasound as US
 import os
 from tkinter import Tk, ttk, filedialog
 from scipy.signal import find_peaks
-
 from pathlib import Path
 
+import src.ultrasound as US
 
 #%%
 ##############################################################################

@@ -1029,3 +1029,26 @@ def n2winwidth(win, n):
         if win not in AVAILABLE_WINS_DICT:
             raise NotImplementedError('Window not available.')
         return AVAILABLE_WINS_DICT[win]
+
+
+def time2str(seconds) -> str:
+    '''
+    Convert the number of seconds to a string with format: X h, X min, X s.
+
+    Parameters
+    ----------
+    seconds : int or float
+        The number of seconds to convert to hours, minutes and seconds.
+
+    Returns
+    -------
+    s : str
+        Formatted string: {hours} h, {minutes} min, {seconds} s.
+
+    Arnau, 21/12/2022
+    '''
+    hours = seconds//3600
+    minutes = seconds%3600//60
+    seconds = seconds - hours*3600 - minutes*60
+    s = f'{hours} h, {minutes} min, {seconds} s'
+    return s

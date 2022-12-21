@@ -14,7 +14,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 import functools
 # from skimage.measure import marching_cubes_lewiner, marching_cubes_classic
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-import US_Functions as USF
+from . import US_Functions as USF
 from matplotlib import colors
 #import plotly.graph_objects as go
 from IPython.display import clear_output

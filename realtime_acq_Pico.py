@@ -10,32 +10,17 @@ Last updated: 02/12/2022.
 
 """
 
-
 import numpy as np
 import matplotlib.pylab as plt
 import os
 import serial
-import ctypes
 import time
 
-# import US_Functions as USF
-# import US_ACQ as ACQ
-# import US_GenCode as USGC
-# import US_Graphics as USG
-# import US_Loaders as USL
-# import Pico5000alib as plib
-import ultrasound as US
-import pico
-
-def time2str(seconds) -> str:
-    hours = seconds//3600
-    minutes = seconds%3600//60
-    seconds = seconds - hours*3600 - minutes*60
-    s = f'{hours} h, {minutes} min, {seconds} s'
-    return s
+import src.ultrasound as US
+from src.devices import pico5000a
 
 #%% Check Pico drivers
-pico.check_drivers()
+pico5000a.check_drivers()
 
 #%%
 ########################################################
@@ -233,7 +218,7 @@ N_avg = 1                       # Number of temperature measurements to be avera
 
 # Print experiment time
 if Ts_acq is not None:
-    print(f'The experiment will take {time2str(N_acqs*Ts_acq)}.')
+    print(f'The experiment will take {US.time2str(N_acqs*Ts_acq)}.')
 
 
 #%% Plot and Save arbitrary Waveform
@@ -265,13 +250,9 @@ if Temperature:
 ########################################################################
 # Start Pico
 ########################################################################
-# Create chandle and status ready for use
-chandle = ctypes.c_int16()
-status = {}
-
 # Start pico
 print('Starting Pico...')
-pico.start_pico5000a(chandle, status, num_bits)
+pico = pico5000a.Pico(num_bits)
 
 
 # -------
@@ -279,21 +260,21 @@ pico.start_pico5000a(chandle, status, num_bits)
 # -------
 print('Setting up channels and trigger...')
 # Set up channel A
-pico.setup_channel(chandle, status, 'A', coupling_A, voltage_range_A, offset_A, enabled_A)
+pico.setup_channel('A', coupling_A, voltage_range_A, offset_A, enabled_A)
 
 # Set up channel B
-pico.setup_channel(chandle, status, 'B', coupling_B, voltage_range_B, offset_B, enabled_B)
+pico.setup_channel('B', coupling_B, voltage_range_B, offset_B, enabled_B)
 
 # Set up simple trigger
 voltage_range = voltage_range_B if triggerChannel=='B' else voltage_range_A
-pico.set_simpleTrigger(chandle, status, enabled_trigger, triggerChannel, voltage_range, triggerThreshold, direction, delay, auto_Trigger)
+pico.set_simpleTrigger(enabled_trigger, triggerChannel, voltage_range, triggerThreshold, direction, delay, auto_Trigger)
 
 
 # ------------
 # Get timebase
 # ------------
 print('Getting timebase...')
-timebase, timeIntervalns, maxSamples = pico.get_timebase(chandle, status, Fs, preTriggerSamples + postTriggerSamples, segmentIndex=0)
+timebase, timeIntervalns, maxSamples = pico.get_timebase(Fs, preTriggerSamples + postTriggerSamples, segmentIndex=0)
 Real_Fs = 1e9/(2**timebase) # Hz
 
 if generate_arbitrary_signal and ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency'] == ARBITRARY_SIGNAL_GENERATOR_DICT['stopFrequency']:
@@ -309,11 +290,11 @@ if generate_arbitrary_signal and ARBITRARY_SIGNAL_GENERATOR_DICT['startFrequency
 # ---------------
 print('Setting up signal generator...')
 if generate_arbitrary_signal:
-    pico.generate_arbitrary_signal(chandle, status, **ARBITRARY_SIGNAL_GENERATOR_DICT)
+    pico.generate_arbitrary_signal(**ARBITRARY_SIGNAL_GENERATOR_DICT)
     triggertype = ARBITRARY_SIGNAL_GENERATOR_DICT['triggertype']
     triggerSource = ARBITRARY_SIGNAL_GENERATOR_DICT['triggerSource']
 elif generate_builtin_signal:
-    pico.generate_builtin_signal(chandle, status, **BUILTIN_SIGNAL_GENERATOR_DICT)
+    pico.generate_builtin_signal(**BUILTIN_SIGNAL_GENERATOR_DICT)
     triggertype = BUILTIN_SIGNAL_GENERATOR_DICT['triggertype']
     triggerSource = BUILTIN_SIGNAL_GENERATOR_DICT['triggerSource']
 trigger_sigGen = True if triggerSource==4 else False
@@ -367,11 +348,11 @@ if Load_refs_from_bin:
         print(f'No {Experiment_PEref_file_name} found. Setting PEref_Ascan = WP_Ascan.')
 else:
     BUFFERS_DICT, maxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = pico.rapid_capture(
-        chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
+        channels, (preTriggerSamples, postTriggerSamples), timebase,
         AvgSamplesNumber, trigger_sigGen, triggertype, gate_time,
         downsampling=(downsampling_ratio_mode, downsampling_ratio))
         
-    ACQmeans = pico.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
+    ACQmeans = pico.get_data_from_buffersdict(voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
     WP_Ascan = ACQmeans[TT_channel + dch]
     # You could create a time axis for each trace like this:
     # t = np.linspace(0, (maxSamples - 1) * timeIntervalns, maxSamples)
@@ -379,10 +360,10 @@ else:
     if PE_as_ref:
         input("Press any key to acquire the pulse echo.")
         BUFFERS_DICT, maxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = pico.rapid_capture(
-            chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
+            channels, (preTriggerSamples, postTriggerSamples), timebase,
             AvgSamplesNumber, trigger_sigGen, triggertype, gate_time,
             downsampling=(downsampling_ratio_mode, downsampling_ratio))
-        ACQmeans = pico.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
+        ACQmeans = pico.get_data_from_buffersdict(voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
         PEref_Ascan = ACQmeans[PE_channel + dch]
         
         MyWin_PEref = US.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
@@ -517,10 +498,10 @@ for i in range(N_acqs):
     # Acquire signal, temperature and start timer
     # -------------------------------------------
     BUFFERS_DICT, maxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = pico.rapid_capture(
-            chandle, status, channels, (preTriggerSamples, postTriggerSamples), timebase,
+            channels, (preTriggerSamples, postTriggerSamples), timebase,
             AvgSamplesNumber, trigger_sigGen, triggertype, gate_time,
             downsampling=(downsampling_ratio_mode, downsampling_ratio))
-    ACQmeans = pico.get_data_from_buffersdict(chandle, status, voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
+    ACQmeans = pico.get_data_from_buffersdict(voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
     TT_Ascan = ACQmeans[TT_channel + dch]
     PE_Ascan = ACQmeans[PE_channel + dch]
 
@@ -750,7 +731,7 @@ for i in range(N_acqs):
 # End of loop
 # -----------
 # Stop the scope
-pico.stop_pico5000a(chandle, status)
+pico.stop()
 
 plt.tight_layout()
 if Temperature:
@@ -843,4 +824,4 @@ print("---------------------------------------------------")
 
 #%%
 # Close the unit
-pico.close_pico5000a(chandle, status)
+pico.close()

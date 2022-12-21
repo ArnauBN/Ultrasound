@@ -5,13 +5,56 @@ Alberto Rodriguez
 '''
 
 import numpy as np
-from SeDaq import *
+from ..devices.SeDaq import SeDaqDLL
 import matplotlib.pylab as plt
 import serial
 #import winsound
 
 ''' Get Ascans '''
-#Get Ascans ->
+def _GetAscan(ch, Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
+    '''
+    Get Ascan for channel {ch}.
+
+    Parameters
+    ----------
+    ch : int
+        Number of the channel. 1 or 2.
+    Smin : tuple or int
+        First sample.
+    Smax : tuple or int
+        Last Sample.
+    AvgSamplesNumber : int, optional
+        Number of Ascan to average in each acq. The default is 10.
+    Quantiz_Levels : int, optional
+        Number of levels of acq (2^B). The default is 1024.
+
+    Returns
+    -------
+    Ascan : ndarray
+        Acquired Ascan of the specified channel.
+
+    Arnau 21/12/2022
+    '''
+    SeDaq = SeDaqDLL()
+    Ascan = np.zeros(Smax - Smin)
+    Flag = AvgSamplesNumber
+
+    while Flag > 0:
+        SeDaq.GetAScan() #get Ascan
+        if ch==1:
+            Aux = np.array(list(map(float,SeDaq.DataADC1[Smin:Smax]))) # get Ascan
+        else:
+            Aux = np.array(list(map(float,SeDaq.DataADC2[Smin:Smax]))) # get Ascan
+        Aux = (Aux - Quantiz_Levels/2)/Quantiz_Levels # Normalize 
+        Aux = Aux - np.mean(Aux) # remove mean
+        
+        if not(np.all(Aux==0.0)):	            
+            Ascan = Ascan + Aux		
+            Flag -= 1
+            		
+    Ascan = Ascan / AvgSamplesNumber #calculate averaged Ascan
+    Ascan = Ascan - np.mean(Ascan) #substract mean value
+    return Ascan
 def GetAscan_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     '''
     Get Ascan from channel 2 only and extract data between Smin and Smax. Data
@@ -34,25 +77,9 @@ def GetAscan_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     Ascan_Ch2 : ndarray
         Acquired Ascan of channel 2.
 
-    Revised: Arnau, 12/12/2022
+    Arnau, 21/12/2022
     '''
-    SeDaq = SeDaqDLL()
-    Ascan_Ch2 = np.zeros(Smax-Smin)
-    Flag = AvgSamplesNumber
-
-    while Flag > 0:
-        SeDaq.GetAScan() #get Ascan        
-        Aux_Ch2 = np.array(list(map(float,SeDaq.DataADC2[Smin:Smax]))) #get Ascan WP
-        Aux_Ch2 = (Aux_Ch2 - Quantiz_Levels/2)/Quantiz_Levels # Normalize 
-        Aux_Ch2 = Aux_Ch2 - np.mean(Aux_Ch2) # remove mean
-        
-        if not(np.all(Aux_Ch2==0.0)):	            
-            Ascan_Ch2 = Ascan_Ch2 + Aux_Ch2		
-            Flag -= 1
-            		
-    Ascan_Ch2 = Ascan_Ch2 / AvgSamplesNumber #calculate averaged Ascan
-    Ascan_Ch2 = Ascan_Ch2 - np.mean(Ascan_Ch2) #substract mean value
-    return Ascan_Ch2
+    return _GetAscan(2, Smin, Smax, AvgSamplesNumber, Quantiz_Levels)
 
 def GetAscan_Ch1(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     '''
@@ -73,27 +100,12 @@ def GetAscan_Ch1(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
 
     Returns
     -------
-    Ascan_Ch2 : ndarray
+    Ascan_Ch1 : ndarray
         Acquired Ascan of channel 1.
 
-    Revised: Arnau, 12/12/2022
+    Arnau, 21/12/2022
     '''
-    SeDaq = SeDaqDLL()
-    Ascan_Ch1 = np.zeros(Smax-Smin)
-    Flag = AvgSamplesNumber
-    while Flag > 0:
-        SeDaq.GetAScan() #get Ascan        
-        Aux_Ch1 = np.array(list(map(float,SeDaq.DataADC1[Smin:Smax]))) #get Ascan WP
-        Aux_Ch1 = (Aux_Ch1 - Quantiz_Levels/2)/Quantiz_Levels # Normalize 
-        Aux_Ch1 = Aux_Ch1 - np.mean(Aux_Ch1) # remove mean
-        
-        if not(np.all(Aux_Ch1==0.0)):	            
-            Ascan_Ch1 = Ascan_Ch1 + Aux_Ch1		
-            Flag -= 1
-            		
-    Ascan_Ch1 = Ascan_Ch1 / AvgSamplesNumber #calculate averaged Ascan
-    Ascan_Ch1 = Ascan_Ch1 - np.mean(Ascan_Ch1) #substract mean value
-    return Ascan_Ch1
+    return _GetAscan(1, Smin, Smax, AvgSamplesNumber, Quantiz_Levels)
 
 def GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     '''
@@ -117,7 +129,7 @@ def GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     Ascan_Ch2 : ndarray
         Acquired Ascan of channel 2.
     
-    Revised: Arnau, 12/12/2022
+    Revised: Arnau, 21/12/2022
     '''
     if isinstance(Smin, tuple):
         Smin1, Smin2 = Smin
@@ -128,30 +140,33 @@ def GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
         Smax1, Smax2 = Smax
     else:
         Smax1 = Smax
-        Smax2 = Smax      
+        Smax2 = Smax
     
     SeDaq = SeDaqDLL()
     Ascan_Ch2 = np.zeros(Smax2-Smin2)
     Ascan_Ch1 = np.zeros(Smax1-Smin1)
     Flag = AvgSamplesNumber
     while Flag > 0:
-        SeDaq.GetAScan() #get Ascan        
-        Aux_Ch2 = np.array(list(map(float,SeDaq.DataADC2[Smin2:Smax2]))) #get Ascan WP
-        Aux_Ch2 = (Aux_Ch2 - Quantiz_Levels/2)/Quantiz_Levels # Normalize 
-        Aux_Ch2 = Aux_Ch2 - np.mean(Aux_Ch2) # remove mean
-        Aux_Ch1 = np.array(list(map(float,SeDaq.DataADC1[Smin1:Smax1]))) #get Ascan WP
-        Aux_Ch1 = (Aux_Ch1 - Quantiz_Levels/2)/Quantiz_Levels # Normalize 
+        SeDaq.GetAScan() # get Ascan        
+        
+        Aux_Ch1 = np.array(list(map(float,SeDaq.DataADC1[Smin1:Smax1]))) # get Ascan
+        Aux_Ch2 = np.array(list(map(float,SeDaq.DataADC2[Smin2:Smax2]))) # get Ascan
+        
+        Aux_Ch1 = (Aux_Ch1 - Quantiz_Levels/2)/Quantiz_Levels # Normalize
+        Aux_Ch2 = (Aux_Ch2 - Quantiz_Levels/2)/Quantiz_Levels # Normalize
+        
         Aux_Ch1 = Aux_Ch1 - np.mean(Aux_Ch1) # remove mean
+        Aux_Ch2 = Aux_Ch2 - np.mean(Aux_Ch2) # remove mean
         
         if not(np.all(Aux_Ch2==0.0)) and not(np.all(Aux_Ch1==0.0)):	            
             Ascan_Ch2 = Ascan_Ch2 + Aux_Ch2
             Ascan_Ch1 = Ascan_Ch1 + Aux_Ch1
             Flag -= 1
             		
-    Ascan_Ch2 = Ascan_Ch2 / AvgSamplesNumber #calculate averaged Ascan
-    Ascan_Ch2 = Ascan_Ch2 - np.mean(Ascan_Ch2) #substract mean value
-    Ascan_Ch1 = Ascan_Ch1 / AvgSamplesNumber #calculate averaged Ascan
-    Ascan_Ch1 = Ascan_Ch1 - np.mean(Ascan_Ch1) #substract mean value
+    Ascan_Ch2 = Ascan_Ch2 / AvgSamplesNumber # calculate averaged Ascan
+    Ascan_Ch2 = Ascan_Ch2 - np.mean(Ascan_Ch2) # substract mean value
+    Ascan_Ch1 = Ascan_Ch1 / AvgSamplesNumber # calculate averaged Ascan
+    Ascan_Ch1 = Ascan_Ch1 - np.mean(Ascan_Ch1) # substract mean value
     return Ascan_Ch1, Ascan_Ch2
 	
 def Plot_Ascan_tf(Ascan, Units_t = 1e6, Units_F = 1e6, Fs=100e6, Fmin = 0,Fmax = 50e6, FigNum=1, FigTitle='Original Ascan'):

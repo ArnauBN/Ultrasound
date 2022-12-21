@@ -6,7 +6,7 @@ Created on Tue Nov  3 17:14:47 2020.
 """
 from scipy import signal
 import numpy as np
-import US_Functions as USF
+from . import US_Functions as USF
 import sys
 
 class Material:

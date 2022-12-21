@@ -4,20 +4,12 @@ Created on Mon Sep 26 10:49:11 2022
 
 @author: arnau
 """
-
+import numpy as np
 import sys
 sys.path.insert(0, r"G:\Unidades compartidas\Proyecto Cianocrilatos")
 
-import numpy as np
-# import US_Loaders as USL
-# import US_Functions as USF
-import ultrasound as US
+import src.ultrasound as US
 
-# from scipy import signal
-# import matplotlib.pylab as plt
-# import US_LoaderUI
-# import US_Graphics as USG
-# from scipy.signal import find_peaks
 
 #%%
 ##############################################################################

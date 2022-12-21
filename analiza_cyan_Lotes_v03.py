@@ -10,18 +10,14 @@ import os.path
 import sys
 # sys.path.insert(0, r"D:\Dropbox\00 INVESTIGACION\30 CODIGO\PYTHON_CODE\PROYECTOS\PROYECTO_US")
 sys.path.insert(0, r"G:\Unidades compartidas\Proyecto Cianocrilatos")
-
 from scipy import signal
 import numpy as np
 import matplotlib.pylab as plt
-# import US_Loaders as USL
-# import US_Graphics as USG
-# import US_Functions as USF
-import ultrasound as US
 import os
 from tkinter import Tk, ttk, filedialog
-
 from pathlib import Path
+
+import src.ultrasound as US
 
 #%%
 ##############################################################################

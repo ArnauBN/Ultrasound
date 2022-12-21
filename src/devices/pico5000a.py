@@ -1349,7 +1349,6 @@ def print_triggerInfo(triggerInfo):
 #%% ========== TESTING THE CLASS ==========
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    from ..ultrasound import GC_MakePulse, zeroPadding
     
     # Parameters
     num_bits = 15               # Number of bits to use (8, 12, 14, 15 or 16) - int
@@ -1362,11 +1361,10 @@ if __name__ == '__main__':
     waveform_f0 = 2e6           # Center Frequency of waveform (Hz) - float
     waveformSize = 2**11        # Waveform length (power of 2, max=2**15) - int
 
-    pulse = GC_MakePulse(Param='frequency', ParamVal=waveform_f0, SignalPolarity=2, Fs=Fs)
-    pulse = pulse[1:-1]*32767
-    waveform = zeroPadding(pulse, waveformSize)
+    _samples = int(np.round(1/waveform_f0*Fs/2))
+    pulse = np.ones(_samples)*32767
+    waveform = np.append(pulse, np.zeros(waveformSize - _samples))
     waveform = waveform.astype(np.int16)
-    # waveform_t = np.arange(0,waveformSize)/Fs
 
 
     # ---------------

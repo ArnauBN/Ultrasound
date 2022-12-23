@@ -1341,7 +1341,136 @@ def SliderWindow(data, SortofWin='boxcar', param1=1, param2=1, fignum='SliderWin
 
 
 
+def plot_hist(h, b, width, ax=None, fignum=1, xlabel='', ylabel='', **kwargs):
+    '''
+    Plot a histogram given the histogram values (h), the bin edges (b), and the
+    width of the bins (width).
 
+    Parameters
+    ----------
+    h : ndarray
+        The values of the histogram.
+    b : ndarray
+        Bin edges (length(hist)+1).
+    width : float
+        Width of the bins.
+    ax : AxesSubplot, optional
+        Axis handle to use for plotting. If None, create new figure. The
+        default is None.
+    fignum : int or str, optional
+        The name or number of the new figure. Only used if ax is None. The
+        default is 1.
+    xlabel : str, optional
+        X axis label. The default is ''.
+    ylabel : str, optional
+        Y axis label. The default is ''.
+    **kwargs : Rectangle properties
+        plt.bar aditional properties.
+
+    Returns
+    -------
+    None.
+
+    Arnau 23/12/2022
+    '''
+    if ax is None:
+        plt.figure(fignum)
+        plt.bar(b[:-1], h, width=width, **kwargs)
+        plt.ylabel(ylabel)
+        plt.xlabel(xlabel)
+    else:
+        ax.bar(b[:-1], h, width=width, **kwargs)
+        ax.set_ylabel(ylabel)
+        ax.set_xlabel(xlabel)
+
+def animate_sliced_array(x, idxs, ax=None, fignum=1, pauseTime=0.3):
+    '''
+    Perform an animation of the plotting of x and the corresponding indices.
+    This is intended to be used with the output of slice_array().
+
+    Parameters
+    ----------
+    x : ndarray
+        Matrix containing data row-wise.
+    idxs : ndarray
+        Matrix containing the indeces of the data in x.
+    fignum : int or str, optional
+        The name or number of the new figure. Only used if ax is None. The
+        default is 1.
+    pauseTime : float, optional
+        Pause between frames in seconds. The default is 0.3.
+
+    Returns
+    -------
+    None.
+
+    Arnau 23/12/2022
+    '''
+    x_axis = np.arange(0, np.max(idxs))
+    
+    if ax is None:
+        plt.figure(fignum)
+        for idx, slc in zip(idxs, x):
+            l = plt.scatter(idx, slc, color='r', marker='.')
+            plt.xlim([0, x_axis[-1]])
+            plt.pause(pauseTime)
+            l.set_color('k')
+    else:
+        for idx, slc in zip(idxs, x):
+            l = ax.scatter(idx, slc, color='r', marker='.')
+            ax.set_xlim([0, x_axis[-1]])
+            plt.pause(pauseTime)
+            l.set_color('k')
+
+def moving_hist(data, slicesize, overlap=0.5, fignum=1, pauseTime=0.3, **kwargs):  
+    '''
+    Animate the sliced histogram of data.
+
+    Parameters
+    ----------
+    data : ndarray
+        Input data.
+    slicesize : int
+        Window size in samples.
+    overlap : float, optional
+        Float between 0 and 1. Specifies the overlap amount. The default is 0.5.
+    fignum : int or str, optional
+        The name or number of the new figure. Only used if ax is None. The
+        default is 1.
+    pauseTime : float, optional
+        Pause between frames in seconds. The default is 0.3.
+    **kwargs : Rectangle properties
+        plt.bar aditional properties.
+
+    Returns
+    -------
+    None.
+
+    Arnau, 23/12/2022
+    '''
+    slices, idxs = USF.slice_array(data, slicesize, overlap)
+    
+    h, b, width = USF.hist(slices, density=True)
+    hfull, bfull, widthfull = USF.hist(data, density=True)
+    
+    x_axis = np.arange(len(data))
+    
+    axs = plt.subplots(2, num=fignum)[1]
+    ax2 = axs[1].twinx()
+    plot_hist(hfull, bfull, widthfull, ax=ax2, ylabel='Global histogram', alpha=0.5, **kwargs)
+    
+    axs[1].set_zorder(10)
+    axs[1].patch.set_visible(False)
+    axs[1].set_ylabel('Sliced histogram')
+    axs[1].set_ylim([0, np.max(h)+1])
+    
+    axs[0].scatter(x_axis, data, color='k', marker='.')
+    for i, j, k, slc, idx in zip(b, h, width, slices, idxs):
+        l = axs[0].scatter(idx, slc, color='r', marker='.')
+        lb = axs[1].bar(i[:-1], j, width=k, zorder=3, color=u'#1f77b4', **kwargs)
+        plt.pause(pauseTime)
+        lb.remove()
+        l.remove()
 
 
 

@@ -1052,3 +1052,107 @@ def time2str(seconds) -> str:
     seconds = seconds - hours*3600 - minutes*60
     s = f'{hours} h, {minutes} min, {seconds} s'
     return s
+
+def getNbins(x, mode: str='auto', **kwargs):
+    '''
+    Returns the appropiate number of bins to compute the histogram of x with
+    the given mode. See numpy.histogram_bin_edges for more information.
+
+    Parameters
+    ----------
+    x : ndarray
+        Input data.
+    mode : str
+        The computation algorithm to find the optimal number of bins. See 
+        numpy.histogram_bin_edges docstring. The default is 'auto'.
+
+    Returns
+    -------
+    Nbins : int
+        The optimal number of bins.
+
+    Arnau 23/12/2022
+    '''
+    edges = np.histogram_bin_edges(x, bins=mode, **kwargs)
+    Nbins = int(edges.size-1)
+    return Nbins
+
+def hist(x, bins=None, density=False, range=None, mode: str='auto'):
+    '''
+    Compute the histogram of x. Returns the histogram values, bin edges and 
+    width of bins.
+
+    Parameters
+    ----------
+    x : ndarray
+        Input data.
+    bins : int, optional
+        If None, the optimal number of bins is computed with the algorithm 
+        given by mode. See numpy.histogram() docstring. The default is None.
+    density : bool, optional
+        See numpy.histogram() docstring. The default is False.
+    range : tuple or None, optional
+        See numpy.histogram() docstring. The default is None.
+    mode : str, optional
+        See numpy.histogram_bin_edges. The default is 'auto'.
+
+    Returns
+    -------
+    h : ndarray
+        The values of the histogram.
+    b : ndarray
+        Bin edges (length(hist)+1).
+    width : float
+        Width of the bins.
+
+    Arnau 23/12/2022
+    '''
+    if bins is None:
+        bins = getNbins(x, mode=mode, range=range)
+
+    if x.ndim==1:
+        h, b = np.histogram(x, bins=bins, density=density, range=range)
+        width = b[1] - b[0]
+    elif x.ndim==2:
+        h = []
+        b = []
+        width = []
+        for i, xx in enumerate(x):
+            hi, bi = np.histogram(xx, bins=bins, density=density, range=range)
+            widthi = bi[1] - bi[0]
+            h.append(hi)
+            b.append(bi)
+            width.append(widthi)
+    return h, b, width
+
+def slice_array(x, slicesize, overlap=0.5):
+    '''
+    Slice the given array with a moving window. Slices can be overlaped.
+
+    Parameters
+    ----------
+    x : ndarray
+        Input data.
+    slicesize : int
+        Window size in samples.
+    overlap : float, optional
+        Float between 0 and 1. Specifies the overlap amount. The default is 0.5.
+
+    Returns
+    -------
+    sliced : ndarray
+        Matrix containing a slice in each row (N x slicesize).
+    idxs : ndarray
+        Matrix containing the original indeces of the slices in each row
+        (N x slicesize). Can be used for plotting, e.g.:
+            plt.scatter(idxs, sliced, color='k', marker='.')
+    
+    Arnau 23/12/2022
+    '''
+    n = slicesize
+    m = int(n*overlap)
+    
+    idxs = np.arange(len(x))
+    idxs = np.lib.stride_tricks.sliding_window_view(idxs, n)[::n-m, :]
+    sliced = np.lib.stride_tricks.sliding_window_view(x, n)[::n-m, :]
+    return sliced, idxs

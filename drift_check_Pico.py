@@ -9,6 +9,7 @@ Python version: Python 3.8
 import numpy as np
 import matplotlib.pyplot as plt
 import time
+import serial
 
 import src.ultrasound as US
 from src.devices import pico5000a
@@ -18,7 +19,7 @@ num_bits = 15               # Number of bits to use (8, 12, 14, 15 or 16) - int
 Fs = 125e6                  # Desired sampling frequency (Hz) - float
 
 Ts_acq = 4
-N_acqs = 500
+N_acqs = 2000
 
 # ------------------
 # Arbitrary Waveform
@@ -119,6 +120,18 @@ ARBITRARY_SIGNAL_GENERATOR_DICT = {
     'extInThreshold'        : 0             # Trigger level for EXTERNAL trigger - int
 }
 
+# ---------------------
+# Arduino (temperature)
+# ---------------------
+Temperature = True
+board = 'Arduino UNO'           # Board type
+baudrate = 9600                 # Baudrate (symbols/s)
+port = 'COM4'                   # Port to connect to
+N_avg = 1                       # Number of temperature measurements to be averaged - int
+
+#%% Start serial communication
+if Temperature:
+    ser = serial.Serial(port, baudrate, timeout=None)  # open comms
 
 #%% Plot arbitrary waveform
 # plt.figure('Waveform fft')
@@ -183,6 +196,11 @@ trigger_sigGen = True if triggerSource==4 else False
 Cw = 1480 # speed of sound in water (m/s) - float
 ToF2dist = Cw*1e6/Fs # conversion factor (um) - float
 ToF = np.zeros(N_acqs)
+
+if Temperature:
+    temp1 = np.zeros(N_acqs)
+    Cw_vector = np.zeros(N_acqs)
+
 for i in range(N_acqs):
     # Run rapid capture of nSegments
     # BUFFERS_DICT, cmaxSamples, triggerTimeOffsets, triggerTimeOffsetUnits, time_indisposed, triggerInfo = pico.rapid_capture(
@@ -196,13 +214,20 @@ for i in range(N_acqs):
     
     start_time = time.time()
     
+    if Temperature:
+        temp1[i] = US.getTemperature(ser, N_avg, twoSensors=False)
+        
+        Cw = US.speedofsound_in_water(temp1[i], method='Abdessamad', method_param=148)
+        Cw_vector[i] = Cw
+        ToF2dist = Cw*1e6/Fs
+    
     # Create time data
     t = np.linspace(0, (cmaxSamples - 1) * timeIntervalns, cmaxSamples)
     
     means = pico.get_data_from_buffersdict(voltage_range_A, voltage_range_B, BUFFERS_DICT)[4]
     
     TT = means[0]
-    if i==0: TT0 = means[0]
+    if i==0 or i==1: TT0 = means[0]
 
     fig, axs = plt.subplots(2, num='Signal', clear=True)
     US.movefig(location='southeast')
@@ -233,6 +258,16 @@ for i in range(N_acqs):
     
     plt.pause(0.05)
 
+    if Temperature:
+        fig, axs = plt.subplots(2, num='Temperature', clear=True)
+        US.movefig(location='south')
+        axs[0].set_ylabel('Temperature 1 (\u2103)')
+        axs[1].set_ylabel('Cw (m/s)')
+        axs[1].set_xlabel('Sample')
+        axs[0].scatter(np.arange(i), temp1[:i], color='white', marker='o', edgecolors='black')
+        axs[1].scatter(np.arange(i), Cw_vector[:i], color='white', marker='o', edgecolors='black')
+        plt.tight_layout()
+        plt.pause(0.05)
 
     elapsed_time = time.time() - start_time
     time_to_wait = Ts_acq - elapsed_time # time until next acquisition
@@ -245,7 +280,22 @@ for i in range(N_acqs):
 # Stop the scope
 pico.stop()
 
+#%%
+if Temperature:
+    try:
+        ser.close()
+        print(f'Serial communication with {board} at port {port} closed successfully.')
+    except Exception as e:
+        print(e)
+        
+path = r'D:\Data\Arnau\ToF_drift\fishtank_lithuania\ToF.txt'
+with open(path, 'w') as f:
+    ToF.tofile(f, sep='\n')
 
+path = r'D:\Data\Arnau\ToF_drift\fishtank_lithuania\temperature1.txt'
+with open(path, 'w') as f:
+    temp1.tofile(f, sep='\n')
+    
 #%% Close
 # Close the unit
 pico.close()

@@ -1080,7 +1080,8 @@ def getNbins(x, mode: str='auto', **kwargs):
 def hist(x, bins=None, density=False, range=None, mode: str='auto'):
     '''
     Compute the histogram of x. Returns the histogram values, bin edges and 
-    width of bins.
+    width of bins. If x is a 2D matrix, the histogram is computed for every
+    row and the returned values are stores in lists.
 
     Parameters
     ----------
@@ -1098,14 +1099,14 @@ def hist(x, bins=None, density=False, range=None, mode: str='auto'):
 
     Returns
     -------
-    h : ndarray
+    h : ndarray or list of ndarrays
         The values of the histogram.
-    b : ndarray
+    b : ndarray or list of ndarrays
         Bin edges (length(hist)+1).
-    width : float
+    width : float or list of floats
         Width of the bins.
 
-    Arnau 23/12/2022
+    Arnau 09/01/2023
     '''
     if bins is None:
         bins = getNbins(x, mode=mode, range=range)
@@ -1117,8 +1118,8 @@ def hist(x, bins=None, density=False, range=None, mode: str='auto'):
         h = []
         b = []
         width = []
-        for i, xx in enumerate(x):
-            hi, bi = np.histogram(xx, bins=bins, density=density, range=range)
+        for row in x:
+            hi, bi = np.histogram(row, bins=bins, density=density, range=range)
             widthi = bi[1] - bi[0]
             h.append(hi)
             b.append(bi)

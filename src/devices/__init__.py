@@ -26,3 +26,7 @@ the folder name:
 Note that any functions/classes/globals which start with an underscore (_) will
 not be imported unless specified by __all__.
 """
+# from os import add_dll_directory
+# from pathlib import Path
+# add_dll_directory((Path(__file__).parents[2] / "./DLL").__str__())
+# add_dll_directory((Path(__file__).parents[2]).__str__())

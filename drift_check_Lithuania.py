@@ -11,18 +11,8 @@ import matplotlib.pyplot as plt
 import time
 import serial
 
-import SeDaq as SD
-import US_Functions as USF
-import US_GenCode as USGC
-import US_Graphics as USG
-import US_ACQ as ACQ
-
-def time2str(seconds) -> str:
-    hours = seconds//3600
-    minutes = seconds%3600//60
-    seconds = seconds - hours*3600 - minutes*60
-    s = f'{hours} h, {minutes} min, {seconds} s'
-    return s
+import src.ultrasound as US
+from src.devices import SeDaq as SD
 
 #%% Parameters
 Fs = 100e6                  # Desired sampling frequency (Hz) - float
@@ -42,13 +32,14 @@ Quantiz_Levels = 1024           # Number of quantization levels
 # ---------------------
 # Arduino (temperature)
 # ---------------------
+
 Temperature = True
 board = 'Arduino UNO'           # Board type
 baudrate = 9600                 # Baudrate (symbols/s)
 port = 'COM3'                   # Port to connect to
 N_avg = 1                       # Number of temperature measurements to be averaged - int
 
-print(f'The experiment will take {time2str(N_acqs*Ts_acq)}.')
+print(f'The experiment will take {US.time2str(N_acqs*Ts_acq)}.')
 
 #%% Start serial communication
 if Temperature:
@@ -70,7 +61,7 @@ SeDaq.SetGain2(Gain_Ch2)
 print(f'Gain of channel 1 set to {SeDaq.GetGain(1)} dB') # return gain of channel 1
 print(f'Gain of channel 2 set to {SeDaq.GetGain(2)} dB') # return gain of channel 2
 print("---------------------------------------------------")
-GenCode = USGC.MakeGenCode(Excitation=Excitation, ParamVal=Excitation_params)
+GenCode = US.MakeGenCode(Excitation=Excitation, ParamVal=Excitation_params)
 SeDaq.UpdateGenCode(GenCode)
 print('Generator code created and updated.')
 print("===================================================\n")
@@ -87,14 +78,14 @@ if Temperature:
     Cw_vector = np.zeros(N_acqs)
     
 for i in range(N_acqs):
-    TT_Ascan = ACQ.GetAscan_Ch1(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
+    TT_Ascan = US.GetAscan_Ch1(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
     
     start_time = time.time()
 
     if Temperature:
-        temp1[i], temp2[i] = ACQ.getTemperature(ser, N_avg, f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        temp1[i], temp2[i] = US.getTemperature(ser, N_avg, f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
         
-        Cw = USF.speedofsound_in_water(temp1[i], method='Abdessamad', method_param=148)
+        Cw = US.speedofsound_in_water(temp1[i], method='Abdessamad', method_param=148)
         Cw_vector[i] = Cw
         ToF2dist = Cw*1e6/Fs
         
@@ -105,7 +96,7 @@ for i in range(N_acqs):
     if i==0 or i==1: TT0 = TT_Ascan
 
     fig, axs = plt.subplots(2, num='Signal', clear=True)
-    USG.movefig(location='southeast')
+    US.movefig(location='southeast')
     axs[0].plot(t*1e-3, TT0, lw=2)
     axs[1].plot(t*1e-3, TT, lw=2)
     axs[1].set_xlabel('Time (us)')
@@ -115,10 +106,10 @@ for i in range(N_acqs):
     axs[1].set_title('B')
     plt.pause(0.05)
     
-    ToF[i] = USF.CalcToFAscanCosine_XCRFFT(TT, TT0, UseCentroid=False, UseHilbEnv=False, Extend=False)[0]
+    ToF[i] = US.CalcToFAscanCosine_XCRFFT(TT, TT0, UseCentroid=False, UseHilbEnv=False, Extend=False)[0]
     
     fig, ax = plt.subplots(1, num='ToF', clear=True)
-    USG.movefig(location='northeast')
+    US.movefig(location='northeast')
     ax.set_ylabel('ToF (samples)')
     ax.set_xlabel('Sample')
     ax.scatter(np.arange(i), ToF[:i], color='white', marker='o', edgecolors='black')
@@ -132,7 +123,7 @@ for i in range(N_acqs):
 
     if Temperature:
         fig, axs = plt.subplots(2, num='Temperature', clear=True)
-        USG.movefig(location='south')
+        US.movefig(location='south')
         axs[0].set_ylabel('Temperature 1 (\u2103)')
         axs[1].set_ylabel('Temperature 2 (\u2103)')
         axs[1].set_xlabel('Sample')

@@ -68,7 +68,7 @@ downsampling_ratio = 0      # Downsampling ratio - int
 # ---------------
 # Trigger options
 # ---------------
-triggerChannel = 'B'        # 'A', 'B' or 'EXTERNAL' - str
+triggerChannel = 'A'        # 'A', 'B' or 'EXTERNAL' - str
 triggerThreshold = 1000      # Trigger threshold in mV - float
 enabled_trigger = 1         # Enable (1) or disable (0) trigger - int
 direction = 2               # Check API (2=rising) - int

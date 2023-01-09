@@ -1,6 +1,7 @@
 from ctypes import c_uint8, c_uint16, c_double, byref, cdll
 import numpy as np
 from pathlib import Path
+import sys
 
 def Gencode_from_file(f_n):
     with open(f_n, 'r') as f:
@@ -21,9 +22,8 @@ def ClosestPowerOf2(gencode_len):
 
 class SeDaqDLL:
     def __init__(self, dllPath=None):
-        # cmd = cdll.LoadLibrary(r"SeDaqDLL.dll")
         if dllPath is None:
-            cmd = cdll.LoadLibrary(Path(__file__).parents[2] / "./DLL/SeDaqDLL.dll")
+            cmd = cdll.LoadLibrary((Path(__file__).parents[2] / "./SeDaqDLL.dll").__str__())
         else:
             cmd = cdll.LoadLibrary(dllPath)
 

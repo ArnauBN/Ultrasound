@@ -23,10 +23,10 @@ class Ultratek:
 
         """
 
-        # self.usbUT = ctypes.windll.LoadLibrary(dir_path + "\USBUT.dll")
-        self.usbUT = ctypes.windll.LoadLibrary(Path(__file__).parents[2] / "./DLL/USBUT.dll")
-        self.number = ctypes.create_string_buffer('\000' * 20)
-        self.data = ctypes.create_string_buffer('\000' * 8191)
+        self.usbUT = ctypes.windll.LoadLibrary((Path(__file__).parents[2] / "./USBUT.dll").__str__())
+        # self.usbUT = ctypes.windll.LoadLibrary((Path(__file__).parents[2] / "./DLL/USBUT.dll").__str__())
+        self.number = ctypes.create_string_buffer(b'0', 20)
+        self.data = ctypes.create_string_buffer(b'0', 8191)
 
 
     def init(self):
@@ -332,7 +332,7 @@ class Ultratek:
         #return np.array(data)
 
         #Faster!!!!!!
-        return np.array(map(ord, self.data[0:N_Samples]))
+        return np.array(list(map(ord, self.data[0:N_Samples].decode('utf-8'))))
 
 
     def getModelNumber(self):

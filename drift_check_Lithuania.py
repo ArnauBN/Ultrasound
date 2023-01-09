@@ -32,7 +32,8 @@ Quantiz_Levels = 1024           # Number of quantization levels
 # ---------------------
 # Arduino (temperature)
 # ---------------------
-Temperature = False
+
+Temperature = True
 board = 'Arduino UNO'           # Board type
 baudrate = 9600                 # Baudrate (symbols/s)
 port = 'COM3'                   # Port to connect to

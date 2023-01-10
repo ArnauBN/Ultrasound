@@ -861,7 +861,7 @@ def reject_outliers(data, m=0.6745):
     outliers_indexes = np.where(np.abs(Z)>=m)[0]
     return new_data, outliers, outliers_indexes
 
-def speedofsound_in_water(T, method: str, method_param=None):
+def speedofsound_in_water(T, method: str='Abdessamad', method_param=148):
     '''
     Compute speed of sound in pure water as a function of temperature with the
     given method. Some methods require parameters given in method_param.
@@ -888,17 +888,17 @@ def speedofsound_in_water(T, method: str, method_param=None):
     ----------
     T : float or ndarray
         Temperature of water in Celsius.
-    method : str
-        Method to use.
-    method_param : int or str
-        parameter for the method. Default is None.
+    method : str, optional
+        Method to use. The default is 'Abdessamad'.
+    method_param : int or str, optional
+        Parameter for the method. The default is 148.
 
     Returns
     -------
     c : float or ndarray
         the speed of sound in pure (distilled) water in m/s.
 
-    Arnau, 08/11/2022
+    Arnau, 10/01/2023
     '''
     if method.lower()=='bilaniuk':
         # Bilaniuk and Wong (0-100 ºC) - year 1993-1996

@@ -394,7 +394,7 @@ def loadAscanBatches(BATCH_DICT, DataPath, lettersList, GenCode=1, Avg=1):
 
 
 
-def load_bin_acqs(Path: str, N_acqs: int):
+def load_bin_acqs(Path: str, N_acqs: int, TT_and_PE: bool=True):
     '''
     Load a number of TT_Ascans and PE_Ascans from a binary file. The number of 
     scans is given by N_acqs. The TT and PE traces in the binary file should be
@@ -408,7 +408,10 @@ def load_bin_acqs(Path: str, N_acqs: int):
         File path.
     N_acqs : int
         Total number of acquisitions saved in the binary file.
-
+    TT_and_PE : bool, optional
+        If True, return two matrices with N_acqs columns each, one with TT
+        scans and another one with PE scans. If False, return a signle matrix
+        of N_acqs columns. The default is True.
     Returns
     -------
     TT_Ascans : ndarray
@@ -416,15 +419,20 @@ def load_bin_acqs(Path: str, N_acqs: int):
     PE_Ascans : ndarray
         2D matrix where each column represents one PE acquisition.
 
-    Arnau, 02/11/2022
+    Arnau, 10/01/2023
     '''
     with open(Path, 'rb') as f:
         data = np.fromfile(f)
-    data = np.split(data, 2*N_acqs)
-    data = np.array(data).T
-    TT_Ascans = data[:,::2]
-    PE_Ascans = data[:,1::2]
-    return TT_Ascans, PE_Ascans
+    if TT_and_PE:
+        data = np.split(data, 2*N_acqs)
+        data = np.array(data).T
+        TT_Ascans = data[:,::2]
+        PE_Ascans = data[:,1::2]
+        return TT_Ascans, PE_Ascans
+    else:
+        data = np.split(data, N_acqs)
+        data = np.array(data).T
+        return data
 
 def saveDict2txt(Path: str, d: dict, mode: str='w', delimiter: str=','):
     '''

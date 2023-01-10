@@ -123,6 +123,45 @@ def ShiftSubsampleByfft(Signal, Delay):
     return np.real( np.fft.ifft(np.fft.fft(Signal) * np.exp(-1j*2*np.pi*FAxis*Delay)))
 
 
+def CosineInterpMax_generic(MySignal, UseHilbEnv=False):
+    '''
+    Calculate the location of the maximum in subsample basis using cosine
+    interpolation. The correction for correlation is NOT performed.
+
+    Parameters
+    ----------
+    MySignal : ndarray
+        Input signal.
+    UseHilbEnv : bool, optional
+        If True, uses envelope instead of raw signal. The default is False.
+
+    Returns
+    -------
+    DeltaToF : float
+        Location of the maximum in subsample precision.
+
+    Arnau, 10/01/2023
+    '''
+    if UseHilbEnv:
+        MySignal = np.absolute(signal.hilbert(MySignal))
+    MaxLoc = np.argmax(np.abs(MySignal))  # find index of maximum
+    N = MySignal.size  # signal length
+    A = MaxLoc - 1  # left proxima
+    B = MaxLoc + 1  # Right proxima
+    if MaxLoc == 0:  # Check if maxima is in the first or the last sample
+        A = N - 1
+    elif MaxLoc == N - 1:
+        B = 0
+    
+    # calculate interpolation maxima according to cosine interpolation
+    Alpha = np.arccos((MySignal[A] + MySignal[B]) / (2 * MySignal[MaxLoc]))
+    Beta = np.arctan((MySignal[A] - MySignal[B]) / (2 * MySignal[MaxLoc] * np.sin(Alpha)))
+    Px = Beta / Alpha
+
+    # Calculate ToF in samples
+    DeltaToF = MaxLoc - Px
+    return DeltaToF
+
 def CosineInterpMax(MySignal, UseHilbEnv=False):
     '''
     Calculate the location of the maximum in subsample basis using cosine

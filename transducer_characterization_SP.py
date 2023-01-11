@@ -1,0 +1,163 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Tue Jan 10 16:58:53 2023
+Python version: Python 3.8
+
+@author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+from scipy.interpolate import interp1d
+from numpy.polynomial import polynomial as P
+
+import src.ultrasound as US
+
+#%% Load the data
+Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\transducer_characterization\stainless_steel-50mm'
+Experiment_folder_name = 'C' # Without Backslashes
+Experiment_config_file_name = 'config.txt' # Without Backslashes
+Experiment_results_file_name = 'results.txt'
+Experiment_acqdata_file_basename = 'acqdata.bin'
+Experiment_Temperature_file_name = 'temperature.txt'
+Experiment_PulseFrequencies_file_name = 'pulseFrequencies.txt'
+
+MyDir = os.path.join(Path, Experiment_folder_name)
+Config_path = os.path.join(MyDir, Experiment_config_file_name)
+Results_path = os.path.join(MyDir, Experiment_results_file_name)
+Acqdata_path = os.path.join(MyDir, Experiment_acqdata_file_basename)
+Temperature_path = os.path.join(MyDir, Experiment_Temperature_file_name)
+PulseFrequencies_path = os.path.join(MyDir, Experiment_PulseFrequencies_file_name)
+
+Config_dict = US.load_config(Config_path)
+pulse_freqs = US.load_columnvectors_fromtxt(PulseFrequencies_path, header=False)
+Temperature_dict = US.load_columnvectors_fromtxt(Temperature_path)
+PE_Ascans = US.load_bin_acqs(Acqdata_path, Config_dict['N_acqs'], TT_and_PE=False)
+PE_Ascans = PE_Ascans.T
+
+Fs = Config_dict['Fs']
+Smax2 = Config_dict['Smax2']
+Smin2 = Config_dict['Smin2']
+N_acqs = Config_dict['N_acqs']
+temperatures = Temperature_dict['Inside']
+Cw_vector = Temperature_dict['Cw']
+
+#%% Material properties
+L = 50e-3 # stainless steel -> 50 mm
+v = 5790 # stainless steel -> 5790m/s
+tof = L/v # ToF in seconds
+t = 2*tof # time to receive eco
+
+#%% Windowing
+time_axis = np.arange(Smin2, Smax2)/Fs
+relative_time_axis = np.zeros_like(time_axis)
+
+trigger_idx = np.where(PE_Ascans[-1,:] >= np.max(PE_Ascans[-1,:])/2)[0][0]
+
+relative_time_axis[trigger_idx:] = np.arange(len(time_axis)-trigger_idx)/Fs
+eco_idx = np.where(relative_time_axis >= t-1e-6)[0][0]
+
+PEs = np.copy(PE_Ascans)
+PEs[:,eco_idx:] = 0
+
+#%% Plot windowing
+ax1, ax2, ax3 = plt.subplots(3)[1]
+ax1.plot(PE_Ascans.T)
+ax1.set_title('Original')
+
+ax2.plot(PEs.T)
+ax2.set_title('Windowed')
+
+ax3.plot(PE_Ascans.T - PEs.T)
+ax3.set_title('Difference')
+plt.tight_layout()
+
+#%% Compute FFT
+ScanLen = Smax2 - Smin2
+nfft = 2**(int(np.ceil(np.log2(np.abs(ScanLen)))) + 3) # Number of FFT points (power of 2)
+freq_axis = np.linspace(0, Fs/2, nfft//2)
+
+PEs_FFT = np.fft.fft(PEs, nfft, axis=1, norm='forward')[:,:nfft//2] # norm='forward' is the same as dividing by nfft
+
+#%% Find maximum of FFT
+MaxLocs = np.zeros(N_acqs, dtype=int)
+MaxVals = np.zeros(N_acqs)
+width = (pulse_freqs[1] - pulse_freqs[0])*3 # 150% more just in case
+for i, PE in enumerate(PEs_FFT):
+    condition = np.logical_and(freq_axis > pulse_freqs[i] - width/2, freq_axis < pulse_freqs[i] + width/2)
+    slice_idxs = np.arange(len(freq_axis))[condition]
+    MaxLocs[i], MaxVals[i] = US.max_in_slice(np.abs(PE), slice_idxs, axis=None)
+
+#%% Plot
+plt.figure()
+plt.plot(time_axis*1e6, PEs.T);
+plt.xlabel('Time (us)')
+
+plt.figure()
+plt.plot(freq_axis*1e-6, np.abs(PEs_FFT.T), zorder=1)
+plt.plot(freq_axis*1e-6, np.mean(np.abs(PEs_FFT), axis=0), lw=2, c='k', zorder=2) # Average spectrum
+plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals, c='k', s=100, zorder=3)
+plt.xlabel('Frequency (MHz)')
+plt.xlim([0,10])
+if Experiment_folder_name=='D': plt.xlim([0,20])
+
+#%% Best method for each trace
+if Experiment_folder_name=='A':
+    poly = True
+    deg = 2
+elif Experiment_folder_name=='B':
+    poly = False
+elif Experiment_folder_name=='C':
+    poly = False
+elif Experiment_folder_name=='D':
+    poly = True
+    deg = 14
+elif Experiment_folder_name=='E':
+    poly = False
+
+new_freq_axis = np.linspace(freq_axis[MaxLocs[0]], freq_axis[MaxLocs[-1]], 2048)
+
+#%% Interpolation
+if not poly:   
+    interpolator = interp1d(freq_axis[MaxLocs], MaxVals, kind=2)
+    Maxs_full = interpolator(new_freq_axis)
+
+#%% Polynomial fit
+if poly:
+    c = P.polyfit(freq_axis[MaxLocs], MaxVals, deg=deg)
+    Maxs_full = P.polyval(new_freq_axis, c)
+
+#%% Bandwidth
+peak_idx = np.argmax(Maxs_full)
+peak = np.max(Maxs_full)
+
+bw_sup, bw_sup_idx = US.find_nearest(Maxs_full[peak_idx:], peak/np.sqrt(2))
+bw_sup_idx = bw_sup_idx + peak_idx
+bw_inf, bw_inf_idx = US.find_nearest(Maxs_full[:peak_idx], peak/np.sqrt(2))
+
+BW = new_freq_axis[bw_sup_idx] - new_freq_axis[bw_inf_idx]
+print(f'BW = {BW*1e-6} MHz')
+print(f'Center = {new_freq_axis[peak_idx]*1e-6} MHz')
+
+#%% Plot fit (or interpolation) and bandwidth
+plt.figure()
+plt.plot(new_freq_axis*1e-6, Maxs_full)
+plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals, c='k', s=100, zorder=3)
+plt.xlabel('Frequency (MHz)')
+plt.xlim([0,10])
+if Experiment_folder_name=='D': plt.xlim([0,20])
+
+plt.axhline(peak/np.sqrt(2), ls='--', color='k')
+plt.axvline(new_freq_axis[bw_inf_idx]*1e-6, ls='--', color='k')
+plt.axvline(new_freq_axis[bw_sup_idx]*1e-6, ls='--', color='k');
+
+'''
+Results found (MHz):
+    Center    BW
+A   3.94    3.39
+B   1.64    2.61
+C   3.64    1.78
+D   8.80    5.25
+E   3.56    1.63
+
+'''

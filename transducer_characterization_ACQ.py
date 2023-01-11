@@ -16,7 +16,7 @@ import src.ultrasound as US
 from src.devices import SeDaq as SD
 
 #%%
-Path = r'D:\Data\transducer_characterization'
+Path = r'D:\Data\transducer_characterization\stainless_steel-50mm'
 Experiment_folder_name = 'A' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
@@ -47,8 +47,8 @@ Gain_Ch1 = 70                   # Gain of channel 1 - dB
 Gain_Ch2 = 25                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
 Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
-Smin2 = 3600                    # starting point of the scan of each channel - samples
-Smax2 = 7400                    # last point of the scan of each channel - samples
+Smin2 = 4300                    # starting point of the scan of each channel - samples
+Smax2 = 9200                    # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WORK
@@ -123,13 +123,15 @@ Cw_vector = np.zeros(N_acqs)
 PE_Ascans = np.zeros([N_acqs, Smax2 - Smin2])
 for i, g in enumerate(GenCode):
     SeDaq.UpdateGenCode(g)
-    time.sleep(0.1) # just in case
+    time.sleep(0.2) # just in case
     
     PE_Ascans[i] = US.GetAscan_Ch2(Smin2, Smax2, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
     
     if Temperature:
         temperatures[i] = US.getTemperature(ser, N_avg, twoSensors=False)
         Cw_vector[i] = US.speedofsound_in_water(temperatures[i])
+    
+    print(f'Acq. {i+1}/{N_acqs} done.')
 
 # ------------------------------------------------
 # Save pulse frequencies, temperature and acq data
@@ -158,30 +160,28 @@ if Temperature:
     except Exception as e:
         print(e)
 
-
-#%% This is how to load the data
-# Config_dict = US.load_config(Config_path)
-# pulse_freqs = US.load_columnvectors_fromtxt(PulseFrequencies_path, header=False)
-# Temperature_dict = US.load_columnvectors_fromtxt(Temperature_path)
-# PE_Ascans = US.load_bin_acqs(Acqdata_path, Config_dict['N_acqs'], TT_and_PE=False)
-
-# Fs = Config_dict['Fs']
-# Smax2 = Config_dict['Smax2']
-# Smin2 = Config_dict['Smin2']
-# N_acqs = Config_dict['N_acqs']
-# temperatures = Temperature_dict['Inside']
-# Cw_vector = Temperature_dict['Cw']
-
-#%% Processing the data
+#%% Plot data
 ScanLen = Smax2 - Smin2
-nfft = 2**int(np.ceil(np.log2(np.abs(ScanLen)))) + 1 # Number of FFT points (power of 2)
+nfft = 2**(int(np.ceil(np.log2(np.abs(ScanLen)))) + 3) # Number of FFT points (power of 2)
 freq_axis = np.linspace(0, Fs/2, nfft//2)
+time_axis = np.arange(Smin2, Smax2)/Fs
 
-PE_Ascans_FFT = np.fft.fft(PE_Ascans, nfft, axis=1)
-PE_Ascans_FFT = PE_Ascans_FFT[:nfft//2]
+PE_Ascans_FFT = np.fft.fft(PE_Ascans, nfft, axis=1)[:,:nfft//2]
+
+# Plot
+plt.figure()
+plt.plot(time_axis*1e6, PE_Ascans.T);
+plt.xlabel('Time (us)')
 
 plt.figure()
-plt.plot(PE_Ascans)
+plt.plot(freq_axis*1e-6, np.abs(PE_Ascans_FFT.T), zorder=1)
+plt.plot(freq_axis*1e-6, np.mean(np.abs(PE_Ascans_FFT), axis=0), lw=2, c='k', zorder=2) # Average spectrum
+plt.xlabel('Frequency (MHz)')
+plt.xlim([0,10])
 
-plt.figure()
-plt.plot(np.tile(freq_axis,(N_acqs,1)), PE_Ascans_FFT)
+
+
+
+
+
+

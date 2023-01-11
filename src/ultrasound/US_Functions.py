@@ -1257,3 +1257,27 @@ def min_in_slice(x, slice_idxs, axis=None):
     MinLoc = np.argmin(aux, axis=axis)
     MinVal = np.min(aux, axis=axis)
     return MinLoc, MinVal
+
+def find_nearest(x, value):
+    '''
+    Finds the nearest value in x.
+
+    Parameters
+    ----------
+    x : ndarray
+        Input array.
+    value : float
+        Value to find in x. The nearest value in x is returned.
+
+    Returns
+    -------
+    value_found : float
+        The value in x wich is closest to the input value.
+    idx : int
+        The index of value_found.
+
+    Arnau, 11/01/2023
+    '''
+    array = np.asarray(x)
+    idx = (np.abs(array - value)).argmin()
+    return array[idx], idx

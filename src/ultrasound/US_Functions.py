@@ -1196,3 +1196,64 @@ def slice_array(x, slicesize, overlap=0.5):
     idxs = np.lib.stride_tricks.sliding_window_view(idxs, n)[::n-m, :]
     sliced = np.lib.stride_tricks.sliding_window_view(x, n)[::n-m, :]
     return sliced, idxs
+
+
+def max_in_slice(x, slice_idxs, axis=None):
+    '''
+    Find maximum of an array inside the given indices.
+
+    Parameters
+    ----------
+    x : ndarray
+        Input array.
+    slice_idxs : ndarray or list
+        Indices of x where to find the maximum.
+    axis : int or None, optional
+        Axis parameter for numpy.max. The default is None.
+
+    Returns
+    -------
+    MaxLoc : int or ndarray
+        The index of the maximum (or indices if x.ndims>1).
+    MaxVal : float or ndarray
+        The value of the maximum (or values if x.ndims>1).
+
+    Arnau 10/01/2023
+    '''
+    MinVal = np.min(x)
+    aux = np.ones_like(x)*MinVal
+    aux[np.asarray(slice_idxs)] = x[np.asarray(slice_idxs)]
+    
+    MaxLoc = np.argmax(aux, axis=axis)
+    MaxVal = np.max(aux, axis=axis)
+    return MaxLoc, MaxVal
+
+def min_in_slice(x, slice_idxs, axis=None):
+    '''
+    Find minimum of an array inside the given indices.
+
+    Parameters
+    ----------
+    x : ndarray
+        Input array.
+    slice_idxs : ndarray or list
+        Indices of x where to find the minimum.
+    axis : int or None, optional
+        Axis parameter for numpy.min. The default is None.
+
+    Returns
+    -------
+    MinLoc : int or ndarray
+        The index of the minimum (or indices if x.ndims>1).
+    MinVal : float or ndarray
+        The value of the minimum (or values if x.ndims>1).
+
+    Arnau 10/01/2023
+    '''
+    MaxVal = np.max(x)
+    aux = np.ones_like(x)*MaxVal
+    aux[np.asarray(slice_idxs)] = x[np.asarray(slice_idxs)]
+    
+    MinLoc = np.argmin(aux, axis=axis)
+    MinVal = np.min(aux, axis=axis)
+    return MinLoc, MinVal

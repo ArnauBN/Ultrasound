@@ -20,7 +20,7 @@ class Scanner():
         self.uStepX = 0.01
         self.uStepY = 0.01
         self.uStepZ = 0.005
-        self.uStepR = 0.0281
+        self.uStepR = 1.8 # (200steps=360deg) --- the other value that doesnt work: 0.0281
 
         # Current coordinates
         self.readCoords()

@@ -473,7 +473,7 @@ class Scanner():
         self.write(f'SPR{value}')
         self._Rspeed = value
 
-    def setSpeeds(self, Xvalue=100, Yvalue=100, Zvalue=100, Rvalue=10):
+    def setSpeeds(self, Xvalue=100, Yvalue=100, Zvalue=100, Rvalue=100):
         self.Xspeed = Xvalue
         self.Yspeed = Yvalue
         self.Zspeed = Zvalue

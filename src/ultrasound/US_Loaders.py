@@ -494,7 +494,7 @@ def load_config(Path: str):
     def toBool(x):
         return x == 'True'
     
-    def temp(x):
+    def floatOrNone(x):
         return float(x) if x != 'None' else None
     
     types_dict = {'Fs': float,
@@ -522,8 +522,8 @@ def load_config(Path: str):
                   'N_avg' : int,
                   'ID' : toBool,
                   'stripIterNo' : int,
-                  'WP_temperature' : temp,
-                  'Outside_temperature' : temp
+                  'WP_temperature' : floatOrNone,
+                  'Outside_temperature' : floatOrNone
                   }
 
     for k, v in types_dict.items():

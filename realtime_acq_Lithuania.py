@@ -89,6 +89,7 @@ align_PEref = True              # If True, align PEref to zero - bool
 stripIterNo = 2                 # If 2, PER and PETR windows are used. If 4, only one deconvolution is used for all 4 echoes - int
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
+windowPE = True                 # If True, apply windowing to the echo signal specified by Loc_PER, Loc_PETR, WinLen_PER and WinLen_PETR - bool
 Loc_TT = 2800                   # position of Through Transmission, approximation - samples
 Loc_WP = 2900                  # position of Water Path, approximation - samples
 Loc_PER = 1300                  # position of echo from front surface, approximation - samples
@@ -400,12 +401,16 @@ for i in range(N_acqs):
             TT_Ascan.tofile(f)
             PE_Ascan.tofile(f)
             
-            
+    
     # ------------
     # Window scans
     # ------------
-    PE_R = PE_Ascan * MyWin_PER # extract front surface reflection
-    PE_TR = PE_Ascan * MyWin_PETR # extract back surface reflection
+    if windowPE:
+        PE_R = PE_Ascan * MyWin_PER # extract front surface reflection
+        PE_TR = PE_Ascan * MyWin_PETR # extract back surface reflection
+    else:
+        PE_R = PE_Ascan
+        PE_TR = PE_Ascan
     TT = TT_Ascan * MyWin_TT
     
     

@@ -81,6 +81,7 @@ Save_acq_data = True            # If True, save all acq. data to {Acqdata_path} 
 Load_refs_from_bin = False      # If True, load reference signals from {WP_path} and {Ref_path} instead of making an acquisiton - bool
 Plot_all_acq = True             # If True, plot every acquisition - bool
 Temperature = True              # If True, take temperature measurements at each acq. (temperature data is always saved to file) and plot Cw - bool
+twoSensors = False              # If True, assume we have two temperature sensors, one inside and one outside - bool
 Plot_temperature = True         # If True, plots temperature measuements at each acq. (has no effect if Temperature==False) - bool
 ID = True                       # use Iterative Deconvolution or find_peaks - bool
 PE_as_ref = True                # If True, both a WP and a PE traces are acquired. The resulting ref. signal has the PE pulse aligned at WP - str
@@ -216,7 +217,15 @@ print("===================================================\n")
 if Temperature:
     if not ser.isOpen():
         ser.open()
-    mean1, mean2 = US.getTemperature(ser, N_avg, 'Warning: wrong temperature data for Water Path.', 'Warning: could not parse temperature data to float for Water Path.')
+    
+    tmp = US.getTemperature(ser, N_avg, twoSensors=twoSensors, error_msg='Warning: wrong temperature data for Water Path.', exception_msg='Warning: could not parse temperature data to float for Water Path.')
+    
+    if twoSensors:
+        mean2 = tmp[1]
+        mean1 = tmp[0]
+    else:
+        mean2 = None
+        mean1 = tmp
     
     config_dict['WP_temperature'] = mean1
     config_dict['Outside_temperature'] = mean2
@@ -317,12 +326,16 @@ with open(Results_path, 'w') as f:
 # Write temperature header to text file
 # -------------------------------------
 if Temperature:
-    header = 'Inside,Outside,Cw'
+    if twoSensors:
+        header = 'Inside,Outside,Cw'
+        means2 = np.zeros(N_acqs)
+    else:
+        header = 'Inside,Cw'
+    means1 = np.zeros(N_acqs)
+    
     with open(Temperature_path, 'w') as f:
         f.write(header+'\n')
-    means1 = np.zeros(N_acqs)
-    means2 = np.zeros(N_acqs)
-    
+
     if not ser.isOpen():
         ser.open()
 
@@ -350,7 +363,13 @@ for i in range(N_acqs):
         start_time = time.time() # start timer
     
     if Temperature:
-        means1[i], means2[i] = US.getTemperature(ser, N_avg, f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        tmp = US.getTemperature(ser, N_avg, twoSensors=twoSensors, error_msg=f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', exception_msg=f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        
+        if twoSensors:
+            means2[i] = tmp[1]
+            means1[i] = tmp[0]
+        else:
+            means1[i] = tmp
         
         Cw = US.speedofsound_in_water(means1[i], method='Abdessamad', method_param=148)
         Cw_vector[i] = Cw
@@ -369,7 +388,10 @@ for i in range(N_acqs):
     # Save temperature and acq data
     # -----------------------------  
     with open(Temperature_path, 'a') as f:
-        row = f'{means1[i]},{means2[i]},{Cw}'
+        if twoSensors:
+            row = f'{means1[i]},{means2[i]},{Cw}'
+        else:
+            row = f'{means1[i]},{Cw}'
         f.write(row+'\n')
     
     _mode = 'wb' if i==0 else 'ab' # clear data from previous experiment before writing

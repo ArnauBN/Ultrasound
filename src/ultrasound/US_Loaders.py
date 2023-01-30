@@ -480,7 +480,7 @@ def load_config(Path: str):
     d : dict
         Configuration dictionary.
 
-    Arnau, 02/11/2022
+    Arnau, 20/01/2023
     '''
     d = {}
     with open(Path, 'r') as f:
@@ -498,7 +498,7 @@ def load_config(Path: str):
         return float(x) if x != 'None' else None
     
     types_dict = {'Fs': float,
-                  'num_bits' : float,
+                  'num_bits' : int,
                   'Fs_Gencode_Generator' : float,
                   'Gain_Ch1' : float,
                   'Gain_Ch2' : float,

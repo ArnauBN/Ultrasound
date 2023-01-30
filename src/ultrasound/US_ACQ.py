@@ -274,7 +274,7 @@ def getTemperature(ser: serial.Serial, N_avg: int=1, twoSensors: bool=True, intD
     mean2 : float
         Measurement of sensor 2.
 
-    Arnau, 08/11/2022
+    Arnau, 30/01/2023
     '''
     lines = [None]*N_avg # init. list of lines
     temp1 = np.zeros(N_avg);
@@ -314,8 +314,8 @@ def getTemperature(ser: serial.Serial, N_avg: int=1, twoSensors: bool=True, intD
                     print(exception_msg)
                 GoodMeasurement = False
                 
-        mean1 = np.mean(temp1)
-        if twoSensors:
-            mean2 = np.mean(temp2)
-            return mean1, mean2
+    mean1 = np.mean(temp1)
+    if twoSensors:
+        mean2 = np.mean(temp2)
+        return mean1, mean2
     return mean1

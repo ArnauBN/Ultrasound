@@ -114,12 +114,12 @@ pattern = 'line+turn on Z'      # Available patterns:  - str
 X_step = 0                      # smallest step to move in the X axis (mm), min is 0.01 - float
 Y_step = 0                      # smallest step to move in the Y axis (mm), min is 0.01 - float
 Z_step = 1                      # smallest step to move in the Z axis (mm), min is 0.005 - float
-R_step = 0                      # smallest step to move in the R axis (deg), min is 1.8  - float
+R_step = 30                      # smallest step to move in the R axis (deg), min is 1.8  - float
 # If the step is zero, do not move on that axis
 
 X_end = 0                       # last X coordinate of the experiment (mm) - float
 Y_end = 0                       # last Y coordinate of the experiment (mm) - float
-Z_end = 80                      # last Z coordinate of the experiment (mm) - float
+Z_end = 125                      # last Z coordinate of the experiment (mm) - float
 R_end = 0                       # last R coordinate of the experiment (deg) - float
 
 scanpatter = Scanner.makeScanPattern(pattern, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
@@ -171,10 +171,10 @@ SeDaq.Quantiz_Levels = Quantiz_Levels
 # Initialize Scanner
 ########################################################################
 scanner = Scanner.Scanner(port=port_scanner, baudrate=baudrate_scanner, timeout=timeout_scanner)
-scanner.XLimit = X_end + scanner.uStepX
-scanner.YLimit = Y_end + scanner.uStepY
-scanner.ZLimit = Z_end + scanner.uStepZ
-scanner.RLimit = R_end + scanner.uStepR
+scanner.XLimit = X_end + 1
+scanner.YLimit = Y_end + 1
+scanner.ZLimit = Z_end + 1
+scanner.RLimit = R_end + 1
 
 
 #%% 
@@ -363,7 +363,7 @@ scanner.goHome()
 # Sart loop
 # ---------
 try:
-    for i, sp in enumerate(scanpatter):    
+    for i, sp in enumerate(scanpatter):
         # -------------------------------------------
         # Acquire signal, temperature and start timer
         # -------------------------------------------
@@ -409,7 +409,7 @@ try:
         # Move scanner
         # ------------
         ax = sp[0]
-        val = sp[1:]
+        val = float(sp[1:])
         if ax=='X':
             scanner.diffMoveX(val)
         elif ax=='Y':

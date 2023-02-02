@@ -1200,7 +1200,8 @@ def slice_array(x, slicesize, overlap=0.5):
 
 def max_in_slice(x, slice_idxs, axis=None):
     '''
-    Find maximum of an array inside the given indices.
+    Find maximum of an array in the given indices. Indices does not need to be
+    consecutive.
 
     Parameters
     ----------
@@ -1218,19 +1219,17 @@ def max_in_slice(x, slice_idxs, axis=None):
     MaxVal : float or ndarray
         The value of the maximum (or values if x.ndims>1).
 
-    Arnau 10/01/2023
+    Arnau 12/01/2023
     '''
-    MinVal = np.min(x)
-    aux = np.ones_like(x)*MinVal
-    aux[np.asarray(slice_idxs)] = x[np.asarray(slice_idxs)]
-    
-    MaxLoc = np.argmax(aux, axis=axis)
-    MaxVal = np.max(aux, axis=axis)
+    m = np.argmax(x[slice_idxs], axis=axis)
+    MaxLoc = slice_idxs[m]
+    MaxVal = x[MaxLoc]
     return MaxLoc, MaxVal
 
 def min_in_slice(x, slice_idxs, axis=None):
     '''
-    Find minimum of an array inside the given indices.
+    Find minimum of an array in the given indices. Indices does not need to be
+    consecutive.
 
     Parameters
     ----------
@@ -1248,15 +1247,108 @@ def min_in_slice(x, slice_idxs, axis=None):
     MinVal : float or ndarray
         The value of the minimum (or values if x.ndims>1).
 
-    Arnau 10/01/2023
+    Arnau 12/01/2023
     '''
-    MaxVal = np.max(x)
-    aux = np.ones_like(x)*MaxVal
-    aux[np.asarray(slice_idxs)] = x[np.asarray(slice_idxs)]
-    
-    MinLoc = np.argmin(aux, axis=axis)
-    MinVal = np.min(aux, axis=axis)
+    m = np.argmin(x[slice_idxs], axis=axis)
+    MinLoc = slice_idxs[m]
+    MinVal = x[MinLoc]
     return MinLoc, MinVal
+
+def max_in_range(x, lims, indep=None, axis=None):
+    '''
+    Find maximum of an array in the given range of indices (if indep is None)
+    or in the range of indices corresponding to the given values of indep.
+    
+    indep must have the same shape as x.
+    
+    In either case, the lower limit is included and the upper limit is
+    excluded.
+    
+    Example:
+        >>> x = np.arange(5,20)
+        >>> f = np.linspace(0, 10, len(x))
+        >>> lims = (3.5, 5.3)
+        >>> max_in_range(x=x, lims=lims, indep=f, axis=None)
+        (7, 12)
+
+    Parameters
+    ----------
+    x : ndarray
+        Input array.
+    lims : tuple of ints or tuple of floats
+        If indep is None, these are the first and last indeces of the range. 
+        Else, these are the values in indep that define the range.
+    indep : ndarray or None, optional
+        Array with the same shape as x (or None, unused). The range is defined
+        with the values in this array. The default is None.
+    axis : int or None, optional
+        Axis parameter for numpy.max. The default is None.
+
+    Returns
+    -------
+    MaxLoc : int or ndarray
+        The index of the maximum (or indices if x.ndims>1).
+    MaxVal : float or ndarray
+        The value of the maximum (or values if x.ndims>1).
+
+    Arnau, 12/01/2023
+    '''
+    if indep is None:
+        MaxLoc = np.argmax(x[lims[0]:lims[-1]], axis=axis) + lims[0]
+    else:
+        condition = np.logical_and(indep >= lims[0], indep < lims[-1])
+        MaxLoc = np.argmax(x[condition], axis=axis) + np.where(condition==True)[0][0]
+    MaxVal = x[MaxLoc]
+    return MaxLoc, MaxVal
+
+def min_in_range(x, lims, indep=None, axis=None):
+    '''
+    Find minimum of an array in the given range of indices (if indep is None)
+    or in the range of indices corresponding to the given values of indep.
+    
+    indep must have the same shape as x.
+    
+    In either case, the lower limit is included and the upper limit is
+    excluded.
+    
+    Example:
+        >>> x = np.arange(5,20)
+        >>> f = np.linspace(0, 10, len(x))
+        >>> lims = (3.5, 5.3)
+        >>> min_in_range(x=x, lims=lims, indep=f, axis=None)
+        (5, 10)
+
+    Parameters
+    ----------
+    x : ndarray
+        Input array.
+    lims : tuple of ints or tuple of floats
+        If indep is None, these are the first and last indeces of the range. 
+        Else, these are the values in indep that define the range.
+    indep : ndarray or None, optional
+        Array with the same shape as x (or None, unused). The range is defined
+        with the values in this array. The default is None.
+    axis : int or None, optional
+        Axis parameter for numpy.min. The default is None.
+
+    Returns
+    -------
+    MinLoc : int or ndarray
+        The index of the minimum (or indices if x.ndims>1).
+    MinVal : float or ndarray
+        The value of the minimum (or values if x.ndims>1).
+
+    Arnau, 12/01/2023
+    '''
+    if indep is None:
+        MinLoc = np.argmin(x[lims[0]:lims[-1]], axis=axis) + lims[0]
+    else:
+        condition = np.logical_and(indep >= lims[0], indep < lims[-1])
+        MinLoc = np.argmin(x[condition], axis=axis) + np.where(condition==True)[0][0]
+    MinVal = x[MinLoc]
+    return MinLoc, MinVal
+
+
 
 def find_nearest(x, value):
     '''
@@ -1280,4 +1372,4 @@ def find_nearest(x, value):
     '''
     array = np.asarray(x)
     idx = (np.abs(array - value)).argmin()
-    return array[idx], idx
+    return idx, array[idx]

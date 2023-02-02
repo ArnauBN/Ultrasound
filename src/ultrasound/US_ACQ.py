@@ -10,9 +10,11 @@ import matplotlib.pylab as plt
 import serial
 #import winsound
 
+from warnings import warn
+
 ''' Get Ascans '''
 def _GetAscan(ch, Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
-    '''
+    '''DEPRECATED. USE SeDaq._GetAscan
     Get Ascan for channel {ch}.
 
     Parameters
@@ -35,6 +37,8 @@ def _GetAscan(ch, Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
 
     Arnau 21/12/2022
     '''
+    warn("Deprecated. Use SeDaq class instead.")
+    
     SeDaq = SeDaqDLL()
     Ascan = np.zeros(Smax - Smin)
     Flag = AvgSamplesNumber
@@ -55,8 +59,9 @@ def _GetAscan(ch, Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     Ascan = Ascan / AvgSamplesNumber #calculate averaged Ascan
     Ascan = Ascan - np.mean(Ascan) #substract mean value
     return Ascan
+
 def GetAscan_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
-    '''
+    '''DEPRECATED. USE SeDaq.GetAscan_Ch2
     Get Ascan from channel 2 only and extract data between Smin and Smax. Data
     is normalized according to quantization levels and averaged according to
     the number of samples acquired at each point.
@@ -82,7 +87,7 @@ def GetAscan_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     return _GetAscan(2, Smin, Smax, AvgSamplesNumber, Quantiz_Levels)
 
 def GetAscan_Ch1(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
-    '''
+    '''DEPRECATED. USE SeDaq.GetAscan_Ch1
     Get Ascan from channel 1 only and extract data between Smin and Smax. Data
     is normalized according to quantization levels and averaged according to
     the number of samples acquired at each point.
@@ -108,7 +113,7 @@ def GetAscan_Ch1(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     return _GetAscan(1, Smin, Smax, AvgSamplesNumber, Quantiz_Levels)
 
 def GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
-    '''
+    '''DEPRECATED. USE SeDaq.GetAscan_Ch1_Ch2
     Get Ascans. It checks that Ascans are not zeros, because sometimes happens...
 
     Parameters
@@ -131,6 +136,8 @@ def GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber = 10, Quantiz_Levels = 1024):
     
     Revised: Arnau, 21/12/2022
     '''
+    warn("Deprecated. Use SeDaq class instead.")
+    
     if isinstance(Smin, tuple):
         Smin1, Smin2 = Smin
     else:
@@ -233,6 +240,7 @@ def GenCodeList_Info(FileName):
 
 
 def _parseTemperatureData(line, twoSensors=True, intDigits=2, floatDigits=3, sepLength=0):
+    '''DEPRECATED. USE Arduino._parseTemperatureData'''
     if twoSensors:
         threshold = intDigits + floatDigits + 1 # +1 due to the decimal point itself
         temp1 = float(''.join(list(map(chr, line[:threshold]))))
@@ -241,7 +249,7 @@ def _parseTemperatureData(line, twoSensors=True, intDigits=2, floatDigits=3, sep
     return float(line)
 
 def getTemperature(ser: serial.Serial, N_avg: int=1, twoSensors: bool=True, intDigits: int=2, floatDigits: int=3, sepLength: int=0, error_msg: str=None, exception_msg: str=None):
-    '''
+    '''DEPRECATED. USE Arduino.getTemperature
     Get a temperature reading via serial communication (ser). The expected 
     format of the readings are b'12.34567.890' which is then parsed to floats
     as 12.345 and 67.890 (these numbers are just an example). If N_avg > 1,
@@ -276,6 +284,8 @@ def getTemperature(ser: serial.Serial, N_avg: int=1, twoSensors: bool=True, intD
 
     Arnau, 30/01/2023
     '''
+    warn("Deprecated. Use Arduino class instead.")
+    
     lines = [None]*N_avg # init. list of lines
     temp1 = np.zeros(N_avg);
     if twoSensors:

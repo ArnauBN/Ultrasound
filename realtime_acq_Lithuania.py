@@ -7,18 +7,17 @@ Python version: Python 3.8
 
 
 This script uses the Lithuanian acquisition system.
-Last updated: 02/12/2022.
+Last updated: 31/01/2023.
 
 """
 import time
 import numpy as np
 import matplotlib.pylab as plt
 import os
-import serial
 
 import src.ultrasound as US
 from src.devices import SeDaq as SD
-
+from src.devices import Arduino
 
 #%%
 ########################################################
@@ -30,7 +29,7 @@ Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
 Experiment_WP_file_name = 'WP.bin'
-Experiment_acqdata_file_basename = 'acqdata.bin'
+Experiment_acqdata_file_name = 'acqdata.bin'
 Experiment_Temperature_file_name = 'temperature.txt'
 
 MyDir = os.path.join(Path, Experiment_folder_name)
@@ -38,7 +37,7 @@ Config_path = os.path.join(MyDir, Experiment_config_file_name)
 Results_path = os.path.join(MyDir, Experiment_results_file_name)
 PEref_path = os.path.join(MyDir, Experiment_PEref_file_name)
 WP_path = os.path.join(MyDir, Experiment_WP_file_name)
-Acqdata_path = os.path.join(MyDir, Experiment_acqdata_file_basename)
+Acqdata_path = os.path.join(MyDir, Experiment_acqdata_file_name)
 Temperature_path = os.path.join(MyDir, Experiment_Temperature_file_name)
 if not os.path.exists(MyDir):
     os.makedirs(MyDir)
@@ -65,7 +64,7 @@ Gain_Ch2 = 25                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
 Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
 Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WORK
-Fc = 5*1e6                      # Pulse frequency - Hz
+Fc = 5e6                        # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
 Smin1, Smin2 = 3900, 3900       # starting point of the scan of each channel - samples
@@ -112,7 +111,7 @@ if Ts_acq is not None:
 
 #%% Start serial communication
 if Temperature:
-    ser = serial.Serial(port, baudrate, timeout=None)  # open comms
+    arduino = Arduino(board, baudrate, port, twoSensors, N_avg)  # open comms
 
 
 #%%
@@ -145,6 +144,8 @@ GenCode = US.MakeGenCode(Excitation=Excitation, ParamVal=Excitation_params)
 SeDaq.UpdateGenCode(GenCode)
 print('Generator code created and updated.')
 print("===================================================\n")
+SeDaq.AvgSamplesNumber = AvgSamplesNumber
+SeDaq.Quantiz_Levels = Quantiz_Levels
 
 
 #%% 
@@ -199,11 +200,11 @@ if Load_refs_from_bin:
         PEref_Ascan = WP_Ascan
         print(f'No {Experiment_PEref_file_name} found. Setting PEref_Ascan = WP_Ascan.')
 else:
-    WP_Ascan = US.GetAscan_Ch1(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
+    WP_Ascan = SeDaq.GetAscan_Ch1(Smin1, Smax1)
     print('Water path acquired.')
     if PE_as_ref:
         input("Press any key to acquire the pulse echo.")
-        PEref_Ascan = US.GetAscan_Ch2(Smin2, Smax2, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels)
+        PEref_Ascan = SeDaq.GetAscan_Ch2(Smin2, Smax2)
         MyWin_PEref = US.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
         PEref_Ascan = PEref_Ascan * MyWin_PEref
         
@@ -216,10 +217,10 @@ else:
 print("===================================================\n")
 
 if Temperature:
-    if not ser.isOpen():
-        ser.open()
+    arduino.open()
     
-    tmp = US.getTemperature(ser, N_avg, twoSensors=twoSensors, error_msg='Warning: wrong temperature data for Water Path.', exception_msg='Warning: could not parse temperature data to float for Water Path.')
+    tmp = arduino.getTemperature(error_msg='Warning: wrong temperature data for Water Path.', 
+                                 exception_msg='Warning: could not parse temperature data to float for Water Path.')
     
     if twoSensors:
         mean2 = tmp[1]
@@ -337,8 +338,7 @@ if Temperature:
     with open(Temperature_path, 'w') as f:
         f.write(header+'\n')
 
-    if not ser.isOpen():
-        ser.open()
+    arduino.open()
 
 
 # -------------------------------
@@ -358,13 +358,14 @@ for i in range(N_acqs):
     # -------------------------------------------
     # Acquire signal, temperature and start timer
     # -------------------------------------------
-    TT_Ascan, PE_Ascan = US.GetAscan_Ch1_Ch2(Smin, Smax, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
+    TT_Ascan, PE_Ascan = SeDaq.GetAscan_Ch1_Ch2(Smin, Smax) #acq Ascan
     
     if Ts_acq is not None:
         start_time = time.time() # start timer
     
     if Temperature:
-        tmp = US.getTemperature(ser, N_avg, twoSensors=twoSensors, error_msg=f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', exception_msg=f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        tmp = arduino.getTemperature(error_msg=f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', 
+                                     exception_msg=f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
         
         if twoSensors:
             means2[i] = tmp[1]
@@ -432,7 +433,7 @@ for i in range(N_acqs):
     # TOF computations
     # ----------------
     # Find ToF_TW
-    ToF_TW, Aligned_TW, _ = US.CalcToFAscanCosine_XCRFFT(TT, WP, UseCentroid=False, UseHilbEnv=False, Extend=False)
+    ToF_TW, Aligned_TW, _ = US.CalcToFAscanCosine_XCRFFT(TT, WP, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False)
     
     if ID:
         if stripIterNo == 2:
@@ -548,13 +549,20 @@ for i in range(N_acqs):
         
         # Plot temperature
         if Plot_temperature:
-            fig, axs = plt.subplots(2, num='Temperature', clear=True)
-            US.movefig(location='south')
-            axs[0].set_ylabel('Temperature 1 (\u2103)')
-            axs[1].set_ylabel('Temperature 2 (\u2103)')
-            axs[1].set_xlabel(_xlabel)
-            axs[0].scatter(_xdata, means1[:i], color='white', marker='o', edgecolors='black')
-            axs[1].scatter(_xdata, means2[:i], color='white', marker='o', edgecolors='black')
+            if twoSensors:
+                fig, axs = plt.subplots(2, num='Temperature', clear=True)
+                US.movefig(location='south')
+                axs[0].set_ylabel('Temperature 1 (\u2103)')
+                axs[1].set_ylabel('Temperature 2 (\u2103)')
+                axs[1].set_xlabel(_xlabel)
+                axs[0].scatter(_xdata, means1[:i], color='white', marker='o', edgecolors='black')
+                axs[1].scatter(_xdata, means2[:i], color='white', marker='o', edgecolors='black')
+            else:
+                fig, ax = plt.subplots(1, num='Temperature', clear=True)
+                US.movefig(location='south')
+                ax.set_ylabel('Temperature (\u2103)')
+                ax.set_xlabel(_xlabel)
+                ax.scatter(_xdata, means1[:i], color='white', marker='o', edgecolors='black')
             plt.tight_layout()
             plt.pause(_plt_pause_time)
             
@@ -600,7 +608,7 @@ for i in range(N_acqs):
     
     # Remove previous mean lines
     if i != N_acqs-1:
-        if Ts_acq is None:
+        if Charac_container or no_container:
             line_Cc.remove()
         line_Lc.remove()
 # -----------
@@ -608,11 +616,7 @@ for i in range(N_acqs):
 # -----------
 plt.tight_layout()
 if Temperature:
-    try:
-        ser.close()
-        print(f'Serial communication with {board} at port {port} closed successfully.')
-    except Exception as e:
-        print(e)
+    arduino.close()
 
 
 # -----------------

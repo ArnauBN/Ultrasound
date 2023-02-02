@@ -523,14 +523,16 @@ def load_config(Path: str):
                   'ID' : toBool,
                   'stripIterNo' : int,
                   'WP_temperature' : floatOrNone,
-                  'Outside_temperature' : floatOrNone
+                  'Outside_temperature' : floatOrNone,
+                  'Cw' : float,
+                  'CW' : float
                   }
 
     for k, v in types_dict.items():
         if k in d: d[k] = v(d[k])
     return d
 
-def load_columnvectors_fromtxt(Path: str, delimiter: str=',', header: bool=True):
+def load_columnvectors_fromtxt(Path: str, delimiter: str=',', header: bool=True, dtype=float):
     '''
     Load data float from a text file. If header is True, then the first row of
     the file is interpreted as the header which is used as keys for the 
@@ -546,18 +548,20 @@ def load_columnvectors_fromtxt(Path: str, delimiter: str=',', header: bool=True)
     header : bool, optional
         If true, the first row of the file is interpreted as the header and a 
         dictionary is returned. The default is True.
-        
+    dtype : data-type, optional
+        See numpy.loadtxt doc for more information. Default is float.
+    
     Returns
     -------
     data : dict or ndarray
         data loaded from the text file.
 
-    Arnau, 08/11/2022
+    Arnau, 02/02/2023
     '''
     if header:
         d = {}
         headers = np.loadtxt(Path, dtype=str, delimiter=delimiter, max_rows=1)
-        data = np.loadtxt(Path, delimiter=delimiter, skiprows=1)
+        data = np.loadtxt(Path, delimiter=delimiter, skiprows=1, dtype=dtype)
         for i, h in enumerate(headers):
             d[h] = data[:,i]
         return d

@@ -525,7 +525,8 @@ def load_config(Path: str):
                   'WP_temperature' : floatOrNone,
                   'Outside_temperature' : floatOrNone,
                   'Cw' : float,
-                  'CW' : float
+                  'CW' : float,
+                  'cw' : float
                   }
 
     for k, v in types_dict.items():

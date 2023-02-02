@@ -50,6 +50,8 @@ class SeDaqDLL:
         self.GenCodes = []
         self.RecLen = 1024*32
     
+        self.AvgSamplesNumber = 10
+        self.Quantiz_Levels = 1024
     
     # ============ GETS ============    
     def GetAScan(self):
@@ -75,11 +77,78 @@ class SeDaqDLL:
     def GetGain(self, ch):
         return self.SeDaqDLL_GetGain(ch)
 
-    def GetGain1(self, ch):
+    def GetGain1(self):
         return self.SeDaqDLL_GetGain(1)
     
-    def GetGain2(self, ch):
+    def GetGain2(self):
         return self.SeDaqDLL_GetGain(2)
+
+
+
+    def _GetAscan(self, ch, Smin, Smax):
+        Ascan = np.zeros(Smax - Smin)
+        Flag = self.AvgSamplesNumber
+
+        while Flag > 0:
+            self.GetAScan() # get Ascan
+            if ch==1:
+                Aux = np.array(list(map(float, self.DataADC1[Smin:Smax]))) # get Ascan
+            else:
+                Aux = np.array(list(map(float, self.DataADC2[Smin:Smax]))) # get Ascan
+            Aux = (Aux - self.Quantiz_Levels/2) / self.Quantiz_Levels # Normalize 
+            Aux = Aux - np.mean(Aux) # remove mean
+            
+            if not(np.all(Aux==0.0)):	            
+                Ascan = Ascan + Aux		
+                Flag -= 1
+                		
+        Ascan = Ascan / self.AvgSamplesNumber #calculate averaged Ascan
+        Ascan = Ascan - np.mean(Ascan) #substract mean value
+        return Ascan
+
+    def GetAscan_Ch2(self, Smin, Smax):
+        return self._GetAscan(2, Smin, Smax)
+
+    def GetAscan_Ch1(self, Smin, Smax):
+        return self._GetAscan(1, Smin, Smax)
+
+    def GetAscan_Ch1_Ch2(self, Smin, Smax):
+        if isinstance(Smin, tuple):
+            Smin1, Smin2 = Smin
+        else:
+            Smin1 = Smin
+            Smin2 = Smin
+        if isinstance(Smax, tuple):
+            Smax1, Smax2 = Smax
+        else:
+            Smax1 = Smax
+            Smax2 = Smax
+        
+        Ascan_Ch2 = np.zeros(Smax2-Smin2)
+        Ascan_Ch1 = np.zeros(Smax1-Smin1)
+        Flag = self.AvgSamplesNumber
+        while Flag > 0:
+            self.GetAScan() # get Ascan        
+            
+            Aux_Ch1 = np.array(list(map(float, self.DataADC1[Smin1:Smax1]))) # get Ascan
+            Aux_Ch2 = np.array(list(map(float, self.DataADC2[Smin2:Smax2]))) # get Ascan
+            
+            Aux_Ch1 = (Aux_Ch1 - self.Quantiz_Levels/2) / self.Quantiz_Levels # Normalize
+            Aux_Ch2 = (Aux_Ch2 - self.Quantiz_Levels/2) / self.Quantiz_Levels # Normalize
+            
+            Aux_Ch1 = Aux_Ch1 - np.mean(Aux_Ch1) # remove mean
+            Aux_Ch2 = Aux_Ch2 - np.mean(Aux_Ch2) # remove mean
+            
+            if not(np.all(Aux_Ch2==0.0)) and not(np.all(Aux_Ch1==0.0)):	            
+                Ascan_Ch2 = Ascan_Ch2 + Aux_Ch2
+                Ascan_Ch1 = Ascan_Ch1 + Aux_Ch1
+                Flag -= 1
+        
+        Ascan_Ch2 = Ascan_Ch2 / self.AvgSamplesNumber # calculate averaged Ascan
+        Ascan_Ch2 = Ascan_Ch2 - np.mean(Ascan_Ch2) # substract mean value
+        Ascan_Ch1 = Ascan_Ch1 / self.AvgSamplesNumber # calculate averaged Ascan
+        Ascan_Ch1 = Ascan_Ch1 - np.mean(Ascan_Ch1) # substract mean value
+        return Ascan_Ch1, Ascan_Ch2
 
 
     # ============ SETS ============ 

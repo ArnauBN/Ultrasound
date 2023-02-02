@@ -20,7 +20,7 @@ class Scanner():
         self.uStepX = 0.01
         self.uStepY = 0.01
         self.uStepZ = 0.005
-        self.uStepR = 1.8 # (200steps=360deg) --- the other value that doesnt work: 0.0281
+        self.uStepR = 1.8 # (200steps=360deg) --- the other value that doesnt work is 0.0281
 
         # Current coordinates
         self.readCoords()
@@ -34,11 +34,30 @@ class Scanner():
         # Set default speedtypes to 'rectangular'
         self.setSpeedtypes()
     
-        # Set default speeds (mm/s): 100, 100, 100, 10
+        # Set default speeds (mm/s): 100, 100, 100, 100
         self.setSpeeds()
         
 
     def getuSteps(self, axis):
+        '''
+        Returns the uStep of the corresponding axis.
+
+        Parameters
+        ----------
+        axis : str or int
+            Available axis are:
+                'X' or 0
+                'Y' or 1
+                'Z' or 2
+                'R' or 3
+
+        Returns
+        -------
+        uStep : float
+            The corresponding uStep.
+
+        Arnau, 01/02/2023
+        '''
         if axis=='X' or axis==0:
             return self.uStepX
         elif axis=='Y' or axis==1:
@@ -610,8 +629,11 @@ class Scanner():
 
     def open(self):
         try:
-            self.ser.open()
-            print(f'Scanner {self.port}> Port opened')
+            if not self.ser.isOpen():
+                self.ser.open()
+                print(f'Scanner {self.port}> Port opened')
+            else:
+                print(f'Scanner {self.port}> Port already open')
         except Exception as e:
             print(f"Can't open serial port: {e}")
 
@@ -661,10 +683,36 @@ class Scanner():
     
     def isREnabled(self):
         return self.__Renable
-
+   
 
 
 def _parseSpeedtype(speedtype):
+    '''
+    Transform a string-type speed type to an ineger code (0,1,2 or 3).
+    
+    Available speed types are:
+        'rectangular' -> 0
+        'gaussian'    -> 1
+        'random'      -> 2
+        'triangle'    -> 3
+
+
+    Parameters
+    ----------
+    speedtype : str or int
+        Available speed types are:
+            'rectangular' -> 0
+            'gaussian'    -> 1
+            'random'      -> 2
+            'triangle'    -> 3
+
+    Returns
+    -------
+    code : int
+        Corresponding code.
+
+    Arnau 01/02/2023
+    '''
     allowed_speedtypes_str = ['rectangular', 'gaussian', 'random', 'triangle']
     if isinstance(speedtype, str):
         speedtype_lower = speedtype.lower()
@@ -672,6 +720,243 @@ def _parseSpeedtype(speedtype):
             code = allowed_speedtypes_str.index(speedtype_lower)
     elif speedtype in [0,1,2,3]:
         code = speedtype
+    else:
+        print("Wrong speed type. Using default ('rectangular').")
+        return 0
     return code     
+
+
+
+def makeScanPattern(pattern: str, steps: list, ends: list) -> list:
+    '''
+    Returns a list of strings. These strings are comprised of one letter 
+    indicating the axis ('X', 'Y', 'Z' or 'R') and one number (can have a 
+    decimal point and can be negative), in that order. Examples:
+        'X1.5'
+        'Y-40'
+        'R90'
+    The number is always the specified step.
+    
+    Available patterns are:
+        'line on X'
+        'line on Y'
+        'line on Z'
+        'line+turn on X'
+        'line+turn on Y'
+        'line+turn on Z'
+        'zigzag XY'
+        'zigzag XZ'
+        'zigzag YX'
+        'zigzag YZ'
+        'zigzag ZX'
+        'zigzag ZY'
+        'zigzag+turn XY'
+        'zigzag+turn XZ'
+        'zigzag+turn YX'
+        'zigzag+turn YZ'
+        'zigzag+turn ZX'
+        'zigzag+turn ZY'
+    
+    The '+turn' indicates that the whole pattern is repeated backwards with a
+    rotation of steps[3] degrees, i.e.:
+        1. Do pattern
+        2. Rotate steps[3] degrees
+        3. Do pattern backwards
+    
+    In case of a zigzag pattern, the first axis is the first to move (the
+    long one).
+    
+    Example of 'zigzag XY':
         
+                    y
+                    ^
+                    |
+                    |
+          y=ends[1] _       ___________stop
+                    |       |
+                    |       |___________
+                    |                  |
+                    |       ___________|
+                    |       |
+         y=steps[1] _       |___________
+                    |                  |
+                y=0 _  start___________|
+                    |
+                    |-------|----------|-----------> x
+                           x=0        x=ends[0]
+    
+    Parameters
+    ----------
+    pattern : str
+        Scanning pattern to generate. Available patterns are:
+            'line on X'
+            'line on Y'
+            'line on Z'
+            'line+turn on X'
+            'line+turn on Y'
+            'line+turn on Z'
+            'zigzag XY'
+            'zigzag XZ'
+            'zigzag YX'
+            'zigzag YZ'
+            'zigzag ZX'
+            'zigzag ZY'
+            'zigzag+turn XY'
+            'zigzag+turn XZ'
+            'zigzag+turn YX'
+            'zigzag+turn YZ'
+            'zigzag+turn ZX'
+            'zigzag+turn ZY'
+        In case of a zigzag pattern, the first axis is the first to move (the
+        long one).
+    steps : list of floats
+        Steps of every axis in the following order:
+            steps[0] -> X
+            steps[1] -> Y
+            steps[2] -> Z
+            steps[3] -> R
+    ends : list of floats
+        Maximum axis value of every axis in the following order:
+            ends[0] -> X
+            ends[1] -> Y
+            ends[2] -> Z
+            ends[3] -> R.
+
+    Raises
+    ------
+    NotImplementedError
+        For unimplemented or wrong patterns.
+
+    Returns
+    -------
+    scanpatter : list
+        List of strings describing the scanning pattern.
+
+    Arnau, 01/02/2023
+    '''
+    if len(steps) != 4 or len(ends) != 4:
+        print(f'steps and ends must have a length of 4, but lengths {len(steps)} and {len(ends)} where found.')
+        return -1
+    X_step, Y_step, Z_step, R_step = steps
+    X_end, Y_end, Z_end, R_end = ends
+    
+    available_line_patterns = ['line on x', 'line on y', 'line on z', 'line+turn on x', 'line+turn on y', 'line+turn on z']
+    available_zigzag_patterns = ['zigzag xy', 'zigzag xz', 'zigzag yx', 'zigzag yz', 'zigzag zx', 'zigzag zy',
+                                 'zigzag+turn xy', 'zigzag+turn xz', 'zigzag+turn yx', 'zigzag+turn yz', 'zigzag+turn zx', 'zigzag+turn zy']
+    
+    if pattern.lower() in available_line_patterns:
+        ax = pattern[-1].upper()
+        if ax == 'X':
+            end = X_end
+            step = X_step
+        elif ax == 'Y':
+            end = Y_end
+            step = Y_step
+        elif ax == 'Z':
+            end = Z_end
+            step = Z_step
         
+        if pattern.lower() in available_line_patterns[:3]:
+            return _makeLinePattern(ax, step, end)
+        else:
+            scanpatter = _makeLinePattern(ax, step, end)
+            reverse_scanpatter = _makeLinePattern(ax, -step, end)[::-1]
+            return scanpatter + [f'R{R_step}'] + reverse_scanpatter
+    
+    elif pattern.lower() in available_zigzag_patterns:
+        longaxis, shortaxis = pattern[-2].upper(), pattern[-1].upper()
+        if longaxis == 'X':
+            longend = X_end
+            longstep = X_step
+        elif longaxis == 'Y':
+            longend = Y_end
+            longstep = Y_step
+        elif longaxis == 'Z':
+            longend = Z_end
+            longstep = Z_step
+        
+        if shortaxis == 'X':
+            shortend = X_end
+            shortstep = X_step
+        elif shortaxis == 'Y':
+            shortend = Y_end
+            shortstep = Y_step
+        elif shortaxis == 'Z':
+            shortend = Z_end
+            shortstep = Z_step
+        
+        if pattern.lower() in available_zigzag_patterns[:6]:
+            return _makeZigZagPattern(f'{longaxis}{shortaxis}', longstep, shortstep, longend, shortend)
+        else:
+            scanpatter = _makeZigZagPattern(f'{longaxis}{shortaxis}', longstep, shortstep, longend, shortend)
+            reverse_scanpatter = _makeZigZagPattern(f'{longaxis}{shortaxis}', -longstep, -shortstep, longend, shortend)[::-1]
+            return scanpatter + [f'R{R_step}'] + reverse_scanpatter
+    else:
+        raise NotImplementedError
+
+def _makeZigZagPattern(plane: str, longstep: float, shortstep: float, longend: float, shortend: float) -> list:
+    '''
+    Makes the zigzag pattern. The number of steps is always rounded down. See
+    makeScanPattern(pattern, steps, ends) for more information.
+
+    Parameters
+    ----------
+    plane : str
+        Plane to perform zigzag on. Available planes are:
+            'XY'
+            'XZ'
+            'YX'
+            'YZ'
+            'ZX'
+            'ZY'
+    longstep : float
+        Step of first axis.
+    shortstep : float
+        Step of second axis.
+    longend : float
+        End value of first axis.
+    shortend : float
+        End value of second axis.
+
+    Returns
+    -------
+    scanpatter : list
+        List of strings describing the scanning pattern.
+
+    Arnau, 01/02/2023
+    '''
+    longaxis, shortaxis = plane[0].upper(), plane[1].upper()
+    Nlong = int(longend // abs(longstep))
+    Nshort = int(shortend // abs(shortstep))
+    scanpatter = [f'{longaxis}{longstep}'] * Nlong
+    for i in range(1, Nshort+1):
+        scanpatter += [f'{shortaxis}{shortstep}']
+        scanpatter += [f'{longaxis}{(-1)**i * longstep}'] * Nlong
+    return scanpatter
+
+def _makeLinePattern(axis: str, step: float, end: float) -> list:
+    '''
+    Makes a linear pattern. The number of steps is always rounded down. See
+    makeScanPattern(pattern, steps, ends) for more information.
+
+    Parameters
+    ----------
+    axis : str
+        Axis to perform the linear pattern on. Available axis are:
+            'X'
+            'Y'
+            'Z'
+            'R'
+    step : float
+        Step.
+    end : float
+        End value.
+
+    Returns
+    -------
+    scanpatter : list
+        List of strings describing the scanning pattern.
+
+    Arnau, 01/02/2023
+    '''
+    return [f'{axis.upper()}{step}'] * (end // abs(step))

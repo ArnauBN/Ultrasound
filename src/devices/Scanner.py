@@ -24,7 +24,7 @@ class Scanner():
         self.uStepR = 1.8 # (200steps=360deg) --- the other value that doesnt work is 0.0281
 
         # Current coordinates
-        self.readCoords()
+        self.getCoords()
         
         # Enable all by default
         self.enableAll()

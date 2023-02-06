@@ -6,6 +6,7 @@ Python version: Python 3.8
 @author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
 
 """
+import numpy as np
 import serial, time
 
 #%%
@@ -95,8 +96,11 @@ class Scanner():
                     while response == b'':
                         time.sleep(0.2)
                         response = self.ser.read(10)
-
                 return response
+            except KeyboardInterrupt:
+                self.ser.write('SSF\r'.encode('utf-8'))
+                print('Scanner successfully stopped.')
+                raise
             except Exception as e1:
                 self.ser.close()
                 print(f'Scanner {self.port}> error communicating...: {e1}')
@@ -132,9 +136,19 @@ class Scanner():
         self._R = R
         return R
 
-    def readCoords(self):
+    def getCoords(self):
         return self.X, self.Y, self.Z, self.R
 
+    def getAxis(self, axis):
+        if axis.upper() == 'X':
+            return self.X
+        elif axis.upper() == 'Y':
+            return self.Y
+        elif axis.upper() == 'Z':
+            return self.Z
+        elif axis.upper() == 'R':
+            return self.R
+        
 
     # ======= SET CURRENT =======
     @X.setter
@@ -178,6 +192,16 @@ class Scanner():
     def setZero(self):
         self.setCurrent(0, 0, 0, 0)
 
+    def setAxis(self, axis, value):
+        if axis.upper() == 'X':
+            self.X = value
+        elif axis.upper() == 'Y':
+            self.Y = value
+        elif axis.upper() == 'Z':
+            self.Z = value
+        elif axis.upper() == 'R':
+            self.R = value
+
 
     # ======= MOVEMENT =======
     def moveX(self, value):
@@ -217,6 +241,16 @@ class Scanner():
     def goHome(self):
         self.move(0, 0, 0, 0)
 
+    def moveAxis(self, axis, value):
+        if axis.upper() == 'X':
+            self.moveX(value)
+        elif axis.upper() == 'Y':
+            self.moveY(value)
+        elif axis.upper() == 'Z':
+            self.moveZ(value)
+        elif axis.upper() == 'R':
+            self.moveR(value)
+    
 
     # ======= DIFFERENTIAL MOVEMENT =======
     def diffMoveX(self, value):
@@ -253,6 +287,16 @@ class Scanner():
         self.diffMoveZ(Zvalue)
         self.diffMoveR(Rvalue)
     
+    def diffMoveAxis(self, axis, value):
+        if axis.upper() == 'X':
+            self.diffMoveX(value)
+        elif axis.upper() == 'Y':
+            self.diffMoveY(value)
+        elif axis.upper() == 'Z':
+            self.diffMoveZ(value)
+        elif axis.upper() == 'R':
+            self.diffMoveR(value)
+    
     
     # ======= UNLIMITED DIFFERENTIAL MOVEMENT =======
     def unlimitedDiffMoveX(self, value):
@@ -287,8 +331,18 @@ class Scanner():
         self.unlimitedDiffMoveX(Xvalue)
         self.unlimitedDiffMoveY(Yvalue)
         self.unlimitedDiffMoveZ(Zvalue)
-        self.unlimitedDiffMoveR(Rvalue)  
+        self.unlimitedDiffMoveR(Rvalue)
 
+    def unlimitedDiffMoveAxis(self, axis, value):
+        if axis.upper() == 'X':
+            self.unlimitedDiffMoveX(value)
+        elif axis.upper() == 'Y':
+            self.unlimitedDiffMoveY(value)
+        elif axis.upper() == 'Z':
+            self.unlimitedDiffMoveZ(value)
+        elif axis.upper() == 'R':
+            self.unlimitedDiffMoveR(value)
+    
 
     # ======== GET LIMITS ========
     @property
@@ -318,6 +372,16 @@ class Scanner():
     def getLimits(self):
         return self.XLimit, self.YLimit, self.ZLimit, self.RLimit
 
+    def getAxisLimit(self, axis):
+        if axis.upper() == 'X':
+            return self.XLimit
+        elif axis.upper() == 'Y':
+            return self.YLimit
+        elif axis.upper() == 'Z':
+            return self.ZLimit
+        elif axis.upper() == 'R':
+            return self.RLimit
+    
 
     # ======== SET LIMITS ========
     @XLimit.setter
@@ -350,6 +414,16 @@ class Scanner():
         self.ZLimit = Zlim
         self.RLimit = Rlim
 
+    def setAxisLimit(self, axis, value):
+        if axis.upper() == 'X':
+            self.XLimit = value
+        elif axis.upper() == 'Y':
+            self.YLimit = value
+        elif axis.upper() == 'Z':
+            self.ZLimit = value
+        elif axis.upper() == 'R':
+            self.RLimit = value
+    
 
     # ========= SWAP DIRECTION =========
     @property
@@ -367,6 +441,16 @@ class Scanner():
     @property
     def Rdirection(self):
         return self._Rdirection
+    
+    def getAxisDirection(self, axis):
+        if axis.upper() == 'X':
+            return self.Xdirection
+        elif axis.upper() == 'Y':
+            return self.Ydirection
+        elif axis.upper() == 'Z':
+            return self.Zdirection
+        elif axis.upper() == 'R':
+            return self.Rdirection
     
     @Xdirection.setter
     def Xdirection(self, direction):
@@ -394,6 +478,16 @@ class Scanner():
         self.Zdirection = Zdirection
         self.Rdirection = Rdirection
         
+    def setAxisDirection(self, axis, value):
+        if axis.upper() == 'X':
+            self.Xdirection = value
+        elif axis.upper() == 'Y':
+            self.Ydirection = value
+        elif axis.upper() == 'Z':
+            self.Zdirection = value
+        elif axis.upper() == 'R':
+            self.Rdirection = value
+    
 
     # ========= SET SPEEDTYPE =========
     @property
@@ -411,6 +505,16 @@ class Scanner():
     @property
     def Rspeedtype(self):
         return self._Rspeedtype
+    
+    def getAxisSpeedtype(self, axis):
+        if axis.upper() == 'X':
+            return self.Xspeedtype
+        elif axis.upper() == 'Y':
+            return self.Yspeedtype
+        elif axis.upper() == 'Z':
+            return self.Zspeedtype
+        elif axis.upper() == 'R':
+            return self.Rspeedtype
     
     @Xspeedtype.setter
     def Xspeedtype(self, speedtype):
@@ -441,9 +545,19 @@ class Scanner():
         self.Yspeedtype = Yspeedtype
         self.Zspeedtype = Zspeedtype
         self.Rspeedtype = Rspeedtype
-        
 
-    # ======== SET SPEED ========
+    def setAxisSpeedtype(self, axis, value):
+        if axis.upper() == 'X':
+            self.Xspeedtype = value
+        elif axis.upper() == 'Y':
+            self.Yspeedtype = value
+        elif axis.upper() == 'Z':
+            self.Zspeedtype = value
+        elif axis.upper() == 'R':
+            self.Rspeedtype = value
+    
+
+    # ======== GET/SET SPEED ========
     @property
     def Xspeed(self):
         return self._Xspeed
@@ -459,6 +573,16 @@ class Scanner():
     @property
     def Rspeed(self):
         return self._Rspeed
+    
+    def getAxisSpeed(self, axis):
+        if axis.upper() == 'X':
+            return self.Xspeed
+        elif axis.upper() == 'Y':
+            return self.Yspeed
+        elif axis.upper() == 'Z':
+            return self.Zspeed
+        elif axis.upper() == 'R':
+            return self.Rspeed
     
     @Xspeed.setter
     def Xspeed(self, value):
@@ -498,8 +622,18 @@ class Scanner():
         self.Zspeed = Zvalue
         self.Rspeed = Rvalue
 
+    def setAxisSpeed(self, axis, value):
+        if axis.upper() == 'X':
+            self.Xspeed = value
+        elif axis.upper() == 'Y':
+            self.Yspeed = value
+        elif axis.upper() == 'Z':
+            self.Zspeed = value
+        elif axis.upper() == 'R':
+            self.Rspeed = value
+    
 
-    # ======== SET RAMPING SPEED ========
+    # ======== GET/SET RAMPING SPEED ========
     @property
     def XRampingSpeed(self):
         return self._XRampingSpeed
@@ -515,6 +649,16 @@ class Scanner():
     @property
     def RRampingSpeed(self):
         return self._RRampingSpeed    
+    
+    def getAxisRampingSpeed(self, axis):
+        if axis.upper() == 'X':
+            return self.XRampingSpeed
+        elif axis.upper() == 'Y':
+            return self.YRampingSpeed
+        elif axis.upper() == 'Z':
+            return self.ZRampingSpeed
+        elif axis.upper() == 'R':
+            return self.RRampingSpeed
     
     @XRampingSpeed.setter
     def XRampingSpeed(self, microseconds=50):
@@ -554,8 +698,18 @@ class Scanner():
         self.ZRampingSpeed = Zmicroseconds
         self.RRampingSpeed = Rmicroseconds
     
+    def setAxisRampingSpeed(self, axis, value):
+        if axis.upper() == 'X':
+            self.XRampingSpeed = value
+        elif axis.upper() == 'Y':
+            self.YRampingSpeed = value
+        elif axis.upper() == 'Z':
+            self.ZRampingSpeed = value
+        elif axis.upper() == 'R':
+            self.RRampingSpeed = value
+    
 
-    # ======== SET RANDOM SPEED PARAMETER ========
+    # ======== GET/SET RANDOM SPEED PARAMETER ========
     @property
     def XRandomSpeed(self):
         return self._XRandomSpeed
@@ -571,6 +725,16 @@ class Scanner():
     @property
     def RRandomSpeed(self):
         return self._RRandomSpeed
+
+    def getAxisRandomSpeed(self, axis):
+        if axis.upper() == 'X':
+            return self.XRandomSpeed
+        elif axis.upper() == 'Y':
+            return self.YRandomSpeed
+        elif axis.upper() == 'Z':
+            return self.ZRandomSpeed
+        elif axis.upper() == 'R':
+            return self.RRandomSpeed
 
     @XRandomSpeed.setter
     def XRandomSpeed(self, value):
@@ -622,6 +786,16 @@ class Scanner():
         self.ZRandomSpeed = Zvalue
         self.RRandomSpeed = Rvalue
 
+    def setAxisRandomSpeed(self, axis, value):
+        if axis.upper() == 'X':
+            self.XRandomSpeed = value
+        elif axis.upper() == 'Y':
+            self.YRandomSpeed = value
+        elif axis.upper() == 'Z':
+            self.ZRandomSpeed = value
+        elif axis.upper() == 'R':
+            self.RRandomSpeed = value
+    
 
     # ======== OPEN, CLOSE, STOP, ENABLE ========
     def close(self):
@@ -666,6 +840,16 @@ class Scanner():
         self.enableZ(ZEnable)
         self.enableR(REnable)
     
+    def enableAxis(self, axis, Enable=True):
+        if axis.upper() == 'X':
+            self.enableX(Enable)
+        elif axis.upper() == 'Y':
+            self.enableY(Enable)
+        elif axis.upper() == 'Z':
+            self.enableZ(Enable)
+        elif axis.upper() == 'R':
+            self.enableR(Enable)
+    
     def enableAll(self):
         self.enable(True, True, True, True)
 
@@ -684,6 +868,73 @@ class Scanner():
     def isREnabled(self):
         return self.__Renable
    
+    def isAxisEnabled(self, axis):
+        if axis.upper() == 'X':
+            return self.__Xenable
+        elif axis.upper() == 'Y':
+            return self.__Yenable
+        elif axis.upper() == 'Z':
+            return self.__Zenable
+        elif axis.upper() == 'R':
+            return self.__Renable
+
+
+    # ======== EXPERIMENTS ========
+    def checkside(self, SeDaq, Smin2, Smax2, axis, step, Max0, Maxtolerance):
+        '''
+        Moves the scanner over the specified axis until the echo is no longer
+        received, then returns the distance travelled and goes back to the 
+        original position.
+
+        Parameters
+        ----------
+        SeDaq : SeDaq object
+            Handler for the acquisition of the echo. The method 
+            SeDaq.GetAscan_Ch2(Smin2, Smax2) is called.
+        Smin2 : int
+            First sample to capture. See SeDaq.GetAscan_Ch2(Smin2, Smax2).
+        Smax2 : int
+            Last sample to capture. See SeDaq.GetAscan_Ch2(Smin2, Smax2).
+        axis : str
+            Axis to move scanner on. Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        step : float
+            Precision in millimeters of the scanner.
+        Max0 : float
+            Maximum value of the original echo. This is used to determine
+            if the echo is lost.
+        Maxtolerance : float
+            The echo is lost if:
+                abs(Max0 - Max) > Maxtolerance.
+
+        Returns
+        -------
+        x : int
+            The total distance moved until the echo was lost (in millimeters).
+
+        Arnau, 06/02/2023
+        '''
+        x = 0
+        while True:
+            self.diffMoveAxis(axis, step); x += step
+            PE = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+            Max = np.max(np.abs(PE))
+            if abs(Max - Max0) > Maxtolerance:
+                self.diffMoveAxis(axis, step); x += step
+                PE = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+                Max = np.max(np.abs(PE))
+                if abs(Max - Max0) > Maxtolerance: # check twice just in case
+                    x -= step
+                    self.diffMoveAxis(axis, -step)
+                    break
+        self.diffMoveAxis(axis, -x)
+        return x
+    
+    
+
 
 
 def _parseSpeedtype(speedtype):

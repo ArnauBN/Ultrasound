@@ -162,7 +162,7 @@ def CosineInterpMax_generic(MySignal, UseHilbEnv=False):
     DeltaToF = MaxLoc - Px
     return DeltaToF
 
-def CosineInterpMax(MySignal, UseHilbEnv=False):
+def CosineInterpMax(MySignal, xcor=True, UseHilbEnv=False):
     '''
     Calculate the location of the maximum in subsample basis using cosine
     interpolation.
@@ -171,6 +171,10 @@ def CosineInterpMax(MySignal, UseHilbEnv=False):
     ----------
     MySignal : ndarray
         Input signal.
+    xcor : bool, optional
+        If True, assumes the signal is a full correlation, therefore the sign
+        of the location of the maximum is adjusted accordingly. The default is
+        True.
     UseHilbEnv : bool, optional
         If True, uses envelope instead of raw signal. The default is False.
 
@@ -180,7 +184,7 @@ def CosineInterpMax(MySignal, UseHilbEnv=False):
         Location of the maximum in subsample precision.
 
     Alberto, 10/11/2020
-    Revised: Arnau, 12/12/2022
+    Revised: Arnau, 06/02/2023
     '''
     if UseHilbEnv:
         MySignal = np.absolute(signal.hilbert(MySignal))
@@ -202,7 +206,7 @@ def CosineInterpMax(MySignal, UseHilbEnv=False):
     DeltaToF = MaxLoc - Px
 
     # Check whether delay is to the right or to the left and correct ToF
-    if MaxLoc > N/2:
+    if xcor and MaxLoc > N/2:
         DeltaToF = -(N - DeltaToF)
     # Returned value is DeltaToF, the location of the maxima in subsample basis
     return DeltaToF

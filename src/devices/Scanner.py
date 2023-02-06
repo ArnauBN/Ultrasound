@@ -933,7 +933,34 @@ class Scanner():
         self.diffMoveAxis(axis, -x)
         return x
     
-    
+    def findEdge(self, SeDaq, Smin2, Smax2, axis, init_step, Maxtolerance):
+        self.moveAxis(axis, 0)
+        
+        Max0 = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        self.diffMoveAxis(axis, init_step)
+        step = init_step
+        
+        Max = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        while step >= self.getuSteps(axis):
+            while abs(Max - Max0) <= Maxtolerance:
+                if step > self.getuSteps(axis):
+                    step /= 2
+                self.diffMoveAxis(axis, step)
+                Max = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+            
+            while abs(Max - Max0) > Maxtolerance:
+                if step > self.getuSteps(axis):
+                    step /= 2
+                self.diffMoveAxis(axis, -step)
+                Max = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        x = self.getAxis(axis)
+        self.moveAxis(axis, 0)
+        return x
+
+
+
 
 
 
@@ -978,7 +1005,7 @@ def _parseSpeedtype(speedtype):
 
 
 
-def makeScanPattern(pattern: str, steps: list, ends: list) -> list:
+def makeScanPattern(pattern: str, axis: str, steps: list, ends: list) -> list:
     '''
     Returns a list of strings. These strings are comprised of one letter 
     indicating the axis ('X', 'Y', 'Z' or 'R') and one number (can have a 
@@ -989,24 +1016,10 @@ def makeScanPattern(pattern: str, steps: list, ends: list) -> list:
     The number is always the specified step.
     
     Available patterns are:
-        'line on X'
-        'line on Y'
-        'line on Z'
-        'line+turn on X'
-        'line+turn on Y'
-        'line+turn on Z'
-        'zigzag XY'
-        'zigzag XZ'
-        'zigzag YX'
-        'zigzag YZ'
-        'zigzag ZX'
-        'zigzag ZY'
-        'zigzag+turn XY'
-        'zigzag+turn XZ'
-        'zigzag+turn YX'
-        'zigzag+turn YZ'
-        'zigzag+turn ZX'
-        'zigzag+turn ZY'
+        'line'
+        'line+turn'
+        'zigzag'
+        'zigzag+turn'
     
     The '+turn' indicates that the whole pattern is repeated backwards with a
     rotation of steps[3] degrees, i.e.:
@@ -1017,7 +1030,7 @@ def makeScanPattern(pattern: str, steps: list, ends: list) -> list:
     In case of a zigzag pattern, the first axis is the first to move (the
     long one).
     
-    Example of 'zigzag XY':
+    Example of pattern='zigzag', axis='XY':
         
                     y
                     ^
@@ -1040,26 +1053,23 @@ def makeScanPattern(pattern: str, steps: list, ends: list) -> list:
     ----------
     pattern : str
         Scanning pattern to generate. Available patterns are:
-            'line on X'
-            'line on Y'
-            'line on Z'
-            'line+turn on X'
-            'line+turn on Y'
-            'line+turn on Z'
-            'zigzag XY'
-            'zigzag XZ'
-            'zigzag YX'
-            'zigzag YZ'
-            'zigzag ZX'
-            'zigzag ZY'
-            'zigzag+turn XY'
-            'zigzag+turn XZ'
-            'zigzag+turn YX'
-            'zigzag+turn YZ'
-            'zigzag+turn ZX'
-            'zigzag+turn ZY'
-        In case of a zigzag pattern, the first axis is the first to move (the
-        long one).
+            'line'
+            'line+turn'
+            'zigzag'
+            'zigzag+turn'
+    axis : str
+        One or two letters indicating the axis or plane if the scan pattern. 
+        The first axis is the first to move (the long one). Available options
+        are:
+            'X'
+            'Y'
+            'Z'
+            'XY'
+            'XZ'
+            'YX'
+            'YZ'
+            'ZX'
+            'ZY'
     steps : list of floats
         Steps of every axis in the following order:
             steps[0] -> X
@@ -1083,39 +1093,46 @@ def makeScanPattern(pattern: str, steps: list, ends: list) -> list:
     scanpatter : list
         List of strings describing the scanning pattern.
 
-    Arnau, 01/02/2023
+    Arnau, 06/02/2023
     '''
+    available_line_patterns = ['line', 'line+turn']
+    available_zigzag_patterns = ['zigzag', 'zigzag+turn']
+    lower_pattern = pattern.lower()
+    
+    if lower_pattern in available_zigzag_patterns and len(axis) != 2:
+        print(f'Zigzag pattern requires two axis, but {len(axis)} found.')
+        return -1
+    
+    if lower_pattern in available_line_patterns and len(axis) != 1:
+        print(f'Line pattern requires one axis, but {len(axis)} found.')
+        return -1
+    
     if len(steps) != 4 or len(ends) != 4:
         print(f'steps and ends must have a length of 4, but lengths {len(steps)} and {len(ends)} where found.')
         return -1
     X_step, Y_step, Z_step, R_step = steps
     X_end, Y_end, Z_end, R_end = ends
     
-    available_line_patterns = ['line on x', 'line on y', 'line on z', 'line+turn on x', 'line+turn on y', 'line+turn on z']
-    available_zigzag_patterns = ['zigzag xy', 'zigzag xz', 'zigzag yx', 'zigzag yz', 'zigzag zx', 'zigzag zy',
-                                 'zigzag+turn xy', 'zigzag+turn xz', 'zigzag+turn yx', 'zigzag+turn yz', 'zigzag+turn zx', 'zigzag+turn zy']
-    
-    if pattern.lower() in available_line_patterns:
-        ax = pattern[-1].upper()
-        if ax == 'X':
+    if lower_pattern in available_line_patterns:
+        if axis == 'X':
             end = X_end
             step = X_step
-        elif ax == 'Y':
+        elif axis == 'Y':
             end = Y_end
             step = Y_step
-        elif ax == 'Z':
+        elif axis == 'Z':
             end = Z_end
             step = Z_step
         
-        if pattern.lower() in available_line_patterns[:3]:
-            return _makeLinePattern(ax, step, end)
-        else:
-            scanpatter = _makeLinePattern(ax, step, end)
-            reverse_scanpatter = _makeLinePattern(ax, -step, end)[::-1]
+        if lower_pattern == 'line+turn':
+            scanpatter = _makeLinePattern(axis, step, end)
+            reverse_scanpatter = _makeLinePattern(axis, -step, end)[::-1]
             return scanpatter + [f'R{R_step}'] + reverse_scanpatter
+        else:
+            return _makeLinePattern(axis, step, end)
     
-    elif pattern.lower() in available_zigzag_patterns:
-        longaxis, shortaxis = pattern[-2].upper(), pattern[-1].upper()
+    elif lower_pattern in available_zigzag_patterns:
+        longaxis, shortaxis = axis[0], axis[1]
         if longaxis == 'X':
             longend = X_end
             longstep = X_step
@@ -1136,12 +1153,12 @@ def makeScanPattern(pattern: str, steps: list, ends: list) -> list:
             shortend = Z_end
             shortstep = Z_step
         
-        if pattern.lower() in available_zigzag_patterns[:6]:
-            return _makeZigZagPattern(f'{longaxis}{shortaxis}', longstep, shortstep, longend, shortend)
-        else:
+        if lower_pattern=='zigzag+turn':
             scanpatter = _makeZigZagPattern(f'{longaxis}{shortaxis}', longstep, shortstep, longend, shortend)
             reverse_scanpatter = _makeZigZagPattern(f'{longaxis}{shortaxis}', -longstep, -shortstep, longend, shortend)[::-1]
             return scanpatter + [f'R{R_step}'] + reverse_scanpatter
+        else:
+            return _makeZigZagPattern(f'{longaxis}{shortaxis}', longstep, shortstep, longend, shortend)
     else:
         raise NotImplementedError
 

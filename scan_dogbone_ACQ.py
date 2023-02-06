@@ -102,20 +102,12 @@ sidetilt_dist = 10              # Distance to move to determine the side tilt (m
                                 # Checks the width of the DUT at {-sidetilt_dist}, 0 and {sidetilt_dist} - float
 tilt_step = 5                   # Step used to check the tilt (mm) - float
 WP_axis = 'Y'                   # Axis of the water path - str
+scan_axis = 'Z'                 # Axis of the scan patter. Can be an axis (e.g. line) or a plane (e.g. zigzag). The first axis is the first to move (the long one) - str
 water_plane = 'XY'              # Plane of the water (the DUT is assumed to be perpendicular to this plane) - str
 baudrate_scanner = 19200        # Baudrate (symbols/s) - int
 port_scanner = 'COM4'           # Port to connect to - str
 timeout_scanner = 0.1           # Serial comm timeout (seconds) - float
-pattern = 'line+turn on Z'      # Available patterns:  - str
-                                # 'line on X', 'line on Y', 'line on Z',
-                                # 'line+turn on X', 'line+turn on Y', 'line+turn on Z',
-                                # 'zigzag XY', 'zigzag XZ',
-                                # 'zigzag YX', 'zigzag YZ',
-                                # 'zigzag ZX', 'zigzag ZY'
-                                # 'zigzag+turn XY', 'zigzag+turn XZ',
-                                # 'zigzag+turn YX', 'zigzag+turn YZ',
-                                # 'zigzag+turn ZX', 'zigzag+turn ZY'
-                                # The first axis is the first to move (the long one)
+pattern = 'line+turn'           # Available patterns: 'line', 'line+turn', 'zigzag', 'zigzag+turn' - str
 X_step = 0                      # smallest step to move in the X axis (mm), min is 0.01 - float
 Y_step = 0                      # smallest step to move in the Y axis (mm), min is 0.01 - float
 Z_step = 0.2                    # smallest step to move in the Z axis (mm), min is 0.005 - float
@@ -127,14 +119,46 @@ Y_end = 0                       # last Y coordinate of the experiment (mm) - flo
 Z_end = 120                     # last Z coordinate of the experiment (mm) - float
 R_end = 30                      # last R coordinate of the experiment (deg) - float
 
+
+
+
+# ------------------------------------
+# Initialize variables - Do not modify
+# ------------------------------------
 if WP_axis not in water_plane or len(water_plane) != 2 or len(WP_axis) != 1:
     print('The WP axis must be contained in the water plane.')
     time.sleep(3)
     exit()
 
-scanpatter = Scanner.makeScanPattern(pattern, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
+scanpatter = Scanner.makeScanPattern(pattern, scan_axis, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
 N_acqs = len(scanpatter)
 print(f'The experiment will take {US.time2str(N_acqs*0.1)} at best.')
+
+
+# Axis specification
+if len(scan_axis) != 1:
+    longaxis = scan_axis[0]
+    shortaxis = scan_axis[1]
+else:
+    longaxis = scan_axis
+    
+    _temp = ['X', 'Y', 'Z']
+    _temp.remove(longaxis)
+    _temp.remove(WP_axis)
+    shortaxis = _temp[0]
+    del _temp
+
+if longaxis == 'X':
+    longend = X_end
+    longstep = X_step
+elif longaxis == 'Y':
+    longend = Y_end
+    longstep = Y_step
+elif longaxis == 'Z':
+    longend = Z_end
+    longstep = Z_step
+
+
 
 
 #%% Start serial communication
@@ -231,27 +255,23 @@ print("===================================================\n")
 ########################################################################
 # Determination of Center axis and Sidetilt
 ########################################################################
-shortaxis = water_plane.remove(WP_axis)
-shortaxis = shortaxis[0]
-_temp = ['X', 'Y', 'Z']
-_temp.remove(shortaxis)
-_temp.remove(WP_axis)
-_temp = _temp[0]
-
+step = 0.01
 step1 = 0.01 # mm - MUST be positive
 step2 = -0.01 # mm - MUST be negative
 Maxtol = 0.1
-
+init_step = 5 # mm
 
 try:
     # ------------
     # Check center
     # ------------
-    scanner.moveZ(int(Z_end//2))
+    scanner.moveAxis(longaxis, int(longend//2))
     PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     Maxc = np.max(np.abs(PEc))
-    x1_0 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
-    x2_0 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    x1_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, Maxtol)
+    x2_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, Maxtol)
+    # x1_0 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
+    # x2_0 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
     width0 = x1_0 - x2_0
     dif0 = x1_0 + x2_0
     scanner.diffMoveAxis(shortaxis, dif0)
@@ -261,11 +281,13 @@ try:
     # ----------------------------
     # Check center + sidetilt_dist
     # ----------------------------
-    scanner.diffMoveAxis(_temp, sidetilt_dist)
+    scanner.diffMoveAxis(shortaxis, sidetilt_dist)
     PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     Maxc = np.max(np.abs(PEc))
-    x1_1 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
-    x2_1 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    x1_1 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, Maxtol)
+    x2_1 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, Maxtol)
+    # x1_1 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
+    # x2_1 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
     width1 = x1_1 - x2_1
     dif1 = x1_1 + x2_1
     scanner.diffMoveAxis(shortaxis, dif1)
@@ -274,11 +296,13 @@ try:
     # ----------------------------
     # Check center - sidetilt_dist
     # ----------------------------
-    scanner.diffMoveAxis(_temp, -2*sidetilt_dist)
+    scanner.diffMoveAxis(shortaxis, -2*sidetilt_dist)
     PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     Maxc = np.max(np.abs(PEc))
-    x1_2 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
-    x2_2 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    x1_2 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, Maxtol)
+    x2_2 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, Maxtol)
+    # x1_2 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
+    # x2_2 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
     width2 = x1_2 - x2_2
     dif2 = x1_2 + x2_2
     scanner.diffMoveAxis(shortaxis, dif2)
@@ -301,9 +325,9 @@ scanner.goHome()
 ########################################################################
 # Determination of Tilt
 ########################################################################
-scanpatter_tilt_test = Scanner.makeScanPattern(f'line on {_temp}', [tilt_step, tilt_step, tilt_step, tilt_step], [X_end, Y_end, Z_end, R_end])
+scanpatter_tilt_test = Scanner.makeScanPattern('line', shortaxis, [tilt_step, tilt_step, tilt_step, tilt_step], [X_end, Y_end, Z_end, R_end])
 ToFs = np.zeros(len(scanpatter_tilt_test))
-dists = np.array([i*tilt_step for i in range(len(scanpatter_tilt_test))])
+dists = np.arange(len(scanpatter_tilt_test))*tilt_step
 
 scanner.goHome()
 try:
@@ -326,7 +350,34 @@ phi = np.arctan(tg_phi) * 180 / np.pi
 print(f'Tilt is {phi = } deg')
 
 
-#TODO: check rotation
+#%%
+########################################################################
+# Determination of Rotation
+########################################################################
+ToFs = []
+dists = []
+
+scanner.moveAxis(longaxis, int(longend//2))
+scanner.moveAxis(shortaxis, x1_0)
+try:
+    i = 0
+    while scanner.getAxis(shortaxis) <= x2_0:
+        ToFs.append(US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False))
+        scanner.diffMoveAxis(shortaxis, step)
+        dists.append(step*i)
+        i += 1
+except KeyboardInterrupt:
+    scanner.stop()
+    print('Scanner successfully stopped.')
+
+
+# ----------------
+# Compute rotation
+# ----------------
+A = np.vstack([dists, np.ones(len(dists))]).T
+tg_rho, c = np.linalg.lstsq(A, ToFs, rcond=None)[0]
+rho = np.arctan(tg_rho) * 180 / np.pi
+print(f'Rotation is {rho = } deg')
 
 
 #%% 

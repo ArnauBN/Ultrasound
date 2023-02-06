@@ -1210,4 +1210,4 @@ def _makeLinePattern(axis: str, step: float, end: float) -> list:
 
     Arnau, 01/02/2023
     '''
-    return [f'{axis.upper()}{step}'] * (end // abs(step))
+    return [f'{axis.upper()}{step}'] * int(end // abs(step))

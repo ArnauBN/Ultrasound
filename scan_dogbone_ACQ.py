@@ -96,8 +96,13 @@ N_avg = 1                       # Number of temperature measurements to be avera
 # -------
 # Scanner
 # -------
-MeasureCW = True                # If True, measure de speed of sound in water by taking PE at 0 and PE at 1cm - bool
-WP_axis = 'X'                   # Axis of the water path - str
+MeasureCW = True                # If True, measure de speed of sound in water by taking PE at 0 and PE at {MeasureCW_dist} mm - bool
+MeasureCW_dist = 10             # Distance to move to measure Cw (mm) - float
+sidetilt_dist = 10              # Distance to move to determine the side tilt (mm).
+                                # Checks the width of the DUT at {-sidetilt_dist}, 0 and {sidetilt_dist} - float
+tilt_step = 5                   # Step used to check the tilt (mm) - float
+WP_axis = 'Y'                   # Axis of the water path - str
+water_plane = 'XY'              # Plane of the water (the DUT is assumed to be perpendicular to this plane) - str
 baudrate_scanner = 19200        # Baudrate (symbols/s) - int
 port_scanner = 'COM4'           # Port to connect to - str
 timeout_scanner = 0.1           # Serial comm timeout (seconds) - float
@@ -113,14 +118,19 @@ pattern = 'line+turn on Z'      # Available patterns:  - str
                                 # The first axis is the first to move (the long one)
 X_step = 0                      # smallest step to move in the X axis (mm), min is 0.01 - float
 Y_step = 0                      # smallest step to move in the Y axis (mm), min is 0.01 - float
-Z_step = 1                      # smallest step to move in the Z axis (mm), min is 0.005 - float
-R_step = 30                      # smallest step to move in the R axis (deg), min is 1.8  - float
+Z_step = 0.2                    # smallest step to move in the Z axis (mm), min is 0.005 - float
+R_step = 30                     # smallest step to move in the R axis (deg), min is 1.8  - float
 # If the step is zero, do not move on that axis
 
 X_end = 0                       # last X coordinate of the experiment (mm) - float
 Y_end = 0                       # last Y coordinate of the experiment (mm) - float
-Z_end = 125                      # last Z coordinate of the experiment (mm) - float
-R_end = 0                       # last R coordinate of the experiment (deg) - float
+Z_end = 120                     # last Z coordinate of the experiment (mm) - float
+R_end = 30                      # last R coordinate of the experiment (deg) - float
+
+if WP_axis not in water_plane or len(water_plane) != 2 or len(WP_axis) != 1:
+    print('The WP axis must be contained in the water plane.')
+    time.sleep(3)
+    exit()
 
 scanpatter = Scanner.makeScanPattern(pattern, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
 N_acqs = len(scanpatter)
@@ -219,6 +229,108 @@ print("===================================================\n")
 
 #%% 
 ########################################################################
+# Determination of Center axis and Sidetilt
+########################################################################
+shortaxis = water_plane.remove(WP_axis)
+shortaxis = shortaxis[0]
+_temp = ['X', 'Y', 'Z']
+_temp.remove(shortaxis)
+_temp.remove(WP_axis)
+_temp = _temp[0]
+
+step1 = 0.01 # mm - MUST be positive
+step2 = -0.01 # mm - MUST be negative
+Maxtol = 0.1
+
+
+try:
+    # ------------
+    # Check center
+    # ------------
+    scanner.moveZ(int(Z_end//2))
+    PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+    Maxc = np.max(np.abs(PEc))
+    x1_0 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
+    x2_0 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    width0 = x1_0 - x2_0
+    dif0 = x1_0 + x2_0
+    scanner.diffMoveAxis(shortaxis, dif0)
+    scanner.setAxis(shortaxis, 0)
+    
+    
+    # ----------------------------
+    # Check center + sidetilt_dist
+    # ----------------------------
+    scanner.diffMoveAxis(_temp, sidetilt_dist)
+    PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+    Maxc = np.max(np.abs(PEc))
+    x1_1 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
+    x2_1 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    width1 = x1_1 - x2_1
+    dif1 = x1_1 + x2_1
+    scanner.diffMoveAxis(shortaxis, dif1)
+    
+    
+    # ----------------------------
+    # Check center - sidetilt_dist
+    # ----------------------------
+    scanner.diffMoveAxis(_temp, -2*sidetilt_dist)
+    PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+    Maxc = np.max(np.abs(PEc))
+    x1_2 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
+    x2_2 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    width2 = x1_2 - x2_2
+    dif2 = x1_2 + x2_2
+    scanner.diffMoveAxis(shortaxis, dif2)
+except KeyboardInterrupt:
+    scanner.stop()
+    print('Scanner successfully stopped.')
+
+
+# ----------------
+# Compute sidetilt
+# ----------------
+tg_theta = abs(x1_1 - x1_2) / (2*sidetilt_dist)
+theta = np.arctan(tg_theta) * 180 / np.pi
+print(f'Sidetilt is {theta = } deg')
+
+scanner.goHome()
+
+
+#%%
+########################################################################
+# Determination of Tilt
+########################################################################
+scanpatter_tilt_test = Scanner.makeScanPattern(f'line on {_temp}', [tilt_step, tilt_step, tilt_step, tilt_step], [X_end, Y_end, Z_end, R_end])
+ToFs = np.zeros(len(scanpatter_tilt_test))
+dists = np.array([i*tilt_step for i in range(len(scanpatter_tilt_test))])
+
+scanner.goHome()
+try:
+    for i, sp in enumerate(scanpatter_tilt_test):
+        ToFs[i] = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
+        ax = sp[0]
+        val = float(sp[1:])
+        scanner.diffMoveAxis(ax, val)
+except KeyboardInterrupt:
+    scanner.stop()
+    print('Scanner successfully stopped.')
+
+
+# ------------
+# Compute tilt
+# ------------
+A = np.vstack([dists, np.ones(len(dists))]).T
+tg_phi, c = np.linalg.lstsq(A, ToFs, rcond=None)[0]
+phi = np.arctan(tg_phi) * 180 / np.pi
+print(f'Tilt is {phi = } deg')
+
+
+#TODO: check rotation
+
+
+#%% 
+########################################################################
 # Water Path acquisition
 ########################################################################
 WP_Ascan = SeDaq.GetAscan_Ch1(Smin1, Smax1)
@@ -289,23 +401,17 @@ print("===================================================\n")
 # Measurement of speed of sound in water
 ########################################################################
 if MeasureCW:
-    x = 10 # mm
     scanner.goHome()
     PE0 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     
-    if WP_axis=='X':
-        scanner.diffMoveX(x)
-    elif WP_axis=='Y':
-        scanner.diffMoveY(x)
-    elif WP_axis=='Z':
-        scanner.diffMoveZ(x)
+    scanner.diffMoveAxis(WP_axis, MeasureCW_dist)
     
     PE10 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     scanner.goHome()
     
     # Find ToF
     ToF = US.CalcToFAscanCosine_XCRFFT(PE0, PE10, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False)[0]
-    Cw = 2 * Fs * x*1e-3 / ToF
+    Cw = 2 * Fs * MeasureCW_dist*1e-3 / abs(ToF)
     print(f'The speed of sound in the water is {Cw} m/s.')
     
     config_dict['Cw'] = Cw
@@ -403,21 +509,14 @@ try:
             with open(Acqdata_path, _mode) as f:
                 TT_Ascan.tofile(f)
                 PE_Ascan.tofile(f)
-
-
+    
+    
         # ------------
         # Move scanner
         # ------------
         ax = sp[0]
         val = float(sp[1:])
-        if ax=='X':
-            scanner.diffMoveX(val)
-        elif ax=='Y':
-            scanner.diffMoveY(val)
-        elif ax=='Z':
-            scanner.diffMoveZ(val)
-        elif ax=='R':
-            scanner.diffMoveR(val)
+        scanner.diffMoveAxis(ax, val)
         
         
         # ---------
@@ -425,10 +524,9 @@ try:
         # ---------
         elapsed_time = time.time() - start_time
         print(f'Acquisition #{i+1}/{N_acqs} done in {elapsed_time} s.')
-        
 except KeyboardInterrupt:
     scanner.stop()
-    print('Scanner stopped succesfully.')
+    print('Scanner successfully stopped.')
 # -----------
 # End of loop
 # -----------

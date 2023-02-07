@@ -56,7 +56,7 @@ print(f'Experiment path set to {MyDir}')
 # For Experiment_description do NOT use '\n'.
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
 Experiment_description = """Scanner test.
-Epoxy resin dog-bone.
+Metacrylate dog-bone.
 Focused tx.
 Excitation_params: Pulse frequency (Hz).
 """
@@ -72,8 +72,8 @@ Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WO
 Fc = 5e6                        # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
-Smin1, Smin2 = 3900, 3900       # starting point of the scan of each channel - samples
-Smax1, Smax2 = 7500, 7500       # last point of the scan of each channel - samples
+Smin1, Smin2 = 3400, 3400       # starting point of the scan of each channel - samples
+Smax1, Smax2 = 8300, 8300       # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
@@ -81,7 +81,7 @@ Save_acq_data = True            # If True, save all acq. data to {Acqdata_path} 
 Temperature = True              # If True, take temperature measurements at each acq. (temperature data is always saved to file) and plot Cw - bool
 twoSensors = False              # If True, assume we have two temperature sensors, one inside and one outside - bool
 PE_as_ref = True                # If True, both a WP and a PE traces are acquired. The resulting ref. signal has the PE pulse aligned at WP - str
-align_PEref = True              # If True, align PEref to zero - bool
+align_PEref = False             # If True, align PEref to zero - bool
 
 
 # -------
@@ -100,7 +100,7 @@ MeasureCW = True                # If True, measure de speed of sound in water by
 MeasureCW_dist = 10             # Distance to move to measure Cw (mm) - float
 sidetilt_dist = 10              # Distance to move to determine the side tilt (mm).
                                 # Checks the width of the DUT at {-sidetilt_dist}, 0 and {sidetilt_dist} - float
-tilt_step = 5                   # Step used to check the tilt (mm) - float
+tilt_step = 10                  # Step used to check the tilt (mm) - float
 WP_axis = 'Y'                   # Axis of the water path - str
 scan_axis = 'Z'                 # Axis of the scan patter. Can be an axis (e.g. line) or a plane (e.g. zigzag). The first axis is the first to move (the long one) - str
 water_plane = 'XY'              # Plane of the water (the DUT is assumed to be perpendicular to this plane) - str
@@ -111,15 +111,17 @@ pattern = 'line+turn'           # Available patterns: 'line', 'line+turn', 'zigz
 X_step = 0                      # smallest step to move in the X axis (mm), min is 0.01 - float
 Y_step = 0                      # smallest step to move in the Y axis (mm), min is 0.01 - float
 Z_step = 0.2                    # smallest step to move in the Z axis (mm), min is 0.005 - float
-R_step = 30                     # smallest step to move in the R axis (deg), min is 1.8  - float
+R_step = 37.8                   # smallest step to move in the R axis (deg), min is 1.8  - float
 # If the step is zero, do not move on that axis
 
-X_end = 30                      # last X coordinate of the experiment (mm) - float
-Y_end = 0                       # last Y coordinate of the experiment (mm) - float
+X_end = 70                      # last X coordinate of the experiment (mm) - float
+Y_end = 20                      # last Y coordinate of the experiment (mm) - float
 Z_end = 120                     # last Z coordinate of the experiment (mm) - float
-R_end = 30                      # last R coordinate of the experiment (deg) - float
+R_end = 40                      # last R coordinate of the experiment (deg) - float
 
-
+Maxtol = 0.1
+init_step = 4 # mm
+init_pos = 50 # mm
 
 
 # ------------------------------------
@@ -132,7 +134,7 @@ if WP_axis not in water_plane or len(water_plane) != 2 or len(WP_axis) != 1:
 
 scanpatter = Scanner.makeScanPattern(pattern, scan_axis, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
 N_acqs = len(scanpatter)
-print(f'The experiment will take {US.time2str(N_acqs*0.1)} at best.')
+print(f'The experiment will take around {US.time2str(N_acqs*0.5)} plus the calibration.')
 
 
 # Axis specification
@@ -159,11 +161,9 @@ elif longaxis == 'Z':
     longstep = Z_step
 
 
-
-
 #%% Start serial communication
 if Temperature:
-    arduino = Arduino(board, baudrate, port, twoSensors, N_avg)  # open comms
+    arduino = Arduino.Arduino(board, baudrate, port, twoSensors, N_avg)  # open comms
 
 
 #%%
@@ -206,6 +206,7 @@ SeDaq.Quantiz_Levels = Quantiz_Levels
 ########################################################################
 scanner = Scanner.Scanner(port=port_scanner, baudrate=baudrate_scanner, timeout=timeout_scanner)
 scanner.setLimits(X_end + 1, Y_end + 1, Z_end + 1, R_end + 1)
+scanner.Rspeedtype = 'gaussian'
 
 
 #%% 
@@ -236,12 +237,10 @@ config_dict = {'Fs': Fs,
 
 US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Configuration parameters saved to {Config_path}.')
-print("===================================================\n")
 
 with open(Experiment_description_path, 'w') as f:
     f.write(Experiment_description)
 print(f'Experiment description saved to {Experiment_description_path}.')
-print("===================================================\n")
 
 np.savetxt(Scanpath_path, np.c_[scanpatter], fmt='%s')
 print(f'Scanpatter saved to {Scanpath_path}.')
@@ -252,11 +251,20 @@ print("===================================================\n")
 ########################################################################
 # Determination of Center axis and Sidetilt
 ########################################################################
-step = 0.01
-step1 = 0.01 # mm - MUST be positive
-step2 = -0.01 # mm - MUST be negative
-Maxtol = 0.1
-init_step = 5 # mm
+if shortaxis == 'X':
+    scanner.home = [init_pos, 0, 0, 0]
+elif shortaxis == 'Y':
+    scanner.home = [0, init_pos, 0, 0]
+elif shortaxis == 'Z':
+    scanner.home = [0, 0, init_pos, 0]
+
+center = scanner.home.copy()
+if longaxis == 'X':
+    center[0] = int(longend//2)
+elif longaxis == 'Y':
+    center[1] = int(longend//2)
+elif longaxis == 'Z':
+    center[2] = int(longend//2)
 
 try:
     # ------------
@@ -265,44 +273,38 @@ try:
     scanner.moveAxis(longaxis, int(longend//2))
     PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     Maxc = np.max(np.abs(PEc))
-    x1_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, Maxtol)
-    x2_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, Maxtol)
-    # x1_0 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
-    # x2_0 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    x1_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, init_pos, Maxtol)
+    x2_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, init_pos, Maxtol)
     width0 = x1_0 - x2_0
     dif0 = x1_0 + x2_0
-    scanner.diffMoveAxis(shortaxis, dif0)
-    scanner.setAxis(shortaxis, 0)
+    scanner.diffMoveAxis(shortaxis, dif0/2)
+    scanner.setAxis(shortaxis, init_pos)
     
     
     # ----------------------------
     # Check center + sidetilt_dist
     # ----------------------------
-    scanner.diffMoveAxis(shortaxis, sidetilt_dist)
+    scanner.diffMoveAxis(longaxis, sidetilt_dist)
     PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     Maxc = np.max(np.abs(PEc))
-    x1_1 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, Maxtol)
-    x2_1 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, Maxtol)
-    # x1_1 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
-    # x2_1 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    x1_1 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, init_pos, Maxtol)
+    x2_1 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, init_pos, Maxtol)
     width1 = x1_1 - x2_1
     dif1 = x1_1 + x2_1
-    scanner.diffMoveAxis(shortaxis, dif1)
+    scanner.diffMoveAxis(shortaxis, dif1/2)
     
     
     # ----------------------------
     # Check center - sidetilt_dist
     # ----------------------------
-    scanner.diffMoveAxis(shortaxis, -2*sidetilt_dist)
+    scanner.diffMoveAxis(longaxis, -2*sidetilt_dist)
     PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     Maxc = np.max(np.abs(PEc))
-    x1_2 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, Maxtol)
-    x2_2 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, Maxtol)
-    # x1_2 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step1, Maxc, Maxtol)
-    # x2_2 = scanner.checkside(SeDaq, Smin2, Smax2, shortaxis, step2, Maxc, Maxtol)
+    x1_2 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, init_pos, Maxtol)
+    x2_2 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, init_pos, Maxtol)
     width2 = x1_2 - x2_2
     dif2 = x1_2 + x2_2
-    scanner.diffMoveAxis(shortaxis, dif2)
+    scanner.diffMoveAxis(shortaxis, dif2/2)
 except KeyboardInterrupt:
     scanner.stop()
     print('Scanner successfully stopped.')
@@ -315,24 +317,46 @@ tg_theta = abs(x1_1 - x1_2) / (2*sidetilt_dist)
 theta = np.arctan(tg_theta) * 180 / np.pi
 print(f'Sidetilt is {theta = } deg')
 
-scanner.goHome()
+# scanner.goHome()
+scanner.move(*center)
+
+
+#%% 
+########################################################################
+# Measurement of speed of sound in water
+########################################################################
+if MeasureCW:
+    scanner.move(*center)
+    PE0 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+    
+    scanner.diffMoveAxis(WP_axis, MeasureCW_dist)
+    
+    PE10 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+    scanner.move(*center)
+    
+    # Find ToF
+    ToF = US.CalcToFAscanCosine_XCRFFT(PE0, PE10, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False)[0]
+    Cw = 2 * Fs * MeasureCW_dist*1e-3 / abs(ToF)
+    print(f'The speed of sound in the water is {Cw} m/s.')
+    
+    config_dict['Cw'] = Cw
+    US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
+    print("===================================================\n")
+    
+    np.savetxt(PEforCW_path, np.c_[PE0,PE10], header='PE0,PE10', comments='', delimiter=',')
+    print(f'PEs for Cw saved to {PEforCW_path}.')
+    print("===================================================\n")
 
 
 #%%
 ########################################################################
 # Determination of Tilt
 ########################################################################
-scanpatter_tilt_test = Scanner.makeScanPattern('line', shortaxis, [tilt_step, tilt_step, tilt_step, tilt_step], [X_end, Y_end, Z_end, R_end])
-ToFs = np.zeros(len(scanpatter_tilt_test))
-dists = np.arange(len(scanpatter_tilt_test))*tilt_step
-
-scanner.goHome()
 try:
-    for i, sp in enumerate(scanpatter_tilt_test):
-        ToFs[i] = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
-        ax = sp[0]
-        val = float(sp[1:])
-        scanner.diffMoveAxis(ax, val)
+    scanner.goHome()
+    ToF0 = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
+    scanner.moveAxis(longaxis, longend)
+    ToFend = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
 except KeyboardInterrupt:
     scanner.stop()
     print('Scanner successfully stopped.')
@@ -341,8 +365,7 @@ except KeyboardInterrupt:
 # ------------
 # Compute tilt
 # ------------
-A = np.vstack([dists, np.ones(len(dists))]).T
-tg_phi, c = np.linalg.lstsq(A, ToFs, rcond=None)[0]
+tg_phi = (ToF0 - ToFend) * Cw / (longend*1e-3 * Fs)
 phi = np.arctan(tg_phi) * 180 / np.pi
 print(f'Tilt is {phi = } deg')
 
@@ -351,30 +374,31 @@ print(f'Tilt is {phi = } deg')
 ########################################################################
 # Determination of Rotation
 ########################################################################
-ToFs = []
-dists = []
 
-scanner.moveAxis(longaxis, int(longend//2))
-scanner.moveAxis(shortaxis, x1_0)
-try:
-    i = 0
-    while scanner.getAxis(shortaxis) <= x2_0:
-        ToFs.append(US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False))
-        scanner.diffMoveAxis(shortaxis, step)
-        dists.append(step*i)
-        i += 1
-except KeyboardInterrupt:
-    scanner.stop()
-    print('Scanner successfully stopped.')
-
-
-# ----------------
-# Compute rotation
-# ----------------
-A = np.vstack([dists, np.ones(len(dists))]).T
-tg_rho, c = np.linalg.lstsq(A, ToFs, rcond=None)[0]
-rho = np.arctan(tg_rho) * 180 / np.pi
-print(f'Rotation is {rho = } deg')
+# rho = 2
+# while abs(rho) > 1.8:
+#     try:
+#         scanner.moveAxis(longaxis, int(longend//2))
+#         scanner.moveAxis(shortaxis, x1_0 + init_pos - 0.1)
+#         ToF0 = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
+#         scanner.moveAxis(shortaxis, x2_0 + init_pos + 0.1)
+#         ToFend = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
+#     except KeyboardInterrupt:
+#         scanner.stop()
+#         print('Scanner successfully stopped.')
+#         raise
+    
+    
+#     # ----------------
+#     # Compute rotation
+#     # ----------------
+#     tg_rho = (ToF0 - ToFend) * Cw / (width0*1e-3 * Fs)
+#     rho = np.arctan(tg_rho) * 180 / np.pi
+#     scanner.unlimitedDiffMoveR(-rho)
+#     print(f'Rotation is {rho = } deg')
+# scanner.R = 0
+# print(f'Final Rotation is {rho = } deg')
+# scanner.move(*center)
 
 
 #%% 
@@ -383,9 +407,10 @@ print(f'Rotation is {rho = } deg')
 ########################################################################
 WP_Ascan = SeDaq.GetAscan_Ch1(Smin1, Smax1)
 print('Water path acquired.')
+scanner.move(*center)
+
 if PE_as_ref:
     input("Press any key to acquire the pulse echo.")
-    scanner.goHome()
     PEref_Ascan = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     MyWin_PEref = US.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
     PEref_Ascan = PEref_Ascan * MyWin_PEref
@@ -446,33 +471,6 @@ print("===================================================\n")
 
 #%% 
 ########################################################################
-# Measurement of speed of sound in water
-########################################################################
-if MeasureCW:
-    scanner.goHome()
-    PE0 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
-    
-    scanner.diffMoveAxis(WP_axis, MeasureCW_dist)
-    
-    PE10 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
-    scanner.goHome()
-    
-    # Find ToF
-    ToF = US.CalcToFAscanCosine_XCRFFT(PE0, PE10, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False)[0]
-    Cw = 2 * Fs * MeasureCW_dist*1e-3 / abs(ToF)
-    print(f'The speed of sound in the water is {Cw} m/s.')
-    
-    config_dict['Cw'] = Cw
-    US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
-    print("===================================================\n")
-    
-    np.savetxt(PEforCW_path, np.c_[PE0,PE10], header='PE0,PE10', comments='', delimiter=',')
-    print(f'PEs for Cw saved to {PEforCW_path}.')
-    print("===================================================\n")
-
-
-#%% 
-########################################################################
 # Run Acquisition and Computations
 ########################################################################
 # --------------------
@@ -502,6 +500,8 @@ if Temperature:
     arduino.open()
 
 
+scanner.goHome()
+
 # -------------------------------
 # Write start time to config file
 # -------------------------------
@@ -512,7 +512,6 @@ print(f'Experiment started at {_start_time}.')
 print("===================================================\n")
 
 
-scanner.goHome()
 # ---------
 # Sart loop
 # ---------
@@ -575,6 +574,7 @@ try:
 except KeyboardInterrupt:
     scanner.stop()
     print('Scanner successfully stopped.')
+    raise
 # -----------
 # End of loop
 # -----------
@@ -590,3 +590,29 @@ config_dict['End_date'] = _end_time
 US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Experiment ended at {_end_time}.')
 print("===================================================\n")
+
+
+########################################################################
+# Measurement of speed of sound in water
+########################################################################
+if MeasureCW:
+    scanner.move(*center)
+    PE0 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+    
+    scanner.diffMoveAxis(WP_axis, MeasureCW_dist)
+    
+    PE10 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+    scanner.goHome()
+    
+    # Find ToF
+    ToF = US.CalcToFAscanCosine_XCRFFT(PE0, PE10, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False)[0]
+    Cw2 = 2 * Fs * MeasureCW_dist*1e-3 / abs(ToF)
+    print(f'The speed of sound in the water is {Cw} m/s.')
+    
+    config_dict['Cw'] = (Cw + Cw2) / 2
+    US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
+    print("===================================================\n")
+    
+    np.savetxt(PEforCW_path, np.c_[PE0,PE10], header='PE0,PE10', comments='', delimiter=',')
+    print(f'PEs for Cw saved to {PEforCW_path}.')
+    print("===================================================\n")

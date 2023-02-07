@@ -8,6 +8,7 @@ Python version: Python 3.8
 """
 import numpy as np
 import serial, time
+import decimal
 
 #%%
 class Scanner():
@@ -38,6 +39,7 @@ class Scanner():
         # Set default speeds (mm/s): 100, 100, 100, 100
         self.setSpeeds()
         
+        self.home = [0, 0, 0, 0]
 
     def getuSteps(self, axis):
         '''
@@ -71,7 +73,9 @@ class Scanner():
     def uSteps2value(self, axis, uSteps):
         return float(uSteps) * self.getuSteps(axis)
     
-    def value2uSteps(self, axis, value):
+    def value2uSteps(self, axis, value):       
+        if decimal.Decimal(str(value)) % decimal.Decimal(str(self.getuSteps(axis))) != 0:
+            print(f'Warning: {value} is not multiple of {self.getuSteps(axis)}.')
         return int(value / self.getuSteps(axis))
     
     
@@ -207,28 +211,28 @@ class Scanner():
     def moveX(self, value):
         steps = self.value2uSteps('X', value)
         if self.write(f'SMX{steps}')[:2] != b'OK':
-            print(f'Could not move to X axis absolute coordinate {value} mm.')
+            print(f'Could not move X axis absolute coordinate to {value} mm.')
             return
         self._X = value
 
     def moveY(self, value):
         steps = self.value2uSteps('Y', value)
         if self.write(f'SMY{steps}')[:2] != b'OK':
-            print(f'Could not move to Y axis absolute coordinate {value} mm.')
+            print(f'Could not move Y axis absolute coordinate to {value} mm.')
             return
         self._Y = value
     
     def moveZ(self, value):
         steps = self.value2uSteps('Z', value)
         if self.write(f'SMZ{steps}')[:2] != b'OK':
-            print(f'Could not move to Z axis absolute coordinate {value} mm.')
+            print(f'Could not move Z axis absolute coordinate to {value} mm.')
             return
         self._Z = value
     
     def moveR(self, value):
         steps = self.value2uSteps('R', value)
         if self.write(f'SMR{steps}')[:2] != b'OK':
-            print(f'Could not move to R axis absolute coordinate {value} deg.')
+            print(f'Could not move R axis absolute coordinate to {value} deg.')
             return
         self._R = value
     
@@ -239,7 +243,7 @@ class Scanner():
         self.moveR(Rvalue)
     
     def goHome(self):
-        self.move(0, 0, 0, 0)
+        self.move(*self.home)
 
     def moveAxis(self, axis, value):
         if axis.upper() == 'X':
@@ -879,12 +883,18 @@ class Scanner():
             return self.__Renable
 
 
-    # ======== EXPERIMENTS ========
-    def checkside(self, SeDaq, Smin2, Smax2, axis, step, Max0, Maxtolerance):
+    # ======== EXPERIMENTS ========   
+    def findEdge(self, SeDaq, Smin2, Smax2, axis, init_step, init_pos, Maxtolerance):
         '''
-        Moves the scanner over the specified axis until the echo is no longer
-        received, then returns the distance travelled and goes back to the 
-        original position.
+        Finds the edge of the DUT with the midpoint method. The method works 
+        follows:
+            1. The scanner moves outwards (in the specified axis) by init_step.
+            2. Acquires an echo signal:
+                2.1. If no echo is received, moves inwards by step/2.
+                2.2. If echo is received, moves outwards by step/2.
+            3. Repeat until the step is lower than the available precision.
+            4. Move back to the initial position (init_pos).
+            5. Return the distance of the edge to the initial position.
 
         Parameters
         ----------
@@ -901,63 +911,50 @@ class Scanner():
                 'Y'
                 'Z'
                 'R'
-        step : float
-            Precision in millimeters of the scanner.
-        Max0 : float
-            Maximum value of the original echo. This is used to determine
-            if the echo is lost.
+        init_step : float
+            Initial step in millimeters.
+        init_pos : float
+            Initial position in millimeters.
         Maxtolerance : float
             The echo is lost if:
-                abs(Max0 - Max) > Maxtolerance.
+                abs(Max_eco - Max_noeco) > Maxtolerance.
 
         Returns
         -------
         x : int
-            The total distance moved until the echo was lost (in millimeters).
+            The distance of the edge to the initial position (in millimeters).
 
-        Arnau, 06/02/2023
+        Arnau, 07/02/2023
         '''
-        x = 0
-        while True:
-            self.diffMoveAxis(axis, step); x += step
-            PE = SeDaq.GetAscan_Ch2(Smin2, Smax2)
-            Max = np.max(np.abs(PE))
-            if abs(Max - Max0) > Maxtolerance:
-                self.diffMoveAxis(axis, step); x += step
-                PE = SeDaq.GetAscan_Ch2(Smin2, Smax2)
-                Max = np.max(np.abs(PE))
-                if abs(Max - Max0) > Maxtolerance: # check twice just in case
-                    x -= step
-                    self.diffMoveAxis(axis, -step)
-                    break
-        self.diffMoveAxis(axis, -x)
-        return x
-    
-    def findEdge(self, SeDaq, Smin2, Smax2, axis, init_step, Maxtolerance):
-        self.moveAxis(axis, 0)
+        precision = 3 if axis.upper() == 'Z' else 2
+        
+        self.moveAxis(axis, init_pos)
         
         Max0 = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
-        
         self.diffMoveAxis(axis, init_step)
         step = init_step
         
         Max = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
         
-        while step >= self.getuSteps(axis):
+        while abs(step) >= self.getuSteps(axis):
             while abs(Max - Max0) <= Maxtolerance:
-                if step > self.getuSteps(axis):
+                if abs(step) > self.getuSteps(axis):
                     step /= 2
+                else:
+                    break
                 self.diffMoveAxis(axis, step)
                 Max = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
             
             while abs(Max - Max0) > Maxtolerance:
-                if step > self.getuSteps(axis):
+                if abs(step) > self.getuSteps(axis):
                     step /= 2
+                else:
+                    break
                 self.diffMoveAxis(axis, -step)
                 Max = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
         x = self.getAxis(axis)
-        self.moveAxis(axis, 0)
-        return x
+        self.moveAxis(axis, init_pos)
+        return round(x - init_pos, precision)
 
 
 

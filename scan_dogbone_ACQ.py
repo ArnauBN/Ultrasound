@@ -114,7 +114,7 @@ Z_step = 0.2                    # smallest step to move in the Z axis (mm), min 
 R_step = 30                     # smallest step to move in the R axis (deg), min is 1.8  - float
 # If the step is zero, do not move on that axis
 
-X_end = 0                       # last X coordinate of the experiment (mm) - float
+X_end = 30                      # last X coordinate of the experiment (mm) - float
 Y_end = 0                       # last Y coordinate of the experiment (mm) - float
 Z_end = 120                     # last Z coordinate of the experiment (mm) - float
 R_end = 30                      # last R coordinate of the experiment (deg) - float
@@ -205,10 +205,7 @@ SeDaq.Quantiz_Levels = Quantiz_Levels
 # Initialize Scanner
 ########################################################################
 scanner = Scanner.Scanner(port=port_scanner, baudrate=baudrate_scanner, timeout=timeout_scanner)
-scanner.XLimit = X_end + 1
-scanner.YLimit = Y_end + 1
-scanner.ZLimit = Z_end + 1
-scanner.RLimit = R_end + 1
+scanner.setLimits(X_end + 1, Y_end + 1, Z_end + 1, R_end + 1)
 
 
 #%% 

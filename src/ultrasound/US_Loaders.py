@@ -10,6 +10,42 @@ import scipy.io as sio
 import os.path
 from ast import literal_eval
 
+
+def GenCodeList_Info(FileName):
+    '''Load information from GenCode list, according to its ionner format
+    Input
+       FileName: Name of the file, including full path
+    Outputs
+       Name: Name of the gencode
+       Sort: Sort of excitation, text ('chirp','pulse','burst')
+       ProgGenCLKfreqMHz: ProgGenCLKfreqMHz, float
+       F1: Lower (chirp) or central (burst, pulse) frequency in MHz, float
+       F2: higher (chirp) or central (burst, pulse) frequency in MHz, float
+       Cycles: number of cycles of the burst, float
+       Duration: Duration of the signal, us, float
+       Polarity: Polarity of the pulse (-1, 1, 2), integer    
+    '''
+    try:
+        GenCodeList = np.loadtxt(FileName, dtype={'names': ('Name', 'Sort', 'Fclk', 'F1','F2','NCyc','Dur','Pol'),
+                     'formats': ('S10', 'S5','f','f','f','f','f','int')}, delimiter=';')
+        titulo=[]
+        for GNo in range(GenCodeList.size):
+            if GenCodeList[GNo][1]=='chirp':
+                patata=str(GenCodeList[GNo][0]) + ': ' + str(GenCodeList[GNo][1]) + ' BW(MHz)=[' + str(GenCodeList[GNo][3]) + ',' +\
+                str(GenCodeList[GNo][4]) + '] ' + u'\u0394\u03C4=' + str(GenCodeList[GNo][6]) + u'\u03BCs'
+            
+            elif GenCodeList[GNo][1]=='burst':
+                patata = str(GenCodeList[GNo][0]) + ': ' + str(GenCodeList[GNo][1]) + ' Fc=' + str(GenCodeList[GNo][3]) + \
+                'MHz NoCycles=' + str(GenCodeList[GNo][5]) + u' \u0394\u03C4=' + str(GenCodeList[GNo][6]) + u'\u03BCs'
+            else:
+                patata = str(GenCodeList[GNo][0]) + ': ' + str(GenCodeList[GNo][1]) + ' Fc=' + str(GenCodeList[GNo][3])  +\
+                'MHz ' + u'\u0394\u03C4=' + str(GenCodeList[GNo][6]) + u'\u03BCs'
+            titulo.append(patata)
+        return GenCodeList, titulo
+    except Exception as e:
+        print(e)
+        return ''
+
 def loadFromMatlab(FileName, DataName):
     """
     Load file from matlab to numpy array.

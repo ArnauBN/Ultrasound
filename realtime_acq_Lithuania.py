@@ -388,16 +388,17 @@ for i in range(N_acqs):
     
     # -----------------------------
     # Save temperature and acq data
-    # -----------------------------  
-    with open(Temperature_path, 'a') as f:
-        if twoSensors:
-            row = f'{means1[i]},{means2[i]},{Cw}'
-        else:
-            row = f'{means1[i]},{Cw}'
-        f.write(row+'\n')
+    # -----------------------------
+    if Temperature:
+        with open(Temperature_path, 'a') as f:
+            if twoSensors:
+                row = f'{means1[i]},{means2[i]},{Cw}'
+            else:
+                row = f'{means1[i]},{Cw}'
+            f.write(row+'\n')
     
-    _mode = 'wb' if i==0 else 'ab' # clear data from previous experiment before writing
     if Save_acq_data:
+        _mode = 'wb' if i==0 else 'ab' # clear data from previous experiment before writing
         with open(Acqdata_path, _mode) as f:
             TT_Ascan.tofile(f)
             PE_Ascan.tofile(f)

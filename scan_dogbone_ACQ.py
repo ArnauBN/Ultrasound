@@ -570,10 +570,11 @@ try:
     # =========================
     # TAKE ONE LAST MEASUREMENT
     # =========================
+    start_time = time.time() # start timer
     TT_Ascan, PE_Ascan = SeDaq.GetAscan_Ch1_Ch2(Smin, Smax) #acq Ascan
     if Temperature:
-        tmp = arduino.getTemperature(error_msg=f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', 
-                                     exception_msg=f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        tmp = arduino.getTemperature(error_msg=f'Warning: wrong temperature data at Acq. #{N_acqs}/{N_acqs}. Retrying...', 
+                                     exception_msg=f'Warning: could not parse temperature data to float at Acq. #{N_acqs}/{N_acqs}. Retrying...')
         
         if twoSensors:
             temperature2 = tmp[1]
@@ -597,6 +598,8 @@ try:
         with open(Acqdata_path, 'ab') as f:
             TT_Ascan.tofile(f)
             PE_Ascan.tofile(f)
+    elapsed_time = time.time() - start_time
+    print(f'Acquisition #{N_acqs}/{N_acqs} done in {elapsed_time} s.')
     
 except KeyboardInterrupt:
     scanner.stop()

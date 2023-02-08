@@ -132,7 +132,7 @@ if WP_axis not in water_plane or len(water_plane) != 2 or len(WP_axis) != 1:
     exit()
 
 scanpatter = Scanner.makeScanPattern(pattern, scan_axis, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
-N_acqs = len(scanpatter)
+N_acqs = len(scanpatter) + 1
 print(f'The experiment will take around {US.time2str(N_acqs*0.5)} plus the calibration.')
 
 
@@ -486,18 +486,11 @@ ScanLen = np.max([ScanLen1, ScanLen2])  # Total scan length for computations (ze
 # Write temperature header to text file
 # -------------------------------------
 if Temperature:
-    if twoSensors:
-        header = 'Inside,Outside,Cw'
-        means2 = np.zeros(N_acqs)
-    else:
-        header = 'Inside,Cw'
-    means1 = np.zeros(N_acqs)
-    
+    header = 'Inside,Outside,Cw' if twoSensors else 'Inside,Cw'
     with open(Temperature_path, 'w') as f:
         f.write(header+'\n')
 
     arduino.open()
-
 
 scanner.goHome()
 
@@ -526,12 +519,12 @@ try:
                                          exception_msg=f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
             
             if twoSensors:
-                means2[i] = tmp[1]
-                means1[i] = tmp[0]
+                temperature2 = tmp[1]
+                temperature1 = tmp[0]
             else:
-                means1[i] = tmp
+                temperature1 = tmp
         
-            Cwt = US.speedofsound_in_water(means1[i], method='Abdessamad', method_param=148)
+            Cwt = US.speedofsound_in_water(temperature1, method='Abdessamad', method_param=148)
         
         
         # -----------------------------------------------------------
@@ -548,10 +541,7 @@ try:
         # -----------------------------
         if Temperature:
             with open(Temperature_path, 'a') as f:
-                if twoSensors:
-                    row = f'{means1[i]},{means2[i]},{Cwt}'
-                else:
-                    row = f'{means1[i]},{Cwt}'
+                row = f'{temperature1},{temperature2},{Cwt}' if twoSensors else f'{temperature1},{Cwt}'
                 f.write(row+'\n')
         
         if Save_acq_data:
@@ -574,6 +564,40 @@ try:
         # ---------
         elapsed_time = time.time() - start_time
         print(f'Acquisition #{i+1}/{N_acqs} done in {elapsed_time} s.')
+    
+    
+    
+    # =========================
+    # TAKE ONE LAST MEASUREMENT
+    # =========================
+    TT_Ascan, PE_Ascan = SeDaq.GetAscan_Ch1_Ch2(Smin, Smax) #acq Ascan
+    if Temperature:
+        tmp = arduino.getTemperature(error_msg=f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', 
+                                     exception_msg=f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        
+        if twoSensors:
+            temperature2 = tmp[1]
+            temperature1 = tmp[0]
+        else:
+            temperature1 = tmp
+    
+        Cwt = US.speedofsound_in_water(temperature1, method='Abdessamad', method_param=148)
+
+    if ScanLen1 < ScanLen:
+        TT_Ascan = US.zeroPadding(TT_Ascan, ScanLen)
+    elif ScanLen2 < ScanLen:
+        PE_Ascan = US.zeroPadding(PE_Ascan, ScanLen)
+
+    if Temperature:
+        with open(Temperature_path, 'a') as f:
+            row = f'{temperature1},{temperature2},{Cwt}' if twoSensors else f'{temperature1},{Cwt}'
+            f.write(row+'\n')
+    
+    if Save_acq_data:
+        with open(Acqdata_path, 'ab') as f:
+            TT_Ascan.tofile(f)
+            PE_Ascan.tofile(f)
+    
 except KeyboardInterrupt:
     scanner.stop()
     print('Scanner successfully stopped.')

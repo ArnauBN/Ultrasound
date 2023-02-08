@@ -603,7 +603,7 @@ def load_columnvectors_fromtxt(Path: str, delimiter: str=',', header: bool=True,
             d[h] = data[:,i]
         return d
     else:
-        data = np.loadtxt(Path, delimiter=delimiter)
+        data = np.loadtxt(Path, delimiter=delimiter, dtype=dtype)
         return data
 
 def load_all(Experiment_Path: str):

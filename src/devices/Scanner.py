@@ -73,7 +73,7 @@ class Scanner():
     def uSteps2value(self, axis, uSteps):
         return float(uSteps) * self.getuSteps(axis)
     
-    def value2uSteps(self, axis, value):       
+    def value2uSteps(self, axis, value):
         if decimal.Decimal(str(value)) % decimal.Decimal(str(self.getuSteps(axis))) != 0:
             print(f'Warning: {value} is not multiple of {self.getuSteps(axis)}.')
         return int(value / self.getuSteps(axis))
@@ -154,7 +154,7 @@ class Scanner():
             return self.R
         
 
-    # ======= SET CURRENT =======
+    # ======= SET COORDINATES =======
     @X.setter
     def X(self, value):
         steps = self.value2uSteps('X', value)
@@ -956,6 +956,43 @@ class Scanner():
         self.moveAxis(axis, init_pos)
         return round(x - init_pos, precision)
 
+    def findEdge2(self, SeDaq, Smin2, Smax2, axis, init_step, init_pos, Maxtolerance):
+        precision = 3 if axis.upper() == 'Z' else 2
+        step = init_step
+        
+        left = init_pos
+        right = init_pos + step
+        middle = (left + right) / 2
+        
+        self.moveAxis(axis, init_pos)
+        Max_left = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        self.moveAxis(axis, middle)
+        Max_middle = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        self.moveAxis(axis, right)
+        Max_right = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        while abs(Max_right - Max_left) <= Maxtolerance:
+            step *= 1.5
+            right = init_pos + step
+            middle = (left + right) / 2
+            self.moveAxis(axis, init_pos + step)
+            Max_right = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        if step != init_step:
+            self.moveAxis(axis, middle)
+            Max_middle = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        while right-left >= self.getuSteps(axis):
+            if abs(Max_middle - Max_left) > Maxtolerance:
+                right = middle
+                Max_right = Max_middle
+            else:
+                left = middle
+                Max_left = Max_middle
+            middle = (left + right) / 2
+            self.moveAxis(axis, middle)
+            Max_middle = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        return round(middle - init_pos, precision)
 
 
 

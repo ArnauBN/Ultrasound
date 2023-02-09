@@ -22,7 +22,7 @@ from src.devices import Scanner
 # Paths and file names to use
 ########################################################
 Path = r'D:\Data\pruebas_acq'
-Experiment_folder_name = 'test' # Without Backslashes
+Experiment_folder_name = 'test2' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
@@ -32,6 +32,7 @@ Experiment_Temperature_file_name = 'temperature.txt'
 Experiment_scanpath_file_name = 'scanpath.txt'
 Experiment_description_file_name = 'Experiment_description.txt'
 Experiment_PEforCW_file_name = 'PEat0_PEat10mm.txt'
+Experiment_PEforCW2_file_name = 'PEat0_PEat10mm2.txt'
 
 MyDir = os.path.join(Path, Experiment_folder_name)
 Config_path = os.path.join(MyDir, Experiment_config_file_name)
@@ -43,6 +44,7 @@ Temperature_path = os.path.join(MyDir, Experiment_Temperature_file_name)
 Experiment_description_path = os.path.join(MyDir, Experiment_description_file_name)
 Scanpath_path = os.path.join(MyDir, Experiment_scanpath_file_name)
 PEforCW_path = os.path.join(MyDir, Experiment_PEforCW_file_name)
+PEforCW2_path = os.path.join(MyDir, Experiment_PEforCW2_file_name)
 if not os.path.exists(MyDir):
     os.makedirs(MyDir)
     print(f'Created new path: {MyDir}')
@@ -116,7 +118,7 @@ R_step = 37.8                   # smallest step to move in the R axis (deg), min
 X_end = 70                      # last X coordinate of the experiment (mm) - float
 Y_end = 20                      # last Y coordinate of the experiment (mm) - float
 Z_end = 120                     # last Z coordinate of the experiment (mm) - float
-R_end = 40                      # last R coordinate of the experiment (deg) - float
+R_end = 44                      # last R coordinate of the experiment (deg) - float
 
 Maxtol = 0.1
 init_step = 4 # mm
@@ -158,6 +160,24 @@ elif longaxis == 'Y':
 elif longaxis == 'Z':
     longend = Z_end
     longstep = Z_step
+
+if shortaxis == 'X':
+    shortend = X_end
+    home = [init_pos, 0, 0, 0]
+elif shortaxis == 'Y':
+    shortend = Y_end
+    home = [0, init_pos, 0, 0]
+elif shortaxis == 'Z':
+    shortend = Z_end
+    home = [0, 0, init_pos, 0]
+
+center = home.copy()
+if longaxis == 'X':
+    center[0] = int(longend//2)
+elif longaxis == 'Y':
+    center[1] = int(longend//2)
+elif longaxis == 'Z':
+    center[2] = int(longend//2)
 
 
 #%% Start serial communication
@@ -206,6 +226,7 @@ SeDaq.Quantiz_Levels = Quantiz_Levels
 scanner = Scanner.Scanner(port=port_scanner, baudrate=baudrate_scanner, timeout=timeout_scanner)
 scanner.setLimits(X_end + 1, Y_end + 1, Z_end + 1, R_end + 1)
 scanner.Rspeedtype = 'gaussian'
+scanner.home = home
 
 
 #%% 
@@ -250,32 +271,17 @@ print("===================================================\n")
 ########################################################################
 # Determination of Center axis and Sidetilt
 ########################################################################
-if shortaxis == 'X':
-    scanner.home = [init_pos, 0, 0, 0]
-elif shortaxis == 'Y':
-    scanner.home = [0, init_pos, 0, 0]
-elif shortaxis == 'Z':
-    scanner.home = [0, 0, init_pos, 0]
-
-center = scanner.home.copy()
-if longaxis == 'X':
-    center[0] = int(longend//2)
-elif longaxis == 'Y':
-    center[1] = int(longend//2)
-elif longaxis == 'Z':
-    center[2] = int(longend//2)
-
 try:
     # ------------
     # Check center
     # ------------
     scanner.moveAxis(longaxis, int(longend//2))
-    PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
-    Maxc = np.max(np.abs(PEc))
     x1_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, init_pos, Maxtol)
     x2_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, init_pos, Maxtol)
     width0 = x1_0 - x2_0
     dif0 = x1_0 + x2_0
+    print(f'{width0 = }')
+    print(f'{dif0 = }')
     scanner.diffMoveAxis(shortaxis, dif0/2)
     scanner.setAxis(shortaxis, init_pos)
     
@@ -284,26 +290,20 @@ try:
     # Check center + sidetilt_dist
     # ----------------------------
     scanner.diffMoveAxis(longaxis, sidetilt_dist)
-    PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
-    Maxc = np.max(np.abs(PEc))
     x1_1 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, init_pos, Maxtol)
     x2_1 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, init_pos, Maxtol)
     width1 = x1_1 - x2_1
     dif1 = x1_1 + x2_1
-    scanner.diffMoveAxis(shortaxis, dif1/2)
     
     
     # ----------------------------
     # Check center - sidetilt_dist
     # ----------------------------
     scanner.diffMoveAxis(longaxis, -2*sidetilt_dist)
-    PEc = SeDaq.GetAscan_Ch2(Smin2, Smax2)
-    Maxc = np.max(np.abs(PEc))
     x1_2 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, init_pos, Maxtol)
     x2_2 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, init_pos, Maxtol)
     width2 = x1_2 - x2_2
     dif2 = x1_2 + x2_2
-    scanner.diffMoveAxis(shortaxis, dif2/2)
 except KeyboardInterrupt:
     scanner.stop()
     print('Scanner successfully stopped.')
@@ -404,6 +404,7 @@ print(f'Tilt is {phi = } deg')
 ########################################################################
 # Water Path acquisition
 ########################################################################
+scanner.moveAxis(shortaxis, shortend-1)
 WP_Ascan = SeDaq.GetAscan_Ch1(Smin1, Smax1)
 print('Water path acquired.')
 scanner.move(*center)
@@ -637,12 +638,12 @@ if MeasureCW:
     # Find ToF
     ToF = US.CalcToFAscanCosine_XCRFFT(PE0, PE10, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False)[0]
     Cw2 = 2 * Fs * MeasureCW_dist*1e-3 / abs(ToF)
-    print(f'The speed of sound in the water is {Cw} m/s.')
+    print(f'The speed of sound in the water is {Cw2} m/s.')
     
     config_dict['Cw'] = (Cw + Cw2) / 2
     US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
     print("===================================================\n")
     
-    np.savetxt(PEforCW_path, np.c_[PE0,PE10], header='PE0,PE10', comments='', delimiter=',')
-    print(f'PEs for Cw saved to {PEforCW_path}.')
+    np.savetxt(PEforCW2_path, np.c_[PE0,PE10], header='PE0,PE10', comments='', delimiter=',')
+    print(f'PEs for Cw2 saved to {PEforCW2_path}.')
     print("===================================================\n")

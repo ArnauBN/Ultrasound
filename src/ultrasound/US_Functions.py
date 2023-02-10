@@ -1367,12 +1367,12 @@ def find_nearest(x, value):
 
     Returns
     -------
-    value_found : float
-        The value in x wich is closest to the input value.
     idx : int
         The index of value_found.
+    value_found : float
+        The closest value in x to the input value.
 
-    Arnau, 11/01/2023
+    Arnau, 10/02/2023
     '''
     array = np.asarray(x)
     idx = (np.abs(array - value)).argmin()

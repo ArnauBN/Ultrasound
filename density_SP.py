@@ -66,7 +66,7 @@ m = US.load_columnvectors_fromtxt(Weights_path, header=False) # weights (g)
 
 
 #%% Parameters
-d = 10 # diameter of the cilinder (cm)
+d = 18.97 # diameter of the cilinder (cm)
 r = d/2
 
 

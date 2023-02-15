@@ -16,8 +16,6 @@ import src.ultrasound as US
 # --------------------------------
 # Expected values for methacrylate
 # --------------------------------
-# Longitudinal velocity: 2730 m/s
-# Shear velocity: 1430 m/s
 # Density: PMMA -> 1.18 g/cm^3 
 #           MMA -> 0.94 g/cm^3
 
@@ -26,8 +24,8 @@ import src.ultrasound as US
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\EpoxyResin'
-Experiment_folder_name = 'test3' # Without Backslashes
+Path = r'D:\Data\pruebas_acq'
+Experiment_folder_name = 'density_10dB' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_name = 'acqdata.bin'
@@ -54,7 +52,7 @@ N_acqs = config_dict['N_acqs']
 Fs = config_dict['Fs']
 
 # Data
-PE = US.load_bin_acqs(Acqdata_path, N_acqs)
+PE = US.load_bin_acqs(Acqdata_path, N_acqs, TT_and_PE=False)
 
 # Temperature and CW
 temperature_dict = US.load_columnvectors_fromtxt(Temperature_path)
@@ -79,11 +77,15 @@ ToF = np.apply_along_axis(TOF, 0, PE[:,1:], PE[:,0])
 
 #%%
 Aref = np.max(np.abs(PE[:,0]))
-print(f'{Aref = }')
+print(f'{Aref = } V')
 
-Dh = Cw*1e2 * ToF / Fs # cm
+Dh = Cw[1:]*1e2 * ToF / Fs # cm
 V = np.pi * (r**2) * Dh # cm^3
 densities = m / V # g/cm^3
+
+print('Volumes (cm^3):')
+for i,vol in enumerate(V):
+    print(f'{i+1} --> {vol}')
 
 print('Densities (g/cm^3):')
 for i,density in enumerate(densities):

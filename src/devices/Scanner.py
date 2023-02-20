@@ -12,6 +12,7 @@ import decimal
 
 #%%
 class Scanner():
+    '''Class for the control of the scanner via serial comm.'''
     def __init__(self, port='COM4', baudrate=19200, timeout=0.1):
         
         # Open Serial communication
@@ -71,9 +72,56 @@ class Scanner():
             return self.uStepR
     
     def uSteps2value(self, axis, uSteps):
+        '''
+        Returns a value in millimeters (X, Y or Z axis) or degrees (R axis)
+        given its corresponding number of motor steps.
+
+        Parameters
+        ----------
+        axis : str or int
+            Available axis are:
+                'X' or 0
+                'Y' or 1
+                'Z' or 2
+                'R' or 3
+        uSteps : int
+            Motor steps to convert to millimeters or degrees.
+
+        Returns
+        -------
+        value : float
+            The value in millimeters or degrees (depending on the axis).
+
+        Arnau, 20/02/2023
+        '''
         return float(uSteps) * self.getuSteps(axis)
     
     def value2uSteps(self, axis, value):
+        '''
+        Returns a number of motor steps given its corresponding value in
+        millimeters (X, Y or Z axis) or degrees (R axis).
+
+        Prints a warning if the value is not divisible by the axis' uSteps.
+
+        Parameters
+        ----------
+        axis : str or int
+            Available axis are:
+                'X' or 0
+                'Y' or 1
+                'Z' or 2
+                'R' or 3
+        value : float
+            The value in millimeters or degrees (depending on the axis) to
+            convert to motor steps.
+
+        Returns
+        -------
+        steps : int
+            The motor steps.
+
+        Arnau, 20/02/2023
+        '''
         if decimal.Decimal(str(value)) % decimal.Decimal(str(self.getuSteps(axis))) != 0:
             print(f'Warning: {value} is not multiple of {self.getuSteps(axis)}.')
         return int(value / self.getuSteps(axis))
@@ -81,6 +129,25 @@ class Scanner():
     
     # ========= WRITE COMMAND =========
     def write(self, cmd):
+        '''
+        Send a command to the scanner via serial communication. The execution
+        of code is blocked until the response is received. If the serial
+        communication port was closed, it is opened. If a KeyboardInterrupt
+        exception occurs, a stop command is sent ('SSF') and the exception is
+        raised. If any other exception occurs, the serial comm is closed.
+
+        Parameters
+        ----------
+        cmd : str
+            Command to send.
+
+        Returns
+        -------
+        response : str
+            The response (if any) of the scanner.
+
+        Arnau, 20/02/2023
+        '''
         try:
             if self.ser.isOpen() == False:
                 self.ser.open()
@@ -114,6 +181,7 @@ class Scanner():
     # ========== READ COORDINATES ==========
     @property
     def X(self):
+        '''Current X axis coordinate'''
         x = self.write('SCX')
         X = float(x[3:]) * self.uStepX
         self._X = X
@@ -121,6 +189,7 @@ class Scanner():
 
     @property
     def Y(self):
+        '''Current Y axis coordinate'''
         y = self.write('SCY')
         Y = float(y[3:]) * self.uStepY
         self._Y = Y
@@ -128,6 +197,7 @@ class Scanner():
     
     @property
     def Z(self):
+        '''Current Z axis coordinate'''
         z = self.write('SCZ')
         Z = float(z[3:]) * self.uStepZ
         self._Z = Z
@@ -135,15 +205,51 @@ class Scanner():
     
     @property
     def R(self):
+        '''Current R axis coordinate'''
         r = self.write('SCR')
         R = float(r[3:]) * self.uStepR
         self._R = R
         return R
 
     def getCoords(self):
+        '''
+        Returns all current coordinates of the scanner.
+
+        Returns
+        -------
+        X : float
+            Current X axis coordinate.
+        Y : float
+            Current Y axis coordinate.
+        Z : float
+            Current Z axis coordinate.
+        R : float
+            Current R axis coordinate.
+
+        Arnau, 20/02/2023
+        '''
         return self.X, self.Y, self.Z, self.R
 
     def getAxis(self, axis):
+        '''
+        Returns the current coordinate of the given axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+
+        Returns
+        -------
+        float
+            Current axis coordinate.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             return self.X
         elif axis.upper() == 'Y':
@@ -188,15 +294,64 @@ class Scanner():
         self._R = value
     
     def setCurrent(self, Xvalue, Yvalue, Zvalue, Rvalue):
+        '''
+        Set the current coordinates of all the axis to the specified values.
+
+        Parameters
+        ----------
+        Xvalue : float
+            Value to set the X axis' coordinate to.
+        Yvalue : float
+            Value to set the Y axis' coordinate to.
+        Zvalue : float
+            Value to set the Z axis' coordinate to.
+        Rvalue : float
+            Value to set the R axis' coordinate to.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.X = Xvalue
         self.Y = Yvalue
         self.Z = Zvalue
         self.R = Rvalue
     
     def setZero(self):
+        '''
+        Sets all current coordinates to zero.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.setCurrent(0, 0, 0, 0)
 
     def setAxis(self, axis, value):
+        '''
+        Set the current axis' coordinate to the specified value.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : float
+           Value to set the axis' coordinate to.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.X = value
         elif axis.upper() == 'Y':
@@ -209,6 +364,22 @@ class Scanner():
 
     # ======= MOVEMENT =======
     def moveX(self, value):
+        '''
+        Move the X axis to the specified absolute value. If this value is 
+        greater than the current XLimit or is less than zero, the scanner does
+        not move and a warning is printed.
+
+        Parameters
+        ----------
+        value : float
+            Value to move the X axis to.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('X', value)
         if self.write(f'SMX{steps}')[:2] != b'OK':
             print(f'Could not move X axis absolute coordinate to {value} mm.')
@@ -216,6 +387,22 @@ class Scanner():
         self._X = value
 
     def moveY(self, value):
+        '''
+        Move the Y axis to the specified absolute value. If this value is 
+        greater than the current YLimit or is less than zero, the scanner does
+        not move and a warning is printed.
+
+        Parameters
+        ----------
+        value : float
+            Value to move the Y axis to.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('Y', value)
         if self.write(f'SMY{steps}')[:2] != b'OK':
             print(f'Could not move Y axis absolute coordinate to {value} mm.')
@@ -223,6 +410,22 @@ class Scanner():
         self._Y = value
     
     def moveZ(self, value):
+        '''
+        Move the Z axis to the specified absolute value. If this value is 
+        greater than the current ZLimit or is less than zero, the scanner does
+        not move and a warning is printed.
+
+        Parameters
+        ----------
+        value : float
+            Value to move the Z axis to.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('Z', value)
         if self.write(f'SMZ{steps}')[:2] != b'OK':
             print(f'Could not move Z axis absolute coordinate to {value} mm.')
@@ -230,6 +433,22 @@ class Scanner():
         self._Z = value
     
     def moveR(self, value):
+        '''
+        Move the R axis to the specified absolute value. If this value is 
+        greater than the current RLimit or is less than zero, the scanner does
+        not move and a warning is printed.
+
+        Parameters
+        ----------
+        value : float
+            Value to move the R axis to.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('R', value)
         if self.write(f'SMR{steps}')[:2] != b'OK':
             print(f'Could not move R axis absolute coordinate to {value} deg.')
@@ -237,15 +456,68 @@ class Scanner():
         self._R = value
     
     def move(self, Xvalue, Yvalue, Zvalue, Rvalue):
+        '''
+        Move all axis to the specified absolute values. If any of these values
+        is greater than the corresponding current limit or is less than zero, 
+        the scanner does not move in that axis and a warning is printed.
+
+        Parameters
+        ----------
+        Xvalue : float
+            Value to move the X axis to.
+        Yvalue : float
+            Value to move the Y axis to.
+        Zvalue : float
+            Value to move the Z axis to.
+        Rvalue : float
+            Value to move the R axis to.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.moveX(Xvalue)
         self.moveY(Yvalue)
         self.moveZ(Zvalue)
         self.moveR(Rvalue)
     
     def goHome(self):
+        '''
+        Moves the scanner to the scanner.home position.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.move(*self.home)
 
     def moveAxis(self, axis, value):
+        '''
+        Move the axis to the specified absolute value. If this value is greater
+        than the current axis' limit or is less than zero, the scanner does not
+        move and a warning is printed.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : float
+            Value to move the axis to.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.moveX(value)
         elif axis.upper() == 'Y':
@@ -258,6 +530,23 @@ class Scanner():
 
     # ======= DIFFERENTIAL MOVEMENT =======
     def diffMoveX(self, value):
+        '''
+        Move the X axis by the specified value in the current direction. If the
+        current coordinate plus this value is greater than the current XLimit 
+        or is less than zero, the scanner does not move and a warning is 
+        printed.
+
+        Parameters
+        ----------
+        value : float
+            Value to move the X axis by.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('X', value)
         if self.write(f'SDX{steps}')[:2] != b'OK':
             print(f'Could not move X axis relative coordinate by {value} mm.')
@@ -265,6 +554,23 @@ class Scanner():
         self._X = value
     
     def diffMoveY(self, value):
+        '''
+        Move the Y axis by the specified value in the current direction. If the
+        current coordinate plus this value is greater than the current YLimit 
+        or is less than zero, the scanner does not move and a warning is 
+        printed.
+
+        Parameters
+        ----------
+        value : float
+            Value to move the Y axis by.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('Y', value)
         if self.write(f'SDY{steps}')[:2] != b'OK':
             print(f'Could not move Y axis relative coordinate by {value} mm.')
@@ -272,6 +578,23 @@ class Scanner():
         self._Y = value
     
     def diffMoveZ(self, value):
+        '''
+        Move the Z axis by the specified value in the current direction. If the
+        current coordinate plus this value is greater than the current ZLimit 
+        or is less than zero, the scanner does not move and a warning is 
+        printed.
+
+        Parameters
+        ----------
+        value : float
+            Value to move the Z axis by.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('Z', value)
         if self.write(f'SDZ{steps}')[:2] != b'OK':
             print(f'Could not move Z axis relative coordinate by {value} mm.')
@@ -279,6 +602,23 @@ class Scanner():
         self._Z = value
     
     def diffMoveR(self, value):
+        '''
+        Move the R axis by the specified value in the current direction. If the
+        current coordinate plus this value is greater than the current RLimit 
+        or is less than zero, the scanner does not move and a warning is 
+        printed.
+
+        Parameters
+        ----------
+        value : float
+            Value to move the R axis by.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('R', value)
         if self.write(f'SDR{steps}')[:2] != b'OK':
             print(f'Could not move R axis relative coordinate by {value} deg.')
@@ -286,12 +626,58 @@ class Scanner():
         self._R = value
     
     def diffMove(self, Xvalue, Yvalue, Zvalue, Rvalue):
+        '''
+        Move every axis by the specified value in their current direction. If
+        any of the current coordinates plus this value is greater than the
+        current corresponding limit or is less than zero, the scanner does not
+        move in that axis and a warning is printed.
+
+        Parameters
+        ----------
+        Xvalue : float
+            Value to move the X axis by.
+        Yvalue : float
+            Value to move the Y axis by.
+        Zvalue : float
+            Value to move the Z axis by.
+        Rvalue : float
+            Value to move the R axis by.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.diffMoveX(Xvalue)
         self.diffMoveY(Yvalue)
         self.diffMoveZ(Zvalue)
         self.diffMoveR(Rvalue)
     
     def diffMoveAxis(self, axis, value):
+        '''
+        Move the axis by the specified value in the current direction. If the
+        current coordinate plus this value is greater than the current axis
+        limit or is less than zero, the scanner does not move and a warning is 
+        printed.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : float
+            Value to move the axis by.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.diffMoveX(value)
         elif axis.upper() == 'Y':
@@ -304,6 +690,21 @@ class Scanner():
     
     # ======= UNLIMITED DIFFERENTIAL MOVEMENT =======
     def unlimitedDiffMoveX(self, value):
+        '''
+        Move the X axis by the specified value in the current direction. 
+        Ignores the current XLimit.
+        
+        Parameters
+        ----------
+        value : float
+            Value to move the X axis by.
+        
+        Returns
+        -------
+        None.
+        
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('X', value)
         if self.write(f'SNX{steps}')[:2] != b'OK':
             print(f'Could not move X axis relative coordinate by {value} mm.')
@@ -311,6 +712,21 @@ class Scanner():
         self._X = value
     
     def unlimitedDiffMoveY(self, value):
+        '''
+        Move the Y axis by the specified value in the current direction. 
+        Ignores the current YLimit.
+        
+        Parameters
+        ----------
+        value : float
+            Value to move the Y axis by.
+        
+        Returns
+        -------
+        None.
+        
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('Y', value)
         if self.write(f'SNY{steps}')[:2] != b'OK':
             print(f'Could not move Y axis relative coordinate by {value} mm.')
@@ -318,6 +734,21 @@ class Scanner():
         self._Y = value
     
     def unlimitedDiffMoveZ(self, value):
+        '''
+        Move the Z axis by the specified value in the current direction. 
+        Ignores the current ZLimit.
+        
+        Parameters
+        ----------
+        value : float
+            Value to move the Z axis by.
+        
+        Returns
+        -------
+        None.
+        
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('Z', value)
         if self.write(f'SNZ{steps}')[:2] != b'OK':
             print(f'Could not move Z axis relative coordinate by {value} mm.')
@@ -325,6 +756,21 @@ class Scanner():
         self._Z = value
     
     def unlimitedDiffMoveR(self, value):
+        '''
+        Move the R axis by the specified value in the current direction. 
+        Ignores the current RLimit.
+        
+        Parameters
+        ----------
+        value : float
+            Value to move the R axis by.
+        
+        Returns
+        -------
+        None.
+        
+        Arnau, 20/02/2023
+        '''
         steps = self.value2uSteps('R', value)
         if self.write(f'SNR{steps}')[:2] != b'OK':
             print(f'Could not move R axis relative coordinate by {value} deg.')
@@ -332,12 +778,54 @@ class Scanner():
         self._R = value
     
     def unlimitedDiffMove(self, Xvalue, Yvalue, Zvalue, Rvalue):
+        '''
+        Move every axis by the specified value in their current direction.
+        Ignores limits.
+
+        Parameters
+        ----------
+        Xvalue : float
+            Value to move the X axis by.
+        Yvalue : float
+            Value to move the Y axis by.
+        Zvalue : float
+            Value to move the Z axis by.
+        Rvalue : float
+            Value to move the R axis by.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.unlimitedDiffMoveX(Xvalue)
         self.unlimitedDiffMoveY(Yvalue)
         self.unlimitedDiffMoveZ(Zvalue)
         self.unlimitedDiffMoveR(Rvalue)
 
     def unlimitedDiffMoveAxis(self, axis, value):
+        '''
+        Move the axis by the specified value in the current direction. Ignores
+        the current axis limit.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : float
+            Value to move the axis by.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.unlimitedDiffMoveX(value)
         elif axis.upper() == 'Y':
@@ -351,32 +839,71 @@ class Scanner():
     # ======== GET LIMITS ========
     @property
     def XLimit(self):
+        '''X axis limit'''
         response = self.write('SGX')
         Xlim = self.uSteps2value('X', float(response[3:]))
         return Xlim
 
     @property
     def YLimit(self):
+        '''Y axis limit'''
         response = self.write('SGY')
         Ylim = self.uSteps2value('Y', float(response[3:]))
         return Ylim
 
     @property
     def ZLimit(self):
+        '''Z axis limit'''
         response = self.write('SGZ')
         Zlim = self.uSteps2value('Z', float(response[3:]))
         return Zlim
 
     @property
     def RLimit(self):
+        '''R axis limit'''
         response = self.write('SGR')
         Rlim = self.uSteps2value('R', float(response[3:]))
         return Rlim
     
     def getLimits(self):
+        '''
+        Returns the limit of all axis.
+
+        Returns
+        -------
+        XLimit : float
+            The X axis limit.
+        YLimit : float
+            The Y axis limit.
+        ZLimit : float
+            The Z axis limit.
+        RLimit : float
+            The R axis limit.
+
+        Arnau, 20/02/2023
+        '''
         return self.XLimit, self.YLimit, self.ZLimit, self.RLimit
 
     def getAxisLimit(self, axis):
+        '''
+        Returns the limit of the specified axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+
+        Returns
+        -------
+        float
+            The axis limit.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             return self.XLimit
         elif axis.upper() == 'Y':
@@ -413,12 +940,52 @@ class Scanner():
             print(f'Could not set R axis max coordinate limit to {limit} deg.')
 
     def setLimits(self, Xlim, Ylim, Zlim, Rlim):
+        '''
+        Set the limit of all axis to the specified values.
+
+        Parameters
+        ----------
+        Xlim : float
+            The X axis limit.
+        Ylim : float
+            The Y axis limit.
+        Zlim : float
+            The Z axis limit.
+        Rlim : float
+            The R axis limit.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.XLimit = Xlim
         self.YLimit = Ylim
         self.ZLimit = Zlim
         self.RLimit = Rlim
 
     def setAxisLimit(self, axis, value):
+        '''
+        Set the limit of the axis to the specified value.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : float
+            The axis limit.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.XLimit = value
         elif axis.upper() == 'Y':
@@ -432,21 +999,44 @@ class Scanner():
     # ========= SWAP DIRECTION =========
     @property
     def Xdirection(self):
+        '''X axis direction'''
         return self._Xdirection
 
     @property
     def Ydirection(self):
+        '''Y axis direction'''
         return self._Ydirection
 
     @property
     def Zdirection(self):
+        '''Z axis direction'''
         return self._Zdirection
 
     @property
     def Rdirection(self):
+        '''R axis direction'''
         return self._Rdirection
     
     def getAxisDirection(self, axis):
+        '''
+        Returns the current direction of the specified axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+
+        Returns
+        -------
+        str
+            The direction of the axis ('+' or '-').
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             return self.Xdirection
         elif axis.upper() == 'Y':
@@ -477,12 +1067,52 @@ class Scanner():
         self._Rdirection = direction
 
     def setDirections(self, Xdirection='+', Ydirection='+', Zdirection='-', Rdirection='+'):
+        '''
+        Set the direction of all axis. Allowed values are '+' or '-'.
+
+        Parameters
+        ----------
+        Xdirection : str, optional
+            Direction of X axis. The default is '+'.
+        Ydirection : str, optional
+            Direction of Y axis. The default is '+'.
+        Zdirection : str, optional
+            Direction of Z axis. The default is '-'.
+        Rdirection : str, optional
+            Direction of R axis. The default is '+'.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.Xdirection = Xdirection
         self.Ydirection = Ydirection
         self.Zdirection = Zdirection
         self.Rdirection = Rdirection
         
     def setAxisDirection(self, axis, value):
+        '''
+        Set the direction of the specified axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : str
+            Direction ('+' or '-').
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.Xdirection = value
         elif axis.upper() == 'Y':
@@ -496,21 +1126,44 @@ class Scanner():
     # ========= SET SPEEDTYPE =========
     @property
     def Xspeedtype(self):
+        '''X axis speed type'''
         return self._Xspeedtype
  
     @property
     def Yspeedtype(self):
+        '''Y axis speed type'''
         return self._Yspeedtype
     
     @property
     def Zspeedtype(self):
+        '''Z axis speed type'''
         return self._Zspeedtype
     
     @property
     def Rspeedtype(self):
+        '''R axis speed type'''
         return self._Rspeedtype
     
     def getAxisSpeedtype(self, axis):
+        '''
+        Returns the speed type of the specified axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+
+        Returns
+        -------
+        str or int
+            The type of speed.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             return self.Xspeedtype
         elif axis.upper() == 'Y':
@@ -545,12 +1198,64 @@ class Scanner():
         self._Rspeedtype = code        
     
     def setSpeedtypes(self, Xspeedtype=0, Yspeedtype=0, Zspeedtype=0, Rspeedtype=0):
+        '''
+        Set the speed type of all axis.
+        
+        Available speed types are:
+            'rectangular' <--> 0
+            'gaussian'    <--> 1
+            'random'      <--> 2
+            'triangle'    <--> 3
+
+        Parameters
+        ----------
+        Xspeedtype : str or int, optional
+            X axis speed type. The default is 0.
+        Yspeedtype : str or int, optional
+            Y axis speed type. The default is 0.
+        Zspeedtype : str or int, optional
+            Z axis speed type. The default is 0.
+        Rspeedtype : str or int, optional
+            R axis speed type. The default is 0.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.Xspeedtype = Xspeedtype
         self.Yspeedtype = Yspeedtype
         self.Zspeedtype = Zspeedtype
         self.Rspeedtype = Rspeedtype
 
     def setAxisSpeedtype(self, axis, value):
+        '''
+        Set the speed type of the specified axis.
+        
+        Available speed types are:
+            'rectangular' <--> 0
+            'gaussian'    <--> 1
+            'random'      <--> 2
+            'triangle'    <--> 3
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : str or int
+            Speed type.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.Xspeedtype = value
         elif axis.upper() == 'Y':
@@ -564,21 +1269,44 @@ class Scanner():
     # ======== GET/SET SPEED ========
     @property
     def Xspeed(self):
+        '''X axis speed'''
         return self._Xspeed
 
     @property
     def Yspeed(self):
+        '''Y axis speed'''
         return self._Yspeed
 
     @property
     def Zspeed(self):
+        '''Z axis speed'''
         return self._Zspeed
 
     @property
     def Rspeed(self):
+        '''R axis speed'''
         return self._Rspeed
     
     def getAxisSpeed(self, axis):
+        '''
+        Returns the speed of the specified axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+
+        Returns
+        -------
+        int
+            Speed.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             return self.Xspeed
         elif axis.upper() == 'Y':
@@ -621,12 +1349,52 @@ class Scanner():
         self._Rspeed = value
 
     def setSpeeds(self, Xvalue=100, Yvalue=100, Zvalue=100, Rvalue=100):
+        '''
+        Set the speed of all axis.
+
+        Parameters
+        ----------
+        Xvalue : int, optional
+            X axis speed. The default is 100.
+        Yvalue : int, optional
+            Y axis speed. The default is 100.
+        Zvalue : int, optional
+            Z axis speed. The default is 100.
+        Rvalue : int, optional
+            R axis speed. The default is 100.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.Xspeed = Xvalue
         self.Yspeed = Yvalue
         self.Zspeed = Zvalue
         self.Rspeed = Rvalue
 
     def setAxisSpeed(self, axis, value):
+        '''
+        Set the speed of the axis to the specified value.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : int
+            Speed.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.Xspeed = value
         elif axis.upper() == 'Y':
@@ -640,21 +1408,44 @@ class Scanner():
     # ======== GET/SET RAMPING SPEED ========
     @property
     def XRampingSpeed(self):
+        '''X axis ramping speed for Gaussian or Triangle speedtypes'''
         return self._XRampingSpeed
 
     @property
     def YRampingSpeed(self):
+        '''Y axis ramping speed for Gaussian or Triangle speedtypes'''
         return self._YRampingSpeed
 
     @property
     def ZRampingSpeed(self):
+        '''Z axis ramping speed for Gaussian or Triangle speedtypes'''
         return self._ZRampingSpeed
 
     @property
     def RRampingSpeed(self):
+        '''R axis ramping speed for Gaussian or Triangle speedtypes'''
         return self._RRampingSpeed    
     
     def getAxisRampingSpeed(self, axis):
+        '''
+        Return the ramping speed of the specified axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+
+        Returns
+        -------
+        int
+            The ramping speed.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             return self.XRampingSpeed
         elif axis.upper() == 'Y':
@@ -697,12 +1488,53 @@ class Scanner():
         self._RRampingSpeed = microseconds
     
     def setRampingSpeeds(self, Xmicroseconds=50, Ymicroseconds=50, Zmicroseconds=50, Rmicroseconds=50):
+        '''
+        Set the ramping speed of all axis. Only used for Gaussian and Triangle
+        speedtypes.
+
+        Parameters
+        ----------
+        Xmicroseconds : int, optional
+            X axis ramping speed. The default is 50.
+        Ymicroseconds : int, optional
+            Y axis ramping speed. The default is 50.
+        Zmicroseconds : int, optional
+            Z axis ramping speed. The default is 50.
+        Rmicroseconds : int, optional
+            R axis ramping speed. The default is 50.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.XRampingSpeed = Xmicroseconds
         self.YRampingSpeed = Ymicroseconds
         self.ZRampingSpeed = Zmicroseconds
         self.RRampingSpeed = Rmicroseconds
     
     def setAxisRampingSpeed(self, axis, value):
+        '''
+        Set ramping speed of the axis to the specified value.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : int
+            Ramping speed.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.XRampingSpeed = value
         elif axis.upper() == 'Y':
@@ -716,21 +1548,44 @@ class Scanner():
     # ======== GET/SET RANDOM SPEED PARAMETER ========
     @property
     def XRandomSpeed(self):
+        '''X axis random parameter to add to Xspeed for the random speedtype'''
         return self._XRandomSpeed
     
     @property
     def YRandomSpeed(self):
+        '''Y axis random parameter to add to Yspeed for the random speedtype'''
         return self._YRandomSpeed
     
     @property
     def ZRandomSpeed(self):
+        '''Z axis random parameter to add to Zspeed for the random speedtype'''
         return self._ZRandomSpeed
     
     @property
     def RRandomSpeed(self):
+        '''R axis random parameter to add to Rspeed for the random speedtype'''
         return self._RRandomSpeed
 
     def getAxisRandomSpeed(self, axis):
+        '''
+        Returns the random parameter of the specified axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+
+        Returns
+        -------
+        int
+            Random parameter.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             return self.XRandomSpeed
         elif axis.upper() == 'Y':
@@ -785,12 +1640,52 @@ class Scanner():
         self._RRandomSpeed = value
 
     def setRandomSpeeds(self, Xvalue, Yvalue, Zvalue, Rvalue):
+        '''
+        Set the random parameter of all axis.
+
+        Parameters
+        ----------
+        Xvalue : int
+            X axis random parameter to add to Xspeed.
+        Yvalue : int
+            Y axis random parameter to add to Yspeed.
+        Zvalue : int
+            Z axis random parameter to add to Zspeed.
+        Rvalue : int
+            R axis random parameter to add to Rspeed.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.XRandomSpeed = Xvalue
         self.YRandomSpeed = Yvalue
         self.ZRandomSpeed = Zvalue
         self.RRandomSpeed = Rvalue
 
     def setAxisRandomSpeed(self, axis, value):
+        '''
+        Set the random parameter of the axis to the specified value.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        value : int
+            Random parameter to add to the axis' speed.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.XRandomSpeed = value
         elif axis.upper() == 'Y':
@@ -803,9 +1698,27 @@ class Scanner():
 
     # ======== OPEN, CLOSE, STOP, ENABLE ========
     def close(self):
+        '''
+        Close the serial communication.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.ser.close()
 
     def open(self):
+        '''
+        Open the serial communication.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         try:
             if not self.ser.isOpen():
                 self.ser.open()
@@ -816,35 +1729,140 @@ class Scanner():
             print(f"Can't open serial port: {e}")
 
     def stop(self):
+        '''
+        Stop the scanner.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.write('SSF')
     
     def enableX(self, Enable=True):
+        '''
+        Enable (True) or Disable (False) the X axis.
+
+        Parameters
+        ----------
+        Enable : bool, optional
+            If True, enable the X axis. The default is True.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         c = '+' if Enable else '-'
         self.write(f'SEX{c}')
         self.__Xenable = Enable
 
     def enableY(self, Enable=True):
+        '''
+        Enable (True) or Disable (False) the Y axis.
+
+        Parameters
+        ----------
+        Enable : bool, optional
+            If True, enable the Y axis. The default is True.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         c = '+' if Enable else '-'
         self.write(f'SEY{c}')
         self.__Yenable = Enable
     
     def enableZ(self, Enable=True):
+        '''
+        Enable (True) or Disable (False) the Z axis.
+
+        Parameters
+        ----------
+        Enable : bool, optional
+            If True, enable the Z axis. The default is True.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         c = '+' if Enable else '-'
         self.write(f'SEZ{c}')
         self.__Zenable = Enable
     
     def enableR(self, Enable=True):
+        '''
+        Enable (True) or Disable (False) the R axis.
+
+        Parameters
+        ----------
+        Enable : bool, optional
+            If True, enable the R axis. The default is True.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         c = '+' if Enable else '-'
         self.write(f'SER{c}')
         self.__Renable = Enable
     
     def enable(self, XEnable=True, YEnable=True, ZEnable=True, REnable=True):
+        '''
+        Enable (True) or Disable (False) all axis.
+
+        Parameters
+        ----------
+        XEnable : bool, optional
+            If True, enable the X axis. The default is True.
+        YEnable : bool, optional
+            If True, enable the Y axis. The default is True.
+        ZEnable : bool, optional
+            If True, enable the Z axis. The default is True.
+        REnable : bool, optional
+            If True, enable the R axis. The default is True.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.enableX(XEnable)
         self.enableY(YEnable)
         self.enableZ(ZEnable)
         self.enableR(REnable)
     
     def enableAxis(self, axis, Enable=True):
+        '''
+        Enable (True) or Disable (False) the specified axis.
+
+        Parameters
+        ----------
+        axis : str
+            Available axis are:
+                'X'
+                'Y'
+                'Z'
+                'R'
+        Enable : bool, optional
+            If True, enable the axis. The default is True.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             self.enableX(Enable)
         elif axis.upper() == 'Y':
@@ -855,24 +1873,92 @@ class Scanner():
             self.enableR(Enable)
     
     def enableAll(self):
+        '''
+        Enable all axis.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.enable(True, True, True, True)
 
     def disableAll(self):
+        '''
+        Disable all axis.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 20/02/2023
+        '''
         self.enable(False, False, False, False)
     
     def isXEnabled(self):
+        '''
+        Returns True if the X axis is enabled. If not, returns False.
+
+        Returns
+        -------
+        bool
+            True if the X axis is enabled.
+
+        Arnau, 20/02/2023
+        '''
         return self.__Xenable
     
     def isYEnabled(self):
+        '''
+        Returns True if the Y axis is enabled. If not, returns False.
+
+        Returns
+        -------
+        bool
+            True if the Y axis is enabled.
+
+        Arnau, 20/02/2023
+        '''
         return self.__Yenable
     
     def isZEnabled(self):
+        '''
+        Returns True if the Z axis is enabled. If not, returns False.
+
+        Returns
+        -------
+        bool
+            True if the Z axis is enabled.
+
+        Arnau, 20/02/2023
+        '''
         return self.__Zenable
     
     def isREnabled(self):
+        '''
+        Returns True if the R axis is enabled. If not, returns False.
+
+        Returns
+        -------
+        bool
+            True if the R axis is enabled.
+
+        Arnau, 20/02/2023
+        '''
         return self.__Renable
    
     def isAxisEnabled(self, axis):
+        '''
+        Returns True if the specified axis is enabled. If not, returns False.
+
+        Returns
+        -------
+        bool
+            True if the specified axis is enabled.
+
+        Arnau, 20/02/2023
+        '''
         if axis.upper() == 'X':
             return self.__Xenable
         elif axis.upper() == 'Y':
@@ -963,6 +2049,64 @@ class Scanner():
             Max_middle = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
         self.moveAxis(axis, init_pos)
         return round(middle - init_pos, precision)
+
+
+
+    def findEdge2(self, SeDaq, Smin2, Smax2, axis, init_step, init_pos, floor, floortol):
+        '''
+        DO NOT USE.
+        
+        Arnau, 09/02/2023
+        '''
+        tolval = floor * floortol
+        
+        # if abs(max - floor) < tolval:
+        #     there is no eco.
+        
+        precision = 3 if axis.upper() == 'Z' else 2
+        step = init_step
+        
+        left = init_pos
+        right = init_pos + step
+        middle = round((left + right) / 2, precision)
+        
+        self.moveAxis(axis, init_pos)
+        Max_left = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        if abs(Max_left - floor) > tolval:
+            print(f'Initial position {init_pos} does not have an eco signal.')
+            return -1
+        
+        self.moveAxis(axis, middle)
+        Max_middle = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        self.moveAxis(axis, right)
+        Max_right = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        while abs(Max_right - floor) > tolval:
+            step *= 1.5
+            right = init_pos + step
+            middle = round((left + right) / 2, precision)
+            self.moveAxis(axis, right)
+            Max_right = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        if step != init_step:
+            self.moveAxis(axis, middle)
+            Max_middle = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        
+        while abs(right-left) >= self.getuSteps(axis):
+            if abs(Max_middle - floor) <= tolval:
+                right = middle
+                Max_right = Max_middle
+            else:
+                left = middle
+            middle = round((left + right) / 2, precision)
+            self.moveAxis(axis, middle)
+            Max_middle = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))
+        self.moveAxis(axis, init_pos)
+        return round(middle - init_pos, precision)
+
+
+
 
 
 

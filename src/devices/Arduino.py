@@ -9,8 +9,10 @@ Python version: Python 3.8
 import serial
 import numpy as np
 
+
 #%%
 class Arduino:
+    '''Class for temperature readings via serial comm. with the Arduino board'''
     def __init__(self, board='Arduino UNO', baudrate=9600, port='COM3', twoSensors=False, N_avg=1):
         self.board = board                 # Board type
         self.N_avg = N_avg                 # Number of temperature measurements to be averaged - int
@@ -24,6 +26,7 @@ class Arduino:
 
     @property
     def port(self):
+        '''Serial communication port'''
         return self.ser.port
 
     @port.setter
@@ -32,6 +35,7 @@ class Arduino:
 
     @property
     def baudrate(self):
+        '''Serial communication baudrate'''
         return self.ser.baudrate
 
     @baudrate.setter

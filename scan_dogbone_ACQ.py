@@ -21,8 +21,8 @@ from src.devices import Scanner
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'D:\Data\pruebas_acq'
-Experiment_folder_name = 'test2' # Without Backslashes
+Path = r'D:\Data\pruebas_acq_10-03-23\Scanner\EpoxyResin'
+Experiment_folder_name = 'test2-50_4deg' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
@@ -57,7 +57,7 @@ print(f'Experiment path set to {MyDir}')
 ########################################################
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
 Experiment_description = """Scanner test.
-Methacrylate dog-bone.
+Epoxy Resin dog-bone.
 Focused tx.
 Excitation_params: Pulse frequency (Hz).
 """
@@ -65,16 +65,16 @@ Excitation_params: Pulse frequency (Hz).
 Fs = 100.0e6                    # Sampling frequency - Hz
 Fs_Gencode_Generator = 200.0e6  # Sampling frequency for the gencodes generator - Hz
 RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
-Gain_Ch1 = 70                   # Gain of channel 1 - dB
-Gain_Ch2 = 25                   # Gain of channel 2 - dB
+Gain_Ch1 = 75                   # Gain of channel 1 - dB
+Gain_Ch2 = 18                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
 Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
 Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WORK
 Fc = 5e6                        # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
-Smin1, Smin2 = 3400, 3400       # starting point of the scan of each channel - samples
-Smax1, Smax2 = 8300, 8300       # last point of the scan of each channel - samples
+Smin1, Smin2 = 4000, 4000       # starting point of the scan of each channel - samples
+Smax1, Smax2 = 6500, 6500       # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
@@ -99,7 +99,7 @@ N_avg = 1                       # Number of temperature measurements to be avera
 # -------
 MeasureCW = True                # If True, measure de speed of sound in water by taking PE at 0 and PE at {MeasureCW_dist} mm - bool
 MeasureCW_dist = 10             # Distance to move to measure Cw (mm) - float
-sidetilt_dist = 10              # Distance to move to determine the side tilt (mm).
+sidetilt_dist = 20              # Distance to move to determine the side tilt (mm).
                                 # Checks the width of the DUT at {-sidetilt_dist}, 0 and {sidetilt_dist} - float
 tilt_step = 10                  # Step used to check the tilt (mm) - float
 WP_axis = 'Y'                   # Axis of the water path - str
@@ -112,15 +112,18 @@ pattern = 'line+turn'           # Available patterns: 'line', 'line+turn', 'zigz
 X_step = 0                      # smallest step to move in the X axis (mm), min is 0.01 - float
 Y_step = 0                      # smallest step to move in the Y axis (mm), min is 0.01 - float
 Z_step = 0.2                    # smallest step to move in the Z axis (mm), min is 0.005 - float
-R_step = 37.8                   # smallest step to move in the R axis (deg), min is 1.8  - float
+R_step = 50.4                   # smallest step to move in the R axis (deg), min is 1.8  - float
 # If the step is zero, do not move on that axis
+
+# Methacrylate: R = 39.6 deg
+# EpoxyResin: R = 50.4 deg (sometimes 46.8 deg)
+# Aluminum: R = 19.8 deg
 
 X_end = 70                      # last X coordinate of the experiment (mm) - float
 Y_end = 20                      # last Y coordinate of the experiment (mm) - float
-Z_end = 120                     # last Z coordinate of the experiment (mm) - float
-R_end = 44                      # last R coordinate of the experiment (deg) - float
+Z_end = 130                     # last Z coordinate of the experiment (mm) - float
+R_end = 1.8*34                  # last R coordinate of the experiment (deg) - float
 
-Maxtol = 0.1
 init_step = 4 # mm
 init_pos = 50 # mm
 
@@ -133,8 +136,8 @@ if WP_axis not in water_plane or len(water_plane) != 2 or len(WP_axis) != 1:
     time.sleep(3)
     exit()
 
-scanpatter = Scanner.makeScanPattern(pattern, scan_axis, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
-N_acqs = len(scanpatter) + 1
+scanpattern = Scanner.makeScanPattern(pattern, scan_axis, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
+N_acqs = len(scanpattern) + 1
 print(f'The experiment will take around {US.time2str(N_acqs*0.5)} plus the calibration.')
 
 
@@ -195,6 +198,8 @@ print('Connected.')
 print(f'Sleeping for {_sleep_time} s...')
 time.sleep(_sleep_time) # wait to be sure
 print("---------------------------------------------------")
+
+#%%
 if Reset_Relay:
     print('Resetting relay...')
     SeDaq.SetRelay(1)
@@ -224,7 +229,7 @@ SeDaq.Quantiz_Levels = Quantiz_Levels
 # Initialize Scanner
 ########################################################################
 scanner = Scanner.Scanner(port=port_scanner, baudrate=baudrate_scanner, timeout=timeout_scanner)
-scanner.setLimits(X_end + 1, Y_end + 1, Z_end + 1, R_end + 1)
+scanner.setLimits(X_end + 1, Y_end + 1, Z_end + 1, R_end + 1.8)
 scanner.Rspeedtype = 'gaussian'
 scanner.home = home
 
@@ -262,8 +267,8 @@ with open(Experiment_description_path, 'w') as f:
     f.write(Experiment_description)
 print(f'Experiment description saved to {Experiment_description_path}.')
 
-np.savetxt(Scanpath_path, np.c_[scanpatter], fmt='%s')
-print(f'Scanpatter saved to {Scanpath_path}.')
+np.savetxt(Scanpath_path, np.c_[scanpattern], fmt='%s')
+print(f'scanpattern saved to {Scanpath_path}.')
 print("===================================================\n")
 
 
@@ -275,7 +280,8 @@ try:
     # ------------
     # Check center
     # ------------
-    scanner.moveAxis(longaxis, int(longend//2))
+    scanner.move(*center)
+    Maxtol = np.max(np.abs(SeDaq.GetAscan_Ch2(Smin2, Smax2)))/np.sqrt(2) # 0.18
     x1_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, init_step, init_pos, Maxtol)
     x2_0 = scanner.findEdge(SeDaq, Smin2, Smax2, shortaxis, -init_step, init_pos, Maxtol)
     width0 = x1_0 - x2_0
@@ -352,10 +358,17 @@ if MeasureCW:
 # Determination of Tilt
 ########################################################################
 try:
-    scanner.goHome()
-    ToF0 = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
-    scanner.moveAxis(longaxis, longend)
-    ToFend = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
+    if eval(f'scanner.{longaxis}') == longend:
+        ToF0 = -US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
+        scanner.goHome()
+        if 10 < longend: scanner.diffMoveAxis(longaxis, 10)
+        ToFend = -US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
+    else:
+        scanner.goHome()
+        if 10 < longend: scanner.diffMoveAxis(longaxis, 10)
+        ToF0 = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
+        scanner.moveAxis(longaxis, longend)
+        ToFend = US.CosineInterpMax(SeDaq.GetAscan_Ch2(Smin2, Smax2), xcor=False)
 except KeyboardInterrupt:
     scanner.stop()
     print('Scanner successfully stopped.')
@@ -404,13 +417,14 @@ print(f'Tilt is {phi = } deg')
 ########################################################################
 # Water Path acquisition
 ########################################################################
+scanner.move(*center)
 scanner.moveAxis(shortaxis, shortend-1)
 WP_Ascan = SeDaq.GetAscan_Ch1(Smin1, Smax1)
 print('Water path acquired.')
 scanner.move(*center)
 
 if PE_as_ref:
-    input("Press any key to acquire the pulse echo.")
+    # input("Press any key to acquire the pulse echo.")
     PEref_Ascan = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     MyWin_PEref = US.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
     PEref_Ascan = PEref_Ascan * MyWin_PEref
@@ -447,7 +461,7 @@ plt.figure()
 plt.plot(WP_Ascan)
 plt.title('WP')
 US.movefig(location='n')
-plt.pause(0.05)
+plt.pause(0.1)
 
 ScanLen1 = Smax1 - Smin1                # Total scan length for channel 1 - samples
 ScanLen2 = Smax2 - Smin2                # Total scan length for channel 2 - samples
@@ -509,7 +523,7 @@ print("===================================================\n")
 # Sart loop
 # ---------
 try:
-    for i, sp in enumerate(scanpatter):
+    for i, sp in enumerate(scanpattern):
         # -------------------------------------------
         # Acquire signal, temperature and start timer
         # -------------------------------------------
@@ -622,23 +636,25 @@ US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Experiment ended at {_end_time}.')
 print("===================================================\n")
 
-
+time.sleep(3)
 ########################################################################
 # Measurement of speed of sound in water
 ########################################################################
 if MeasureCW:
     scanner.move(*center)
+    time.sleep(3)
     PE0 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     
     scanner.diffMoveAxis(WP_axis, MeasureCW_dist)
     
     PE10 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
-    scanner.goHome()
     
     # Find ToF
     ToF = US.CalcToFAscanCosine_XCRFFT(PE0, PE10, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False)[0]
     Cw2 = 2 * Fs * MeasureCW_dist*1e-3 / abs(ToF)
     print(f'The speed of sound in the water is {Cw2} m/s.')
+    
+    scanner.goHome()
     
     config_dict['Cw'] = (Cw + Cw2) / 2
     US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')

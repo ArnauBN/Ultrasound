@@ -20,8 +20,8 @@ from src.devices import Arduino
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'D:\Data\pruebas_acq'
-Experiment_folder_name = 'density_10dB' # Without Backslashes
+Path = r'D:\Data\pruebas_acq_09-03-23\Metals'
+Experiment_folder_name = 'Aref50us18dB' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_name = 'acqdata.bin'
@@ -45,27 +45,25 @@ print(f'Experiment path set to {MyDir}')
 # Parameters and constants
 ########################################################
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
-Experiment_description = """Density measurement.
-First acq is without DUT.
-Order of acqs corresponds to the DUT's number. Methacrylate is the last one.
+Experiment_description = """Aref measurement.
 Focused tx.
 Excitation_params: Pulse frequency (Hz).
-GAIN=25dB.
+GAIN=18dB.
 """
 
 Fs = 100.0e6                    # Sampling frequency - Hz
 Fs_Gencode_Generator = 200.0e6  # Sampling frequency for the gencodes generator - Hz
 RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
 Gain_Ch1 = 70                   # Gain of channel 1 - dB
-Gain_Ch2 = 25                   # Gain of channel 2 - dB
+Gain_Ch2 = 18                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
 Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
 Excitation_voltage = 60         # Excitation voltage (min=20V) - V -- DOESN'T WORK
 Fc = 5e6                        # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
-Smin1, Smin2 = 4900, 4900       # starting point of the scan of each channel - samples
-Smax1, Smax2 = 6000, 6000       # last point of the scan of each channel - samples
+Smin1, Smin2 = 4800, 4800       # starting point of the scan of each channel - samples
+Smax1, Smax2 = 5500, 5500       # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
@@ -191,9 +189,10 @@ print("===================================================\n")
 # ------------------------------
 # Acquire signal and temperature
 # ------------------------------
-PE = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+
 
 if Temperature:
+    arduino.open()
     tmp = arduino.getTemperature()
     
     if twoSensors:
@@ -206,13 +205,14 @@ if Temperature:
 
 
 # -----------------------------
-# Save temperature and acq data
+# Save temperature
 # -----------------------------
 if Temperature:
     with open(Temperature_path, 'a') as f:
         row = f'{temperature1},{temperature2},{Cwt}' if twoSensors else f'{temperature1},{Cwt}'
         f.write(row+'\n')
 
+PE = SeDaq.GetAscan_Ch2(Smin2, Smax2)
 if Save_acq_data:
     with open(Acqdata_path, 'ab') as f:
         PE.tofile(f)

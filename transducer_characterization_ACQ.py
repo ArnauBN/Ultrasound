@@ -17,7 +17,7 @@ from src.devices import SeDaq as SD
 
 #%%
 Path = r'D:\Data\transducer_characterization\stainless_steel-50mm'
-Experiment_folder_name = 'A' # Without Backslashes
+Experiment_folder_name = 'E' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_basename = 'acqdata.bin'
@@ -38,13 +38,13 @@ print(f'Experiment path set to {MyDir}')
 
 #%% Parameters
 Experiment_description = "Transducer characterization." \
-                        " Transducer A." \
-                        " 5 MHz." \
+                        " Transducer E." \
+                        " Flat 5 MHz - Small." \
                         " Excitation_params: Number of cycles."
 Fs = 100e6                  # Sampling frequency (Hz) - float
 RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
-Gain_Ch1 = 70                   # Gain of channel 1 - dB
-Gain_Ch2 = 25                   # Gain of channel 2 - dB
+Gain_Ch1 = 65                   # Gain of channel 1 - dB
+Gain_Ch2 = 10                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
 Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
 Smin2 = 4300                    # starting point of the scan of each channel - samples
@@ -66,7 +66,7 @@ Temperature = True
 board = 'Arduino UNO'           # Board type
 baudrate = 9600                 # Baudrate (symbols/s)
 port = 'COM3'                   # Port to connect to
-N_avg = 1                       # Number of temperature measurements to be averaged - int
+N_avg = 10                       # Number of temperature measurements to be averaged - int
 
 
 #%% Start serial communication with Arduino
@@ -123,6 +123,7 @@ Cw_vector = np.zeros(N_acqs)
 PE_Ascans = np.zeros([N_acqs, Smax2 - Smin2])
 for i, g in enumerate(GenCode):
     SeDaq.UpdateGenCode(g)
+    print(f'Gencode updated at acq. {i+1}/{N_acqs}.')
     time.sleep(0.2) # just in case
     
     PE_Ascans[i] = US.GetAscan_Ch2(Smin2, Smax2, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
@@ -132,7 +133,7 @@ for i, g in enumerate(GenCode):
         Cw_vector[i] = US.speedofsound_in_water(temperatures[i])
     
     print(f'Acq. {i+1}/{N_acqs} done.')
-
+    
 # ------------------------------------------------
 # Save pulse frequencies, temperature and acq data
 # ------------------------------------------------
@@ -160,7 +161,7 @@ if Temperature:
     except Exception as e:
         print(e)
 
-#%% Plot data
+#%% Plotting the data
 ScanLen = Smax2 - Smin2
 nfft = 2**(int(np.ceil(np.log2(np.abs(ScanLen)))) + 3) # Number of FFT points (power of 2)
 freq_axis = np.linspace(0, Fs/2, nfft//2)
@@ -168,20 +169,10 @@ time_axis = np.arange(Smin2, Smax2)/Fs
 
 PE_Ascans_FFT = np.fft.fft(PE_Ascans, nfft, axis=1)[:,:nfft//2]
 
-# Plot
 plt.figure()
-plt.plot(time_axis*1e6, PE_Ascans.T);
+plt.plot(time_axis*1e6, PE_Ascans.T)
 plt.xlabel('Time (us)')
 
 plt.figure()
-plt.plot(freq_axis*1e-6, np.abs(PE_Ascans_FFT.T), zorder=1)
-plt.plot(freq_axis*1e-6, np.mean(np.abs(PE_Ascans_FFT), axis=0), lw=2, c='k', zorder=2) # Average spectrum
+plt.plot(freq_axis*1e-6, np.abs(PE_Ascans_FFT.T))
 plt.xlabel('Frequency (MHz)')
-plt.xlim([0,10])
-
-
-
-
-
-
-

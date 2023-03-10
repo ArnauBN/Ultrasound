@@ -9,10 +9,11 @@ Python version: Python 3.8
 import numpy as np
 import matplotlib.pyplot as plt
 import time
-import serial
 
 import src.ultrasound as US
 from src.devices import SeDaq as SD
+from src.devices import Arduino
+
 
 #%% Parameters
 Fs = 100e6                  # Desired sampling frequency (Hz) - float
@@ -32,8 +33,8 @@ Quantiz_Levels = 1024           # Number of quantization levels
 # ---------------------
 # Arduino (temperature)
 # ---------------------
-
-Temperature = True
+Temperature = False
+twoSensors = False              # If True, assume we have two temperature sensors, one inside and one outside - bool
 board = 'Arduino UNO'           # Board type
 baudrate = 9600                 # Baudrate (symbols/s)
 port = 'COM3'                   # Port to connect to
@@ -43,7 +44,8 @@ print(f'The experiment will take {US.time2str(N_acqs*Ts_acq)}.')
 
 #%% Start serial communication
 if Temperature:
-    ser = serial.Serial(port, baudrate, timeout=None)  # open comms
+    arduino = Arduino.Arduino(board, baudrate, port, twoSensors, N_avg)  # open comms
+
     
 #%%
 ########################################################################
@@ -65,6 +67,8 @@ GenCode = US.MakeGenCode(Excitation=Excitation, ParamVal=Excitation_params)
 SeDaq.UpdateGenCode(GenCode)
 print('Generator code created and updated.')
 print("===================================================\n")
+SeDaq.AvgSamplesNumber = AvgSamplesNumber
+SeDaq.Quantiz_Levels = Quantiz_Levels
 
 
 #%% Capture rapid data: nSegments
@@ -78,17 +82,23 @@ if Temperature:
     Cw_vector = np.zeros(N_acqs)
     
 for i in range(N_acqs):
-    TT_Ascan = US.GetAscan_Ch1(Smin1, Smax1, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
-    
     start_time = time.time()
-
+    
+    TT_Ascan = SeDaq.GetAscan_Ch1(Smin1, Smax1) # acq Ascan
+    
     if Temperature:
-        temp1[i], temp2[i] = US.getTemperature(ser, N_avg, f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
-        
-        Cw = US.speedofsound_in_water(temp1[i], method='Abdessamad', method_param=148)
+        tmp = arduino.getTemperature(error_msg=f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', 
+                                                    exception_msg=f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        if twoSensors:
+            temperature2 = tmp[1]
+            temperature1 = tmp[0]
+        else:
+            temperature1 = tmp
+    
+        Cw = US.speedofsound_in_water(temperature1, method='Abdessamad', method_param=148)
         Cw_vector[i] = Cw
         ToF2dist = Cw*1e6/Fs
-        
+    
     # Create time data
     t = np.arange(0, len(TT_Ascan))/Fs
 
@@ -140,10 +150,11 @@ for i in range(N_acqs):
         time_to_wait = 0
     time.sleep(time_to_wait)
 
+
 #%% Save data
 if Temperature:
     try:
-        ser.close()
+        arduino.close()
         print(f'Serial communication with {board} at port {port} closed successfully.')
     except Exception as e:
         print(e)

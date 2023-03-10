@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Created on Tue Feb 14 16:05:22 2023
+Created on Fri Feb 24 14:33:03 2023
 Python version: Python 3.8
 
 @author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
@@ -23,8 +23,8 @@ import src.ultrasound as US
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data'
-Experiment_folder_name = 'density_10dB' # Without Backslashes
+Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\09-03-23'
+Experiment_folder_name = 'density50us18dB_metals' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_name = 'acqdata.bin'
@@ -49,6 +49,7 @@ Weights_path = os.path.join(MyDir, Experiment_weights_file_name)
 config_dict = US.load_config(Config_path)
 N_acqs = config_dict['N_acqs']
 Fs = config_dict['Fs']
+Gain = config_dict['Gain_Ch2']
 
 # Data
 PE = US.load_bin_acqs(Acqdata_path, N_acqs, TT_and_PE=False)
@@ -71,17 +72,13 @@ r = d/2
 
 
 #%% TOF computations
-def TOF(x, y):
-    return US.CalcToFAscanCosine_XCRFFT(x,y)[0]
-
-ToF = np.apply_along_axis(TOF, 0, PE[:,1:], PE[:,0])
+ToF = np.zeros(int(N_acqs//2))
+for i in range(len(ToF)):
+    ToF[i] = US.CalcToFAscanCosine_XCRFFT(PE[:,2*i+1], PE[:,2*i])[0]
 
 
 #%% Results
-Aref = np.max(np.abs(PE[:,0]))
-print(f'{Aref = } V')
-
-Dh = Cw[1:]*1e2 * ToF / Fs / 2 # cm
+Dh = Cw[::2]*1e2 * ToF / Fs / 2 # cm
 V = np.pi * (r**2) * Dh # cm^3
 densities = m / V # g/cm^3
 
@@ -92,3 +89,14 @@ for i,vol in enumerate(V):
 print('Densities (g/cm^3):')
 for i,density in enumerate(densities):
     print(f'{i+1} --> {density}')
+
+
+#%% Aref
+Arefs = np.max(np.abs(PE[::2]), axis=0)
+Arefs_noGain = Arefs * (10**(-Gain/20))
+
+Mean_Arefs = np.mean(Arefs)
+print(f'{Mean_Arefs = } V')
+
+Mean_Arefs_noGain = np.mean(Arefs_noGain)
+print(f'{Mean_Arefs_noGain = } V')

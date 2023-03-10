@@ -600,7 +600,7 @@ def load_columnvectors_fromtxt(Path: str, delimiter: str=',', header: bool=True,
         headers = np.loadtxt(Path, dtype=str, delimiter=delimiter, max_rows=1)
         data = np.loadtxt(Path, delimiter=delimiter, skiprows=1, dtype=dtype)
         for i, h in enumerate(headers):
-            d[h] = data[:,i]
+            d[h] = data[i] if data.ndim==1 else data[:,i]
         return d
     else:
         data = np.loadtxt(Path, delimiter=delimiter, dtype=dtype)

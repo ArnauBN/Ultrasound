@@ -15,7 +15,7 @@ import src.ultrasound as US
 
 #%% Load the data
 Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\transducer_characterization\stainless_steel-50mm'
-Experiment_folder_name = 'C' # Without Backslashes
+Experiment_folder_name = 'E' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_basename = 'acqdata.bin'
@@ -82,11 +82,11 @@ PEs_FFT = np.fft.fft(PEs, nfft, axis=1, norm='forward')[:,:nfft//2] # norm='forw
 #%% Find maximum of FFT
 MaxLocs = np.zeros(N_acqs, dtype=int)
 MaxVals = np.zeros(N_acqs)
+    
 width = (pulse_freqs[1] - pulse_freqs[0])*3 # 150% more just in case
 for i, PE in enumerate(PEs_FFT):
-    condition = np.logical_and(freq_axis > pulse_freqs[i] - width/2, freq_axis < pulse_freqs[i] + width/2)
-    slice_idxs = np.arange(len(freq_axis))[condition]
-    MaxLocs[i], MaxVals[i] = US.max_in_slice(np.abs(PE), slice_idxs, axis=None)
+    lims = (pulse_freqs[i] - width/2, pulse_freqs[i] + width/2)
+    MaxLocs[i], MaxVals[i] = US.max_in_range(np.abs(PE), lims, indep=freq_axis, axis=None)
 
 #%% Plot
 plt.figure()
@@ -131,9 +131,9 @@ if poly:
 peak_idx = np.argmax(Maxs_full)
 peak = np.max(Maxs_full)
 
-bw_sup, bw_sup_idx = US.find_nearest(Maxs_full[peak_idx:], peak/np.sqrt(2))
+bw_sup_idx, bw_sup = US.find_nearest(Maxs_full[peak_idx:], peak/np.sqrt(2))
 bw_sup_idx = bw_sup_idx + peak_idx
-bw_inf, bw_inf_idx = US.find_nearest(Maxs_full[:peak_idx], peak/np.sqrt(2))
+bw_inf_idx, bw_inf = US.find_nearest(Maxs_full[:peak_idx], peak/np.sqrt(2))
 
 BW = new_freq_axis[bw_sup_idx] - new_freq_axis[bw_inf_idx]
 print(f'BW = {BW*1e-6} MHz')

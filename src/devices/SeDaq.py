@@ -353,7 +353,11 @@ class SeDaqDLL:
         Docstring: Aranu, 20/02/2023
         '''
         self.SeDaqDLL_SetGain(c_double(gain),1)
-
+        
+        # Reset gain of ch2 because setting ch1's gain changes ch2's gain too.
+        g2 = self.SeDaqDLL_GetGain(2)
+        self.SeDaqDLL_SetGain(c_double(g2),2)
+    
     def SetGain2(self, gain):
         '''
         Set the gain of channel 2.
@@ -370,7 +374,7 @@ class SeDaqDLL:
         Docstring: Aranu, 20/02/2023
         '''
         self.SeDaqDLL_SetGain(c_double(gain),2)
-
+    
     def SetExtVoltage(self, voltage):
         '''DOES NOT WORK.
         Set the excitation voltage.

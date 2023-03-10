@@ -5,20 +5,26 @@ Created on Thu Nov  5 06:17:23 2020.
 
 @author: alrom
 """
-import matplotlib.pylab as plt
+
 from mpl_toolkits.mplot3d import axes3d
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
+
 import numpy as np
 from scipy import signal
-from mpl_toolkits.axes_grid1 import make_axes_locatable
 import functools
-# from skimage.measure import marching_cubes_lewiner, marching_cubes_classic
-from mpl_toolkits.mplot3d.art3d import Poly3DCollection
-from . import US_Functions as USF
-from matplotlib import colors
-#import plotly.graph_objects as go
+
 from IPython.display import clear_output
-from matplotlib.widgets import Slider, Button
+
+import matplotlib.pylab as plt
+from matplotlib import colors
+from matplotlib.widgets import Slider, Button, SpanSelector
+
+from . import US_Functions as USF
+
+# from skimage.measure import marching_cubes_lewiner, marching_cubes_classic
+#import plotly.graph_objects as go
 # import plotly.io as pio
 # from plotly.offline import plot as plyplot
 #pio.renderers.default='browser'
@@ -1473,10 +1479,260 @@ def moving_hist(data, slicesize, overlap=0.5, fignum=1, pauseTime=0.3, **kwargs)
         l.remove()
 
 
+def text_position(p):
+    '''
+    Returns a dictionary with the keys 'x', 'y', 'ha' and 'va'. These are used
+    as parameters for the plt.text() function to determine the position of the
+    text.
 
+    Parameters
+    ----------
+    p : str
+        Desired position of text. Available positions are:
+            'northwest'
+            'northeast'
+            'southwest'
+            'southeast'
+            'north'
+            'south'
 
+    Returns
+    -------
+    d : dict
+        Dictionary with 4 keys: 'x', 'y', 'ha' and 'va'. The values for these
+        keys would generate some text in the desired position if given to
+        plt.text().
 
+    Arnau, 21/02/2023
+    '''
+    d = {}
+    hoff = 0.02
+    voff = 0.1
+    if p.lower() == 'northwest':
+        d['x'] = hoff
+        d['y'] = 1 - voff
+        d['ha'] = 'left'
+        d['va'] = 'top'
+    elif p.lower() == 'northeast':
+        d['x'] = 1 - hoff
+        d['y'] = 1 - voff
+        d['ha'] = 'right'
+        d['va'] = 'top'
+    elif p.lower() == 'southwest':
+        d['x'] = hoff
+        d['y'] = voff
+        d['ha'] = 'left'
+        d['va'] = 'bottom'
+    elif p.lower() == 'southeast':
+        d['x'] = 1 - hoff
+        d['y'] = voff
+        d['ha'] = 'right'
+        d['va'] = 'bottom'
+    elif p.lower() == 'north':
+        d['x'] = 0.5
+        d['y'] = 1 - voff
+        d['ha'] = 'center'
+        d['va'] = 'top'
+    elif p.lower() == 'south':
+        d['x'] = 0.5
+        d['y'] = voff
+        d['ha'] = 'center'
+        d['va'] = 'bottom'
+    return d
 
+def pltGUI(x, x4, CL, Cs, L, PE, TT, img, ptxt='northwest'):
+    '''
+    Matplotlib Graphical User Interface for dog-bone analysis.
 
+    Parameters
+    ----------
+    x : ndarray
+        Position array in millimeters.
+    x4 : ndarray
+        Time array in microseconds.
+    CL : ndarray
+        Longitudinal velocity in m/s.
+    Cs : ndarray
+        Shear velocity in m/s.
+    L : ndarray
+        Thickness in millimeters.
+    PE : 2D-ndarray
+        Pulse-eco traces in volts. Each column is an acq so that the shape of
+        PE is (len(x4), len(x)).
+    TT : 2D-ndarray
+        Through-Transmission traces in volts. Each column is an acq so that the
+        shape of TT is (len(x4), len(x)).
+    img : 3D-ndarray
+        RGB image as returned by matplotlib.image.imread().
+    ptxt : str, optional
+        Location of the text displaying the current point that the cursor is
+        hovering over. The default is 'northwest'.
 
+    Returns
+    -------
+    None.
 
+    Arnau, 21/02/2023
+    '''
+    fig = plt.figure(figsize=(12,8))
+    gs = fig.add_gridspec(4,3)
+    ax0 = fig.add_subplot(gs[:, 0])
+    ax1 = fig.add_subplot(gs[0, 1:])
+    ax2 = fig.add_subplot(gs[1, 1:])
+    ax3 = fig.add_subplot(gs[2, 1:])
+    ax4 = fig.add_subplot(gs[3, 1:])
+    
+    ax0.imshow(img, extent=[0, img.shape[1], x[-1], x[0]], aspect="auto")
+    ax0.get_xaxis().set_ticks([])
+    line1, = ax1.plot(x, CL, 'b')
+    line2, = ax2.plot(x, Cs, 'r')
+    line3, = ax3.plot(x, L)
+    line4_PE, = ax4.plot(x4, PE[:,0])
+    line4_TT, = ax4.plot(x4, TT[:,0])
+    ax4.set_ylim([np.min([PE,TT])*1.1, np.max([PE,TT])*1.1])
+    
+    ax0.set_ylabel('Position (mm)')
+    ax1.set_xlabel('Position (mm)')
+    ax2.set_xlabel('Position (mm)')
+    ax3.set_xlabel('Position (mm)')
+    ax4.set_xlabel('Time (\u03bcs)')
+    
+    ax1.set_ylabel('Long. vel. (m/s)')
+    ax2.set_ylabel('Shear vel. (m/s)')
+    ax3.set_ylabel('Thickness (mm)')
+    ax4.set_ylabel('Amplitude (V)')
+    
+    hline0, = ax0.plot([0, img.shape[1]], [x[0], x[0]], c='k')
+    vline1 = ax1.axvline(x[0], c='k')
+    vline2 = ax2.axvline(x[0], c='k')
+    vline3 = ax3.axvline(x[0], c='k')
+       
+    d = text_position(ptxt)
+    txt = ax1.text(d['x'], d['y'], f"{round(x[0], 2)}, {round(CL[0], 2)}", ha=d['ha'], va=d['va'], transform=ax1.transAxes)
+    txt.set_bbox(dict(facecolor='w', edgecolor='k', alpha=0.5))
+    
+    plt.tight_layout()
+    
+    def update(idx, l, shear):
+        line1.set_marker('')
+        line2.set_marker('')
+        line3.set_marker('')
+        
+        x, y = l.get_data()
+        txt.set_text(f"{round(x[idx], 2)}, {round(y[idx], 2)}")
+        
+        hline0.set_ydata(x[idx])
+        vline1.set_xdata(x[idx])
+        vline2.set_xdata(x[idx])
+        vline3.set_xdata(x[idx])
+        
+        if shear:
+            auxPE = PE[:,::-1]
+            auxTT = TT[:,::-1]
+            line4_PE.set_ydata(auxPE[:,idx])
+            line4_TT.set_ydata(auxTT[:,idx])
+        else:
+            line4_PE.set_ydata(PE[:,idx])
+            line4_TT.set_ydata(TT[:,idx])
+        
+        l.set_marker('.')
+        l.set_markerfacecolor('k')
+        l.set_markeredgecolor('k')
+        l.set_markevery([idx])
+    
+    
+    def hover(event):
+        shear = False
+        if event.inaxes == ax1:
+            l = line1
+        elif event.inaxes == ax2:
+            l = line2
+            shear = True
+        elif event.inaxes == ax3:
+            l = line3
+        else:
+            return
+        cont, ind = l.contains(event)
+        if cont:
+            if len(ind["ind"]) != 0:
+                update(ind["ind"][0], l, shear)
+            fig.canvas.draw_idle()
+    
+    fig.canvas.mpl_connect("motion_notify_event", hover)
+    
+    plt.show()
+
+def histGUI(x, y, xlabel='', ylabel='', **kwargs):
+    '''
+    Interactive histogram. Allows for the creation of a movable window by 
+    clicking and dragging the cursor. The histogram of the data inside the
+    window is computed and displayed.
+
+    Parameters
+    ----------
+    x : ndarray
+        X data.
+    y : ndarray
+        Input data.
+    **kwargs : Rectangle properties
+        plt.bar aditional properties.
+
+    Returns
+    -------
+    ax1 : matplotlib.Axes
+        Axes handle of the first subplot.
+    ax2 : matplotlib.Axes
+        Axes handle of the second subplot.
+    span : matplotlib.widgets.SpanSelector
+        Handle for the span selector. MUST be stored in a dummy variable to
+        avoid being garbage-collected. For example:
+            ax1, ax2, _ = histGUI(x, y)
+
+    Arnau, 23/02/2023
+    '''
+    hfull, bfull, widthfull = USF.hist(y, density=True)
+    
+    fig, (ax1, ax2) = plt.subplots(2)
+    plot_hist(hfull, bfull, widthfull, ax=ax2, alpha=0.5, edgecolor='k', **kwargs)
+    
+    ax2.set_zorder(10)
+    ax2.set_ylim([0, np.max(hfull)*1.1])
+    ax2.set_xlim([bfull[0]-widthfull, bfull[-1]+widthfull])
+    
+    ax1.plot(x, y, c='k')
+    ax1.set_xlabel(xlabel)
+    ax1.set_ylabel(ylabel)
+    ax2.set_xlabel(ylabel)
+
+    def onselect(xmin, xmax):
+        indmin, indmax = np.searchsorted(x, (xmin, xmax))
+        indmax = min(len(x) - 1, indmax)
+
+        region_x = x[indmin:indmax]
+        region_y = y[indmin:indmax]
+
+        if len(region_x) >= 2:
+            h, b, width = USF.hist(region_y, density=True)
+
+            ax2.clear()
+            plot_hist(hfull, bfull, widthfull, ax=ax2, alpha=0.5, edgecolor='k', **kwargs)
+            ax2.set_zorder(10)
+            ax2.set_xlim([bfull[0]-widthfull, bfull[-1]+widthfull])
+            plot_hist(h, b, width, ax=ax2, alpha=0.7, edgecolor='k', **kwargs)
+            ax2.set_ylim([0, np.max(np.r_[hfull, h])*1.1])
+            ax2.set_xlabel(ylabel)
+            fig.canvas.draw_idle()
+
+    span = SpanSelector(
+        ax1,
+        onselect,
+        "horizontal",
+        useblit=True,
+        props=dict(alpha=0.5, facecolor="tab:blue"),
+        interactive=True,
+        drag_from_anywhere=True
+    )
+
+    plt.tight_layout()
+    plt.show()
+    return ax1, ax2, span

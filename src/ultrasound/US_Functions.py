@@ -10,6 +10,8 @@ from scipy import signal
 import sys
 import winsound
 from scipy.signal import find_peaks
+from scipy.optimize import fsolve
+
 
 def fastxcorr(x, y, Extend=True, Same=False):
     '''
@@ -980,6 +982,33 @@ def speedofsound_in_water(T, method: str='Abdessamad', method_param=148):
             c = 1.567302324e3*np.exp(-((T-6.101414576e1)/(-3.388027429e2))**2) - \
                 1.468922269e4*np.exp(-((T+3.255477156e2)/(-1.478114724e2))**2)
     return c
+
+
+def speedofsound2temperature(target_speed, temperature_guess=20, method: str='Abdessamad', method_param=148):
+    '''
+    Finds the water temperature that would induce the specified target speed
+    of sound.
+
+    Parameters
+    ----------
+    target_speed : float
+        Target speed of sound in pure water in m/s.
+    temperature_guess : float, optional
+        Initial temperature guess in celsius. The default is 20.
+    method : str, optional
+        Method to use. The default is 'Abdessamad'.
+    method_param : int or str, optional
+        Parameter for the method. The default is 148.
+
+    Returns
+    -------
+    temperature : float
+        The water temperature that produces the desired speed of sound.
+
+    Arnau, 23/02/2023
+    '''
+    return fsolve(lambda x: target_speed - speedofsound_in_water(x, method, method_param), temperature_guess)[0]
+
 
 def winwidth2n(win, width):
     '''

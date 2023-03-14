@@ -120,10 +120,55 @@ class ExperimentSP:
             
             return US.deconvolution(x, y, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=False)[0]
 
-        # ToF_TW = np.apply_along_axis(TOF, 0, TT, WP)
-        self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
+        self.ToF_TW = np.apply_along_axis(TOF, 0, self.TT, self.WP)
+        # self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
         self.ToF_RW = np.apply_along_axis(ID, 0, self.PE, self.PEref)
         self.ToF_R21 = self.ToF_RW[1] - self.ToF_RW[0]
+        
+        
+        # #%%
+        # # cw = np.mean(Cw)
+        # # cw = config_dict['Cw']
+        # # cw = Cw
+        # cw = Cw2
+        # cw_aux = np.asarray([cw]).flatten()[::-1]
+
+        # def TOF(x, y, Cwx, Cwy, Fs=100e6):
+        #     m1 = US.CosineInterpMax(x, xcor=False)
+        #     m2 = US.CosineInterpMax(y, xcor=False)
+        #     return (Cwx*m1 - Cwy*m2) / Fs
+
+        # def TOF2(x, y):
+        #     return US.CalcToFAscanCosine_XCRFFT(x,y)[0]
+
+        # def ID(x, y):
+        #     return US.deconvolution(x, y)[0]
+
+        # # ToF_TW = np.apply_along_axis(TOF, 0, TT, WP, Cw, Cw[0], Fs=Fs)
+        # ToF_TW = np.zeros(N_acqs)
+        # for i in range(N_acqs):
+        #     ToF_TW[i] = TOF(TT[:,i], WP, cw[i], cw[0], Fs=Fs)
+        #     # ToF_TW[i] = TOF(TT[:,i], WP, cw, cw, Fs=Fs)
+        #     # ToF_TW[i] = TOF2(TT[:,i], WP)
+
+        # # ToF_TW = cw*ToF_TW/Fs
+        # # ToF_TW = cw[0]*ToF_TW/Fs
+
+        # ToF_RW = np.apply_along_axis(ID, 0, PE, PEref)
+        # ToF_R21 = ToF_RW[1] - ToF_RW[0]
+        # ToF_R21 = cw*ToF_R21/Fs
+
+
+        # L = np.abs(ToF_TW) + ToF_R21/2 # thickness - m   
+        # CL = 2*np.abs(ToF_TW)/(ToF_R21/cw) + cw # longitudinal velocity - m/s
+        # Cs = cw_aux / np.sqrt(np.sin(theta)**2 + (np.abs(ToF_TW[::-1])/L + np.cos(theta))**2) # shear velocity - m/s
+
+        # CL = CL[:Ridx]
+        # L = L[:Ridx]
+        # Cs = Cs[:Ridx]
+        
+        
+        
 
     def computeResults(self, mode='mean'):
         if type(mode) is not str:
@@ -170,9 +215,6 @@ class ExperimentSP:
         t = np.arange(Smin, Smax) / self.Fs * 1e6 # us
         US.pltGUI(self.scanpos, t, self.CL, self.Cs, self.L*1e3, self.PE, self.TT, self.img, ptxt=ptxt)
 
-    def plotHistGUI(self, xlabel='Position (mm)', ylabel='Density (g/cm^3)'):
-        return US.histGUI(self.scanpos, self.density, xlabel=xlabel, ylabel=ylabel)
-
     def plotTemperature(self):
         ax1, ax2 = plt.subplots(2)[1]
         ax1.scatter(np.arange(self.N_acqs), self.temperature, marker='.', color='k')
@@ -189,14 +231,84 @@ class ExperimentSP:
 
 
 if __name__ == '__main__':
+    import matplotlib.colors as mcolors
+    colors = list(mcolors.TABLEAU_COLORS) # 10 colors
+    
+    # --------
+    # Set path
+    # --------
     Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\EpoxyResin'
     Batches = ['A', 'B', 'C']
+    
+    
+    # ---------
+    # Load data
+    # ---------
+    N = len(Batches)
     experiments = {}
     for b in Batches:
         for i in range(1, 11): # 10 specimens for every batch
             Experiment_folder_name = f'{b}{i}' # Without Backslashes
             MyDir = os.path.join(Path, Experiment_folder_name)
             experiments[Experiment_folder_name] = ExperimentSP(MyDir)
+    N_acqs = experiments['A1'].N_acqs
 
 
+    # ------------------------------
+    # Compute statistics (CL and Cs)
+    # ------------------------------
+    velocities_array = np.array([(v.CL, v.Cs) for v in experiments.values()]) # Size of this array is: 10*N x 2 x N_acqs
+    
+    # Min and Max of ALL specimens (just a float)
+    CLmin = np.min(velocities_array[:,0])
+    CLmax = np.max(velocities_array[:,0])
+    Csmin = np.min(velocities_array[:,1])
+    Csmax = np.max(velocities_array[:,1])
+    
+    # Mean of every specimen. Size is: (10*N,)
+    CLmeans = np.mean(velocities_array[:,0], axis=1)
+    Csmeans = np.mean(velocities_array[:,1], axis=1)
+    
+    # Group by batch
+    CLbatches = velocities_array[:,0].reshape(N, 10, N_acqs)
+    Csbatches = velocities_array[:,1].reshape(N, 10, N_acqs)
+    
+    # CL and Cs mean and std of every batch
+    CLbatches_means = np.zeros(N)
+    Csbatches_means = np.zeros(N)
+    CLbatches_stds = np.zeros(N)
+    Csbatches_stds = np.zeros(N)
+    for i, (CLbatch, Csbatch) in enumerate(zip(CLbatches, Csbatches)):
+        CLbatches_means[i] = np.mean(CLbatch)
+        Csbatches_means[i] = np.mean(Csbatch)
+        CLbatches_stds[i] = np.std(CLbatch)
+        Csbatches_stds[i] = np.std(CLbatch)
 
+
+    # --------
+    # Plotting
+    # --------
+    ax1, ax2 = plt.subplots(2)[1]
+    ax1.set_ylabel('Longitudinal velocity (m/s)')
+    ax1.set_xlabel('Specimen')
+    ax2.set_ylabel('Shear velocity (m/s)')
+    ax2.set_xlabel('Specimen')
+    
+    # Draw batch name and vertical lines as separators
+    for i,batch in enumerate(Batches):
+        ax1.text(i*10 + 5, CLmin - (CLmax*0.1 - CLmin) * 0.1, batch)
+        ax2.text(i*10 + 5, Csmin - (Csmax*0.1 - Csmin) * 0.1, batch)
+        if i != len(Batches) - 1:
+            ax1.axvline(i*10 + 10.5, c='gray')
+            ax2.axvline(i*10 + 10.5, c='gray')
+
+    # Plot CL and Cs
+    colors = ['k'] * N if  N > len(colors) else colors[:N]
+    for i,(k,v) in enumerate(experiments.items()):
+        ax1.scatter([i]*len(v.CL), v.CL, c=colors[i], marker='.')
+        ax2.scatter([i]*len(v.Cs), v.Cs, c=colors[i], marker='.')
+    ax1.plot(CLmeans, c='k')
+    ax2.plot(Csmeans, c='k')
+    
+    #TODO: remove outliers
+    #TODO: histogram with normal distribution

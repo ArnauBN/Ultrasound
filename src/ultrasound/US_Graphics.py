@@ -1540,7 +1540,7 @@ def text_position(p):
         d['va'] = 'bottom'
     return d
 
-def pltGUI(x, x4, CL, Cs, L, PE, TT, img, ptxt='northwest'):
+def pltGUI(x, x4, CL, Cs, L, PE, TT, img=None, ptxt='northwest'):
     '''
     Matplotlib Graphical User Interface for dog-bone analysis.
 
@@ -1562,8 +1562,8 @@ def pltGUI(x, x4, CL, Cs, L, PE, TT, img, ptxt='northwest'):
     TT : 2D-ndarray
         Through-Transmission traces in volts. Each column is an acq so that the
         shape of TT is (len(x4), len(x)).
-    img : 3D-ndarray
-        RGB image as returned by matplotlib.image.imread().
+    img : 3D-ndarray, optional
+        RGB image as returned by matplotlib.image.imread(). Default is None.
     ptxt : str, optional
         Location of the text displaying the current point that the cursor is
         hovering over. The default is 'northwest'.
@@ -1582,7 +1582,7 @@ def pltGUI(x, x4, CL, Cs, L, PE, TT, img, ptxt='northwest'):
     ax3 = fig.add_subplot(gs[2, 1:])
     ax4 = fig.add_subplot(gs[3, 1:])
     
-    ax0.imshow(img, extent=[0, img.shape[1], x[-1], x[0]], aspect="auto")
+    if img is not None: ax0.imshow(img, extent=[0, img.shape[1], x[-1], x[0]], aspect="auto")
     ax0.get_xaxis().set_ticks([])
     line1, = ax1.plot(x, CL, 'b')
     line2, = ax2.plot(x, Cs, 'r')

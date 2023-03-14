@@ -26,8 +26,12 @@ import src.ultrasound as US
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\Methacrylate'
-Experiment_folder_name = 'test_50us' # Without Backslashes
+# Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\EposyResin'
+# Experiment_folder_name = 'test_50us' # Without Backslashes
+
+Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\pruebas_acq_10-03-23\Scanner\EpoxyResin'
+Experiment_folder_name = 'test5-50_4deg' # Without Backslashes
+
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
@@ -120,32 +124,42 @@ else:
 #%% First plot
 nfft = 2**(int(np.ceil(np.log2(np.abs(len(WP))))) + 1) # Number of FFT points (power of 2)
 
-US.multiplot_tf(np.column_stack((PE[:,0], TT[:,0], WP, PEref)).T, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
+US.multiplot_tf(np.column_stack((PE[:,int(len(WP)//4)], TT[:,int(len(WP)//4)], WP, PEref)).T, Fs=Fs, nfft=nfft, Cs=343, t_units='samples',
             t_ylabel='amplitude', t_Norm=False, t_xlims=None, t_ylims=None,
             f_xlims=([0, 20]), f_ylims=None, f_units='MHz', f_Norm=False,
             PSD=False, dB=False, label=['PE', 'TT', 'WP', 'PEref'], Independent=True, FigNum='Signals', FgSize=(6.4,4.8))
 
 
 #%% TOF computations
+ScanLen = config_dict['Smax1'] - config_dict['Smin1']
+Loc_TT = 1140
+WinLen_TT = 80
+MyWin_TT = US.makeWindow(SortofWin='tukey', WinLen=WinLen_TT,
+               param1=0.25, param2=1, Span=ScanLen, Delay=Loc_TT - int(WinLen_TT/2))
+windowedTT = TT.copy()
+for i in range(Ridx, N_acqs):
+    windowedTT[:,i] = TT[:,i] * MyWin_TT
+
 def TOF(x, y):
     # m1 = US.CosineInterpMax(x, xcor=False)
     # m2 = US.CosineInterpMax(y, xcor=False)
     # return m1 - m2
     
-    xh = np.absolute(scsig.hilbert(x))
-    yh = np.absolute(scsig.hilbert(y))
-    return US.CalcToFAscanCosine_XCRFFT(xh, yh, UseHilbEnv=False, UseCentroid=False)[0]
+    # xh = np.absolute(scsig.hilbert(x))
+    # yh = np.absolute(scsig.hilbert(y))
+    # return US.CalcToFAscanCosine_XCRFFT(xh, yh, UseHilbEnv=False, UseCentroid=False)[0]
 
-    # return US.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=True, UseCentroid=False)[0]
+    return US.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=True, UseCentroid=False)[0]
 
 def ID(x, y):
-    xh = np.absolute(scsig.hilbert(x))
-    yh = np.absolute(scsig.hilbert(y))
-    return US.deconvolution(xh, yh, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=False)[0]
+    # xh = np.absolute(scsig.hilbert(x))
+    # yh = np.absolute(scsig.hilbert(y))
+    # return US.deconvolution(xh, yh, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=False)[0]
     
-    # return US.deconvolution(x, y, stripIterNo=2, UseHilbEnv=True, Extend=True, Same=False)[0]
+    return US.deconvolution(x, y, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=False)[0]
 
-ToF_TW = np.apply_along_axis(TOF, 0, TT, WP)
+# ToF_TW = np.apply_along_axis(TOF, 0, TT, WP)
+ToF_TW = np.apply_along_axis(TOF, 0, windowedTT, WP)
 ToF_RW = np.apply_along_axis(ID, 0, PE, PEref)
 ToF_R21 = ToF_RW[1] - ToF_RW[0]
 
@@ -158,7 +172,7 @@ cw = np.mean(Cw)
 cw_aux = np.asarray([cw]).flatten()[::-1]
 
 
-L = cw/2*(2*np.abs(ToF_TW) + ToF_R21)/Fs # thickness - m    
+L = cw/2*(2*np.abs(ToF_TW) + ToF_R21)/Fs # thickness - m
 CL = cw*(2*np.abs(ToF_TW)/ToF_R21 + 1) # longitudinal velocity - m/s
 Cs = cw_aux / np.sqrt(np.sin(theta)**2 + (cw_aux * np.abs(ToF_TW[::-1]) / (L * Fs) + np.cos(theta))**2) # shear velocity - m/s
 
@@ -295,7 +309,8 @@ Smin = config_dict['Smin1']
 Smax = config_dict['Smax1']
 t = np.arange(Smin, Smax) / Fs * 1e6 # us
 
-US.pltGUI(x, t, CL, Cs, L*1e3, PE, TT, img, ptxt='northwest')
+# US.pltGUI(x, t, CL, Cs, L*1e3, PE, TT, img, ptxt='northwest')
+US.pltGUI(x, t, CL, Cs, L*1e3, PE, windowedTT, img, ptxt='northwest')
 
 
 
@@ -492,3 +507,4 @@ plt.figure()
 plt.plot(np.real(_xcorabh))
 plt.plot(np.real(_xcorab))
 plt.plot(-np.imag(scsig.hilbert(np.real(_xcorab))))
+

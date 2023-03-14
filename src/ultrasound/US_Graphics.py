@@ -1602,7 +1602,7 @@ def pltGUI(x, x4, CL, Cs, L, PE, TT, img=None, ptxt='northwest'):
     ax3.set_ylabel('Thickness (mm)')
     ax4.set_ylabel('Amplitude (V)')
     
-    hline0, = ax0.plot([0, img.shape[1]], [x[0], x[0]], c='k')
+    if img is not None: hline0, = ax0.plot([0, img.shape[1]], [x[0], x[0]], c='k')
     vline1 = ax1.axvline(x[0], c='k')
     vline2 = ax2.axvline(x[0], c='k')
     vline3 = ax3.axvline(x[0], c='k')
@@ -1621,7 +1621,7 @@ def pltGUI(x, x4, CL, Cs, L, PE, TT, img=None, ptxt='northwest'):
         x, y = l.get_data()
         txt.set_text(f"{round(x[idx], 2)}, {round(y[idx], 2)}")
         
-        hline0.set_ydata(x[idx])
+        if img is not None: hline0.set_ydata(x[idx])
         vline1.set_xdata(x[idx])
         vline2.set_xdata(x[idx])
         vline3.set_xdata(x[idx])
@@ -1695,6 +1695,12 @@ def histGUI(x, y, xlabel='', ylabel='', **kwargs):
     fig, (ax1, ax2) = plt.subplots(2)
     plot_hist(hfull, bfull, widthfull, ax=ax2, alpha=0.5, edgecolor='k', **kwargs)
     
+    m = np.mean(y)
+    s = np.std(y)
+    aux = np.linspace(m - 3*s, m + 3*s, 1000)
+    gauss = np.exp(-((aux - m) / s)**2 / 2) / (s*np.sqrt(2*np.pi))
+    ax2.plot(aux, gauss, c='k')
+    
     ax2.set_zorder(10)
     ax2.set_ylim([0, np.max(hfull)*1.1])
     ax2.set_xlim([bfull[0]-widthfull, bfull[-1]+widthfull])
@@ -1710,12 +1716,17 @@ def histGUI(x, y, xlabel='', ylabel='', **kwargs):
 
         region_x = x[indmin:indmax]
         region_y = y[indmin:indmax]
+        m = np.mean(region_y)
+        s = np.std(region_y)
+        aux = np.linspace(m - 3*s, m + 3*s, 1000)
+        gauss = np.exp(-((aux - m) / s)**2 / 2) / (s*np.sqrt(2*np.pi))
 
         if len(region_x) >= 2:
             h, b, width = USF.hist(region_y, density=True)
 
             ax2.clear()
             plot_hist(hfull, bfull, widthfull, ax=ax2, alpha=0.5, edgecolor='k', **kwargs)
+            ax2.plot(aux, gauss, c='k')
             ax2.set_zorder(10)
             ax2.set_xlim([bfull[0]-widthfull, bfull[-1]+widthfull])
             plot_hist(h, b, width, ax=ax2, alpha=0.7, edgecolor='k', **kwargs)

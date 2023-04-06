@@ -84,8 +84,9 @@ twoSensors = False              # If True, assume we have two temperature sensor
 Plot_temperature = True         # If True, plots temperature measuements at each acq. (has no effect if Temperature==False) - bool
 ID = True                       # use Iterative Deconvolution or find_peaks - bool
 PE_as_ref = True                # If True, both a WP and a PE traces are acquired. The resulting ref. signal has the PE pulse aligned at WP - str
-align_PEref = True              # If True, align PEref to zero - bool
+align_PEref = False             # If True, align PEref to zero - bool
 stripIterNo = 2                 # If 2, PER and PETR windows are used. If 4, only one deconvolution is used for all 4 echoes - int
+Correct_Cw = False              # If True, correct Cw. ToF will NOT be computed sample-wise via correlation - bool
 Cw = 1498                       # speed of sound in water - m/s
 Cc = 2300                       # speed of sound in the container - m/s
 windowPE = True                 # If True, apply windowing to the echo signal specified by Loc_PER, Loc_PETR, WinLen_PER and WinLen_PETR - bool
@@ -229,6 +230,7 @@ if Temperature:
         mean2 = None
         mean1 = tmp
     
+    WP_Cw = US.speedofsound_in_water(mean1, method='Abdessamad', method_param=148)
     config_dict['WP_temperature'] = mean1
     config_dict['Outside_temperature'] = mean2
     US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
@@ -515,6 +517,17 @@ for i in range(N_acqs):
         LM[i] = (ToF_R21 + np.abs(ToF_TW) + ToF_TR1R2/2)*Cw/Fs - 2*Lc[i] # material thickness - m
         CM[i] = 2*LM[i]/ToF_TR1R2*Fs # material speed - m/s
     
+    if Correct_Cw:
+        ToF_TW = (US.CosineInterpMax(WP, xcor=False)*WP_Cw - US.CosineInterpMax(TT, xcor=False)*Cw) / Fs
+        ToF_R21 = Cw * ToF_R21 / Fs
+        
+        Toftw[i] = ToF_TW
+        Tofr21[i] = ToF_R21
+        
+        Lc[i] = np.abs(ToF_TW) + ToF_R21/2 # thickness - m   
+        Cc[i] = 2*np.abs(ToF_TW)/(ToF_R21/Cw) + Cw # longitudinal velocity - m/s
+        # Cs = Cw / np.sqrt(np.sin(theta)**2 + (np.abs(ToF_TW)/L + np.cos(theta))**2) # shear velocity - m/s
+
     
     # ----------------------------------
     # Save results to text file as we go 

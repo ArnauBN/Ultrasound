@@ -1,2 +1,2 @@
 # Cyanoacrylates
-Characterization of cyanoacrylates using ultrasound
+Characterization of different materials using ultrasounds.

@@ -22,7 +22,7 @@ import src.ultrasound as US
 # Density: PMMA -> 1.18 g/cm^3
 
 #%%
-from scan_dogbone_INTER_SP import ExperimentSP
+from SP_scan_dogbone_INTER import ExperimentSP
 
 Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\pruebas_acq_20-03-23\Scanner'
 Experiment_folder_name = 'Prueba1' # Without Backslashes

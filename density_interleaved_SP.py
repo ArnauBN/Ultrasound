@@ -23,10 +23,9 @@ import src.ultrasound as US
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\09-03-23'
-Experiment_folder_name = 'density50us18dB_metals' # Without Backslashes
+Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Density'
+Experiment_folder_name = 'A' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
-Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_name = 'acqdata.bin'
 Experiment_Temperature_file_name = 'temperature.txt'
 Experiment_description_file_name = 'Experiment_description.txt'
@@ -34,7 +33,6 @@ Experiment_weights_file_name = 'weights.txt'
 
 MyDir = os.path.join(Path, Experiment_folder_name)
 Config_path = os.path.join(MyDir, Experiment_config_file_name)
-Results_path = os.path.join(MyDir, Experiment_results_file_name)
 Acqdata_path = os.path.join(MyDir, Experiment_acqdata_file_name)
 Temperature_path = os.path.join(MyDir, Experiment_Temperature_file_name)
 Experiment_description_path = os.path.join(MyDir, Experiment_description_file_name)
@@ -73,12 +71,14 @@ r = d/2
 
 #%% TOF computations
 ToF = np.zeros(int(N_acqs//2))
+Cw_means = np.zeros_like(ToF)
 for i in range(len(ToF)):
     ToF[i] = US.CalcToFAscanCosine_XCRFFT(PE[:,2*i+1], PE[:,2*i])[0]
+    Cw_means[i] = np.mean([Cw[2*i], Cw[2*i+1]])
 
 
 #%% Results
-Dh = Cw[::2]*1e2 * ToF / Fs / 2 # cm
+Dh = Cw_means*1e2 * ToF / Fs / 2 # cm
 V = np.pi * (r**2) * Dh # cm^3
 densities = m / V # g/cm^3
 
@@ -89,6 +89,29 @@ for i,vol in enumerate(V):
 print('Densities (g/cm^3):')
 for i,density in enumerate(densities):
     print(f'{i+1} --> {density}')
+
+#%%
+Nsigmas = 5
+Npoints = 1000
+
+mean_d = np.mean(densities)
+std_d = np.std(densities)
+
+print(f'Mean: {mean_d} g/cm^3')
+print(f'Std:  {std_d} g/cm^3')
+
+d_aux    = np.linspace(mean_d - Nsigmas*std_d, mean_d + Nsigmas*std_d, Npoints)
+d_gauss = np.exp(-((d_aux - mean_d) / std_d)**2 / 2) / (std_d*np.sqrt(2*np.pi))
+
+ax = plt.subplots(1)[1]
+ax.bar(np.arange(len(ToF)), densities, edgecolor='k')
+ax.set_xticks(np.arange(len(ToF)))
+ax.set_ylim([np.min(densities)*0.99,np.max(densities)*1.01]);
+
+# h, b, width = US.hist(densities, density=True, bins=10)
+# US.plot_hist(h, b, width, xlabel='Density ($g/cm^3$)', ylabel='pdf', edgecolor='k')
+# plt.plot(d_aux, d_gauss, c='r')
+# plt.tight_layout()
 
 
 #%% Aref

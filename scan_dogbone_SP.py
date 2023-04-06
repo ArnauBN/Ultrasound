@@ -21,16 +21,35 @@ import src.ultrasound as US
 # Shear velocity: 1430 m/s
 # Density: PMMA -> 1.18 g/cm^3
 
+#%%
+from scan_dogbone_INTER_SP import ExperimentSP
+
+Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\pruebas_acq_20-03-23\Scanner'
+Experiment_folder_name = 'Prueba1' # Without Backslashes
+Experiment_folder_name = '3D-S2' # Without Backslashes
+MyDir = os.path.join(Path, Experiment_folder_name)
+e = ExperimentSP(MyDir)
+
+#%% Plotting
+# e.plotTemperature()
+ax1, ax2, _ = US.histGUI(e.scanpos, e.density, xlabel='Position (mm)', ylabel='Density (g/cm^3)')
+e.plotGUI()
+
+#%%
+# ax1, ax2, _ = US.histGUI(e.scanpos, e.CL, xlabel='Position (mm)', ylabel='Longitudinal Velocity (m/s)')
+ax1, ax2, _ = US.histGUI(e.scanpos, e.Cs, xlabel='Position (mm)', ylabel='Shear Velocity (m/s)')
+
+
 
 #%%
 ########################################################
 # Paths and file names to use
 ########################################################
-# Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\EposyResin'
-# Experiment_folder_name = 'test_50us' # Without Backslashes
+Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\Methacrylate'
+Experiment_folder_name = 'test_50us' # Without Backslashes
 
-Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\pruebas_acq_10-03-23\Scanner\EpoxyResin'
-Experiment_folder_name = 'test5-50_4deg' # Without Backslashes
+# Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Scanner\pruebas_acq_10-03-23\Scanner\EpoxyResin'
+# Experiment_folder_name = 'test5-50_4deg' # Without Backslashes
 
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
@@ -149,7 +168,7 @@ def TOF(x, y):
     # yh = np.absolute(scsig.hilbert(y))
     # return US.CalcToFAscanCosine_XCRFFT(xh, yh, UseHilbEnv=False, UseCentroid=False)[0]
 
-    return US.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=True, UseCentroid=False)[0]
+    return US.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=False, UseCentroid=False)[0]
 
 def ID(x, y):
     # xh = np.absolute(scsig.hilbert(x))
@@ -158,8 +177,8 @@ def ID(x, y):
     
     return US.deconvolution(x, y, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=False)[0]
 
-# ToF_TW = np.apply_along_axis(TOF, 0, TT, WP)
-ToF_TW = np.apply_along_axis(TOF, 0, windowedTT, WP)
+ToF_TW = np.apply_along_axis(TOF, 0, TT, WP)
+# ToF_TW = np.apply_along_axis(TOF, 0, windowedTT, WP)
 ToF_RW = np.apply_along_axis(ID, 0, PE, PEref)
 ToF_R21 = ToF_RW[1] - ToF_RW[0]
 
@@ -241,6 +260,54 @@ ax2.set_xlabel('Position (mm)')
 plt.tight_layout()
 
 
+# Scatter
+# ax1, ax2 = plt.subplots(2)[1]
+
+# ax1.set_ylabel('Longitudinal velocity (m/s)', color='b')
+# ax1.scatter(x, CL, c='b', marker='.')
+
+# ax1twin = ax1.twinx()
+# ax1twin.set_ylabel('Shear velocity (m/s)', color='r')
+# ax1twin.scatter(x, Cs, c='r', marker='.')
+
+# ax2.set_ylabel('Thickness (mm)')
+# ax2.scatter(x, L*1e3, c='k', marker='.')
+# ax2.set_xlabel('Position (mm)')
+
+# plt.tight_layout()
+
+
+
+# -----------------
+# Outlier detection
+# -----------------
+m = 0.6745
+
+CL_no_outliers, CL_outliers, CL_outliers_indexes = US.reject_outliers(CL, m=m)
+L_no_outliers, L_outliers, L_outliers_indexes = US.reject_outliers(L, m=m)
+Cs_no_outliers, Cs_outliers, Cs_outliers_indexes = US.reject_outliers(Cs, m=m)
+
+
+ax1, ax2, ax3 = plt.subplots(3)[1]
+ax1.set_ylabel('Long. vel. (m/s)')
+ax2.set_ylabel('Shear vel. (m/s)')
+ax3.set_ylabel('Thickness (mm)')
+
+ax1.plot(x, CL, 'k')
+ax2.plot(x, Cs, 'k')
+ax3.plot(x, L*1e3, 'k')
+ax1.scatter(x[CL_outliers_indexes], CL_outliers, c='red', marker='.', zorder=3)
+ax2.scatter(x[Cs_outliers_indexes], Cs_outliers, c='red', marker='.', zorder=3)
+ax3.scatter(x[L_outliers_indexes], L_outliers*1e3, c='red', marker='.', zorder=3)
+
+plt.tight_layout()
+
+#%%
+import seaborn as sns
+sns.boxplot(data=[CL, CL])
+
+
+
 #%% Density
 # Recorded Arefs
 Aref_50us = 0.2965645596590909
@@ -250,11 +317,13 @@ Mean_Arefs_50us = 0.3098931403882576
 Gain_Means_Arefs_50us = 15 # dB
 
 
+Arefs = np.array([0.32066701, 0.36195303, 0.40814156, 0.45066097, 0.45507314, 0.45697591])
+ArefsGains = np.array([15, 16, 17, 18, 19, 20])
+# Methacrylate: 17; EpoxyResin: 17, 16, 18, 18, 17
+# 18, 18, 18
 # Select Aref
-Gain_Aref = Gain_Means_Arefs_50us
-Aref = Mean_Arefs_50us
-
-
+Gain_Aref = ArefsGains[3]
+Aref = Arefs[3]
 
 Gain_Ch2 = config_dict['Gain_Ch2']
 AR1 = np.max(np.abs(PE)*(10**(-Gain_Ch2/20)), axis=0)[:Ridx]
@@ -298,8 +367,10 @@ else:
 theoval = 1.18 if 'Methacrylate' in Path else 1.15
 ax1.axhline(theoval, ls='--', c='r', label='Theoretical')
 ax1.axhline(archval, ls='--', c='b', label='Archimedean')
-ax1.axhline(np.mean(d), ls='-', c='g', label='mean')
+ax1.axhline(np.mean(d[15:]), ls='-', c='g', label='mean')
+# ax1.axhline(np.mean(d), ls='-', c='g', label='mean')
 ax1.legend()
+print(np.abs(np.mean(d[15:]) - archval))
 
 
 #%%
@@ -309,8 +380,8 @@ Smin = config_dict['Smin1']
 Smax = config_dict['Smax1']
 t = np.arange(Smin, Smax) / Fs * 1e6 # us
 
-# US.pltGUI(x, t, CL, Cs, L*1e3, PE, TT, img, ptxt='northwest')
-US.pltGUI(x, t, CL, Cs, L*1e3, PE, windowedTT, img, ptxt='northwest')
+US.dogboneGUI(x, t, CL, Cs, L*1e3, PE, TT, img, ptxt='northwest')
+# US.dogboneGUI(x, t, CL, Cs, L*1e3, PE, windowedTT, img, ptxt='northwest')
 
 
 

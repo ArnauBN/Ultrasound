@@ -15,7 +15,7 @@ import src.ultrasound as US
 
 #%% Load the data
 Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\transducer_characterization\stainless_steel-50mm'
-Experiment_folder_name = 'E' # Without Backslashes
+Experiment_folder_name = 'A' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_basename = 'acqdata.bin'
@@ -140,16 +140,25 @@ print(f'BW = {BW*1e-6} MHz')
 print(f'Center = {new_freq_axis[peak_idx]*1e-6} MHz')
 
 #%% Plot fit (or interpolation) and bandwidth
+dashedlinescolor = 'gray'
+linecolor = 'k'
+markerfacecolor = 'w'
+markeredgecolor = 'k'
+
 plt.figure()
-plt.plot(new_freq_axis*1e-6, Maxs_full)
-plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals, c='k', s=100, zorder=3)
+# plt.plot(new_freq_axis*1e-6, Maxs_full)
+plt.plot(new_freq_axis*1e-6, Maxs_full, c=linecolor)
+plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals, facecolor=markerfacecolor, edgecolor=markeredgecolor, marker='o', s=80, zorder=3)
+# plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals, c='k', s=100, zorder=3)
 plt.xlabel('Frequency (MHz)')
 plt.xlim([0,10])
 if Experiment_folder_name=='D': plt.xlim([0,20])
 
-plt.axhline(peak/np.sqrt(2), ls='--', color='k')
-plt.axvline(new_freq_axis[bw_inf_idx]*1e-6, ls='--', color='k')
-plt.axvline(new_freq_axis[bw_sup_idx]*1e-6, ls='--', color='k');
+plt.axhline(peak/np.sqrt(2), ls='--', color=dashedlinescolor)
+plt.axvline(new_freq_axis[bw_inf_idx]*1e-6, ls='--', color=dashedlinescolor)
+plt.axvline(new_freq_axis[bw_sup_idx]*1e-6, ls='--', color=dashedlinescolor);
+
+plt.yticks([])
 
 '''
 Results found (MHz):

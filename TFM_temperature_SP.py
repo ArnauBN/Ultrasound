@@ -19,7 +19,7 @@ import src.ultrasound as US
 # Paths and file names to use
 ########################################################
 Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\TFM'
-Experiment_folder_name = 'temperature' # Without Backslashes
+Experiment_folder_name = 'temperature3Dprintedvessel' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_name = 'acqdata.bin'
@@ -104,14 +104,38 @@ ax1.scatter(t/3600, temperature, marker='.', c='r')
 ax1.scatter(t/3600, found_temperatures, marker='.', c='b')
 ax1.set_ylabel('Temperature (celsius)')
 ax1.set_xlabel('Time (h)')
-# ax1.set_ylim([18.5, 22.5])
+ax1.set_ylim([18.5, 22.5])
+
+# inset
+axins1 = ax1.inset_axes([0.68, 0.63, 0.3, 0.3])
+axins1.set_xlim(0, 0.08)
+axins1.set_ylim(19.65, 19.85)
+ax1.indicate_inset_zoom(axins1, edgecolor="black")
+axins1.scatter(t/3600, uncorrected_temperature, marker='.', c='k')
+axins1.scatter(t/3600, temperature, marker='.', c='r')
+axins1.scatter(t/3600, found_temperatures, marker='.', c='b')
+axins1.get_xaxis().set_ticks([])
+axins1.get_yaxis().set_ticks([])
+
+
 
 ax2.scatter(t/3600, L0*1e3, marker='.', c='k')
 ax2.scatter(t/3600, L*1e3, marker='.', c='r')
 ax2.scatter(t/3600, corrected_L*1e3, marker='.', c='b')
 ax2.set_ylabel('L (mm)')
 ax2.set_xlabel('Time (h)')
-# ax2.set_ylim([99.2, 100])
+ax2.set_ylim([99.2, 100])
+
+# inset
+axins2 = ax2.inset_axes([0.68, 0.07, 0.3, 0.3])
+axins2.set_xlim(0, 0.08)
+axins2.set_ylim(99.65, 99.675)
+ax2.indicate_inset_zoom(axins2, edgecolor="black")
+axins2.scatter(t/3600, L0*1e3, marker='.', c='k')
+axins2.scatter(t/3600, L*1e3, marker='.', c='r')
+axins2.scatter(t/3600, corrected_L*1e3, marker='.', c='b')
+axins2.get_xaxis().set_ticks([])
+axins2.get_yaxis().set_ticks([])
 
 plt.tight_layout()
 

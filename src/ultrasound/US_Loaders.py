@@ -553,7 +553,7 @@ def load_config(Path: str):
                   'AvgSamplesNumber' : int,
                   'ScanLen' : int,
                   'Quantiz_Levels' : int,
-                  'Ts_acq' : float,
+                  'Ts_acq' : floatOrNone,
                   'N_acqs' : int,
                   'N_avg' : int,
                   'ID' : toBool,
@@ -562,7 +562,9 @@ def load_config(Path: str):
                   'Outside_temperature' : floatOrNone,
                   'Cw' : float,
                   'CW' : float,
-                  'cw' : float
+                  'cw' : float,
+                  'length' : floatOrNone,
+                  'Length' : floatOrNone
                   }
 
     for k, v in types_dict.items():

@@ -1540,7 +1540,7 @@ def text_position(p):
         d['va'] = 'bottom'
     return d
 
-def pltGUI(x, x4, CL, Cs, L, PE, TT, img=None, ptxt='northwest'):
+def dogboneGUI(x, x4, CL, Cs, L, PE, TT, img=None, length=None, ptxt='northwest'):
     '''
     Matplotlib Graphical User Interface for dog-bone analysis.
 
@@ -1564,6 +1564,9 @@ def pltGUI(x, x4, CL, Cs, L, PE, TT, img=None, ptxt='northwest'):
         shape of TT is (len(x4), len(x)).
     img : 3D-ndarray, optional
         RGB image as returned by matplotlib.image.imread(). Default is None.
+    length : float or None, optional
+        Length of the specimen in millimeters. If None, the length is assumed 
+        to be x[-1]. Default is None.
     ptxt : str, optional
         Location of the text displaying the current point that the cursor is
         hovering over. The default is 'northwest'.
@@ -1572,7 +1575,7 @@ def pltGUI(x, x4, CL, Cs, L, PE, TT, img=None, ptxt='northwest'):
     -------
     None.
 
-    Arnau, 21/02/2023
+    Arnau, 21/03/2023
     '''
     fig = plt.figure(figsize=(12,8))
     gs = fig.add_gridspec(4,3)
@@ -1582,7 +1585,9 @@ def pltGUI(x, x4, CL, Cs, L, PE, TT, img=None, ptxt='northwest'):
     ax3 = fig.add_subplot(gs[2, 1:])
     ax4 = fig.add_subplot(gs[3, 1:])
     
-    if img is not None: ax0.imshow(img, extent=[0, img.shape[1], x[-1], x[0]], aspect="auto")
+    if img is not None: 
+        extent = [0, img.shape[1], x[-1], x[0]] if length is None else [0, img.shape[1], length + x[0], x[0]]
+        ax0.imshow(img, extent=extent, aspect="auto")
     ax0.get_xaxis().set_ticks([])
     line1, = ax1.plot(x, CL, 'b')
     line2, = ax2.plot(x, Cs, 'r')

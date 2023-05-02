@@ -115,11 +115,11 @@ ax.set_ylim([np.min(densities)*0.99,np.max(densities)*1.01]);
 
 
 #%% Aref
-Arefs = np.max(np.abs(PE[::2]), axis=0)
-Arefs_noGain = Arefs * (10**(-Gain/20))
+# Arefs = np.max(np.abs(PE[::2]), axis=0)
+# Arefs_noGain = Arefs * (10**(-Gain/20))
 
-Mean_Arefs = np.mean(Arefs)
-print(f'{Mean_Arefs = } V')
+# Mean_Arefs = np.mean(Arefs)
+# print(f'{Mean_Arefs = } V')
 
-Mean_Arefs_noGain = np.mean(Arefs_noGain)
-print(f'{Mean_Arefs_noGain = } V')
+# Mean_Arefs_noGain = np.mean(Arefs_noGain)
+# print(f'{Mean_Arefs_noGain = } V')

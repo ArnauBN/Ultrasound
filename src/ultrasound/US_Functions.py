@@ -188,8 +188,10 @@ def CosineInterpMax(MySignal, xcor=True, UseHilbEnv=False):
     Alberto, 10/11/2020
     Revised: Arnau, 06/02/2023
     '''
+    # plt.plot(MySignal)
     if UseHilbEnv:
         MySignal = np.absolute(signal.hilbert(MySignal))
+        # plt.plot(MySignal)
     MaxLoc = np.argmax(np.abs(MySignal))  # find index of maximum
     N = MySignal.size  # signal length
     A = MaxLoc - 1  # left proxima
@@ -1149,7 +1151,7 @@ def getNbins(x, mode: str='auto', **kwargs):
     Nbins = int(edges.size-1)
     return Nbins
 
-def hist(x, bins=None, density=False, range=None, mode: str='auto'):
+def hist(x, bins=None, density: bool=False, range=None, mode: str='auto'):
     '''
     Compute the histogram of x. Returns the histogram values, bin edges and 
     width of bins. If x is a 2D matrix, the histogram is computed for every

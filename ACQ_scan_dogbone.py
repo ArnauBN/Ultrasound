@@ -21,8 +21,8 @@ from src.devices import Scanner
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'D:\Data\pruebas_acq_10-03-23\Scanner\EpoxyResin'
-Experiment_folder_name = 'test2-50_4deg' # Without Backslashes
+Path = r'D:\Data\Areversed'
+Experiment_folder_name = 'A10' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
@@ -56,8 +56,10 @@ print(f'Experiment path set to {MyDir}')
 # Parameters and constants
 ########################################################
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
-Experiment_description = """Scanner test.
+Experiment_description = """Scanner acq.
 Epoxy Resin dog-bone.
+Batch: Areversed.
+Specimen: A10.
 Focused tx.
 Excitation_params: Pulse frequency (Hz).
 """
@@ -65,7 +67,7 @@ Excitation_params: Pulse frequency (Hz).
 Fs = 100.0e6                    # Sampling frequency - Hz
 Fs_Gencode_Generator = 200.0e6  # Sampling frequency for the gencodes generator - Hz
 RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
-Gain_Ch1 = 75                   # Gain of channel 1 - dB
+Gain_Ch1 = 70                   # Gain of channel 1 - dB
 Gain_Ch2 = 18                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
 Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
@@ -84,6 +86,7 @@ twoSensors = False              # If True, assume we have two temperature sensor
 PE_as_ref = True                # If True, both a WP and a PE traces are acquired. The resulting ref. signal has the PE pulse aligned at WP - str
 align_PEref = False             # If True, align PEref to zero - bool
 
+dogbone_length = 168.8          # Length of the specimen in millimeters - float
 
 # -------
 # Arduino
@@ -114,14 +117,16 @@ Y_step = 0                      # smallest step to move in the Y axis (mm), min 
 Z_step = 0.2                    # smallest step to move in the Z axis (mm), min is 0.005 - float
 R_step = 50.4                   # smallest step to move in the R axis (deg), min is 1.8  - float
 # If the step is zero, do not move on that axis
-
+# Y = -70.3
 # Methacrylate: R = 39.6 deg
 # EpoxyResin: R = 50.4 deg (sometimes 46.8 deg)
+# 3D-white: R = 46.8 deg
+# 3D-Surgical: R = 46.8 deg
 # Aluminum: R = 19.8 deg
-
+# Z_end big = 130
 X_end = 70                      # last X coordinate of the experiment (mm) - float
 Y_end = 20                      # last Y coordinate of the experiment (mm) - float
-Z_end = 130                     # last Z coordinate of the experiment (mm) - float
+Z_end = 127                     # last Z coordinate of the experiment (mm) - float
 R_end = 1.8*34                  # last R coordinate of the experiment (deg) - float
 
 init_step = 4 # mm
@@ -257,6 +262,7 @@ config_dict = {'Fs': Fs,
                'WP_temperature' : None,
                'Outside_temperature': None,
                'N_avg' : N_avg,
+               'Length' : dogbone_length,
                'Start_date': '',
                'End_date': ''}
 
@@ -332,9 +338,11 @@ scanner.move(*center)
 ########################################################################
 if MeasureCW:
     scanner.move(*center)
+    time.sleep(2)
     PE0 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     
     scanner.diffMoveAxis(WP_axis, MeasureCW_dist)
+    time.sleep(2)
     
     PE10 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     scanner.move(*center)
@@ -419,10 +427,11 @@ print(f'Tilt is {phi = } deg')
 ########################################################################
 scanner.move(*center)
 scanner.moveAxis(shortaxis, shortend-1)
+time.sleep(2)
 WP_Ascan = SeDaq.GetAscan_Ch1(Smin1, Smax1)
 print('Water path acquired.')
 scanner.move(*center)
-
+time.sleep(2)
 if PE_as_ref:
     # input("Press any key to acquire the pulse echo.")
     PEref_Ascan = SeDaq.GetAscan_Ch2(Smin2, Smax2)
@@ -572,6 +581,8 @@ try:
         ax = sp[0]
         val = float(sp[1:])
         scanner.diffMoveAxis(ax, val)
+        if ax=='R':
+            time.sleep(3)
         
         
         # ---------

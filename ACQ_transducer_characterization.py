@@ -14,10 +14,11 @@ import os
 
 import src.ultrasound as US
 from src.devices import SeDaq as SD
+from src.devices import Arduino
 
 #%%
 Path = r'D:\Data\transducer_characterization\stainless_steel-50mm'
-Experiment_folder_name = 'E' # Without Backslashes
+Experiment_folder_name = 'A' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_basename = 'acqdata.bin'
@@ -38,15 +39,15 @@ print(f'Experiment path set to {MyDir}')
 
 #%% Parameters
 Experiment_description = "Transducer characterization." \
-                        " Transducer E." \
-                        " Flat 5 MHz - Small." \
+                        " Transducer A." \
+                        " Focused 5 MHz." \
                         " Excitation_params: Number of cycles."
 Fs = 100e6                  # Sampling frequency (Hz) - float
 RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
 Gain_Ch1 = 65                   # Gain of channel 1 - dB
-Gain_Ch2 = 10                   # Gain of channel 2 - dB
+Gain_Ch2 = 15                   # Gain of channel 2 - dB
 Attenuation_Ch1 = 0             # Attenuation of channel 1 - dB
-Attenuation_Ch2 = 10            # Attenuation of channel 2 - dB
+Attenuation_Ch2 = 20            # Attenuation of channel 2 - dB
 Smin2 = 4300                    # starting point of the scan of each channel - samples
 Smax2 = 9200                    # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
@@ -71,7 +72,8 @@ N_avg = 10                       # Number of temperature measurements to be aver
 
 #%% Start serial communication with Arduino
 if Temperature:
-    ser = serial.Serial(port, baudrate, timeout=None)  # open comms
+    arduino = Arduino.Arduino(board, baudrate, port, twoSensors=False, N_avg=N_avg)  # open comms
+
 
 #%%
 N_acqs = len(pulse_freqs)
@@ -116,8 +118,13 @@ GenCode = [US.MakeGenCode(Excitation=Excitation, ParamVal=[Fo, Num_cycles]) for 
 SeDaq.UpdateGenCode(GenCode[0]) # set first GenCode
 print('Generator code created and updated.')
 print("===================================================\n")
+SeDaq.AvgSamplesNumber = AvgSamplesNumber
+SeDaq.Quantiz_Levels = Quantiz_Levels
 
 #%% Acq
+if Temperature:
+    arduino.open()
+
 temperatures = np.zeros(N_acqs)
 Cw_vector = np.zeros(N_acqs)
 PE_Ascans = np.zeros([N_acqs, Smax2 - Smin2])
@@ -125,13 +132,11 @@ for i, g in enumerate(GenCode):
     SeDaq.UpdateGenCode(g)
     print(f'Gencode updated at acq. {i+1}/{N_acqs}.')
     time.sleep(0.2) # just in case
-    
-    PE_Ascans[i] = US.GetAscan_Ch2(Smin2, Smax2, AvgSamplesNumber=AvgSamplesNumber, Quantiz_Levels=Quantiz_Levels) #acq Ascan
-    
+    PE_Ascans[i] = SeDaq.GetAscan_Ch2(Smin2, Smax2) #acq Ascan
     if Temperature:
-        temperatures[i] = US.getTemperature(ser, N_avg, twoSensors=False)
-        Cw_vector[i] = US.speedofsound_in_water(temperatures[i])
-    
+        temperatures[i] = arduino.getTemperature(error_msg=f'Warning: wrong temperature data at Acq. #{i+1}/{N_acqs}. Retrying...', 
+                                     exception_msg=f'Warning: could not parse temperature data to float at Acq. #{i+1}/{N_acqs}. Retrying...')
+        Cw_vector[i] = US.speedofsound_in_water(temperatures[i], method='Abdessamad', method_param=148)    
     print(f'Acq. {i+1}/{N_acqs} done.')
     
 # ------------------------------------------------
@@ -155,11 +160,8 @@ if Temperature:
 # Close serial comm
 # -----------------
 if Temperature:
-    try:
-        ser.close()
-        print(f'Serial communication with {board} at port {port} closed successfully.')
-    except Exception as e:
-        print(e)
+    arduino.close()
+
 
 #%% Plotting the data
 ScanLen = Smax2 - Smin2

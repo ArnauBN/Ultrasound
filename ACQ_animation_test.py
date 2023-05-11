@@ -17,11 +17,11 @@ RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
 # Smin = 0                     # starting point of the scan of each channel - samples
 # Smax = RecLen                     # last point of the scan of each channel - samples
 
-# Smin = 3400                     # starting point of the scan of each channel - samples
-# Smax = 8300                     # last point of the scan of each channel - samples
+Smin = 5000                     # starting point of the scan of each channel - samples
+Smax = 9000                     # last point of the scan of each channel - samples
 
-Smin = 4000                     # starting point of the scan of each channel - samples
-Smax = 6500                     # last point of the scan of each channel - samples
+# Smin = 4000                     # starting point of the scan of each channel - samples
+# Smax = 6500                     # last point of the scan of each channel - samples
 
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels

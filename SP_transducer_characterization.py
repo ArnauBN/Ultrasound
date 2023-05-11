@@ -15,7 +15,7 @@ import src.ultrasound as US
 
 #%% Load the data
 Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\transducer_characterization\stainless_steel-50mm'
-Experiment_folder_name = 'A' # Without Backslashes
+Experiment_folder_name = 'B' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_basename = 'acqdata.bin'
@@ -72,6 +72,10 @@ ax3.plot(PE_Ascans.T - PEs.T)
 ax3.set_title('Difference')
 plt.tight_layout()
 
+#%% Correct gain
+true_gain = Config_dict['Gain_Ch2'] - Config_dict['Attenuation_Ch2']
+PEs = PEs * 10**(-true_gain/10)
+
 #%% Compute FFT
 ScanLen = Smax2 - Smin2
 nfft = 2**(int(np.ceil(np.log2(np.abs(ScanLen)))) + 3) # Number of FFT points (power of 2)
@@ -114,6 +118,8 @@ elif Experiment_folder_name=='D':
     deg = 14
 elif Experiment_folder_name=='E':
     poly = False
+elif Experiment_folder_name=='F':
+    poly = False
 
 new_freq_axis = np.linspace(freq_axis[MaxLocs[0]], freq_axis[MaxLocs[-1]], 2048)
 
@@ -140,6 +146,10 @@ print(f'BW = {BW*1e-6} MHz')
 print(f'Center = {new_freq_axis[peak_idx]*1e-6} MHz')
 
 #%% Plot fit (or interpolation) and bandwidth
+max_val_A = 4.557009808215583e-05
+max_val_F = 0.0008946725327523992
+max_val_chosen = max_val_A
+
 dashedlinescolor = 'gray'
 linecolor = 'k'
 markerfacecolor = 'w'
@@ -147,18 +157,28 @@ markeredgecolor = 'k'
 
 plt.figure()
 # plt.plot(new_freq_axis*1e-6, Maxs_full)
-plt.plot(new_freq_axis*1e-6, Maxs_full, c=linecolor)
-plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals, facecolor=markerfacecolor, edgecolor=markeredgecolor, marker='o', s=80, zorder=3)
+plt.plot(new_freq_axis*1e-6, Maxs_full/max_val_chosen, c=linecolor)
+plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals/max_val_chosen, facecolor=markerfacecolor, edgecolor=markeredgecolor, marker='o', s=80, zorder=3)
 # plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals, c='k', s=100, zorder=3)
 plt.xlabel('Frequency (MHz)')
 plt.xlim([0,10])
 if Experiment_folder_name=='D': plt.xlim([0,20])
 
-plt.axhline(peak/np.sqrt(2), ls='--', color=dashedlinescolor)
+plt.axhline(peak/np.sqrt(2)/max_val_chosen, ls='--', color=dashedlinescolor)
 plt.axvline(new_freq_axis[bw_inf_idx]*1e-6, ls='--', color=dashedlinescolor)
 plt.axvline(new_freq_axis[bw_sup_idx]*1e-6, ls='--', color=dashedlinescolor);
 
-plt.yticks([])
+# plt.yticks([])
+
+'''
+    Gains (dB)
+A   20 - 10
+B   20 - 10
+C   20 - 10
+D   15 - 10
+E   10 - 10
+F   15 - 2*10
+'''
 
 '''
 Results found (MHz):
@@ -168,5 +188,6 @@ B   1.64    2.61
 C   3.64    1.78
 D   8.80    5.25
 E   3.56    1.63
+F   4.13    1.15
 
 '''

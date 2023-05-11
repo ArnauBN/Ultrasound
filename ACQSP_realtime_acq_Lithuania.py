@@ -447,6 +447,10 @@ for i in range(N_acqs):
     # ----------------
     # Find ToF_TW
     ToF_TW, Aligned_TW, _ = US.CalcToFAscanCosine_XCRFFT(TT, WP, UseCentroid=False, UseHilbEnv=False, Extend=True, Same=False)
+    if i==0:
+        PE_R0 = PE_R
+    tof_pe = US.CalcToFAscanCosine_XCRFFT(PE_R, PE_R0, UseHilbEnv=False, UseCentroid=False)[0]
+    ToF_TW = ToF_TW - tof_pe # correction
     
     if ID:
         if stripIterNo == 2:

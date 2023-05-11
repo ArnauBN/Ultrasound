@@ -181,8 +181,7 @@ config_dict = {'Fs': Fs,
                'ID' : ID,
                'stripIterNo' : stripIterNo,
                'Start_date': '',
-               'End_date': '',
-               'Experiment_description': Experiment_description}
+               'End_date': ''}
 
 US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
 print(f'Configuration parameters saved to {Config_path}.')

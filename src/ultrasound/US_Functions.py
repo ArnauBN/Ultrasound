@@ -1408,3 +1408,22 @@ def find_nearest(x, value):
     array = np.asarray(x)
     idx = (np.abs(array - value)).argmin()
     return idx, array[idx]
+
+
+def round2signif(x):
+    '''
+    Round x to the first significant digit.
+
+    Parameters
+    ----------
+    x : int
+        Scalar to round.
+
+    Returns
+    -------
+    out : int
+        The rounded value.
+
+    Arnau, 02/05/2023
+    '''
+    return np.round(x, -int(np.floor(np.log10(np.abs(x)))))

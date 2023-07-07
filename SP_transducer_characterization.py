@@ -15,7 +15,7 @@ import src.ultrasound as US
 
 #%% Load the data
 Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\transducer_characterization\stainless_steel-50mm'
-Experiment_folder_name = 'B' # Without Backslashes
+Experiment_folder_name = 'F' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_basename = 'acqdata.bin'
@@ -44,7 +44,7 @@ Cw_vector = Temperature_dict['Cw']
 
 #%% Material properties
 L = 50e-3 # stainless steel -> 50 mm
-v = 5790 # stainless steel -> 5790m/s
+v = 5790 # stainless steel -> 5790 m/s
 tof = L/v # ToF in seconds
 t = 2*tof # time to receive eco
 
@@ -86,7 +86,7 @@ PEs_FFT = np.fft.fft(PEs, nfft, axis=1, norm='forward')[:,:nfft//2] # norm='forw
 #%% Find maximum of FFT
 MaxLocs = np.zeros(N_acqs, dtype=int)
 MaxVals = np.zeros(N_acqs)
-    
+
 width = (pulse_freqs[1] - pulse_freqs[0])*3 # 150% more just in case
 for i, PE in enumerate(PEs_FFT):
     lims = (pulse_freqs[i] - width/2, pulse_freqs[i] + width/2)
@@ -104,6 +104,23 @@ plt.scatter(freq_axis[MaxLocs]*1e-6, MaxVals, c='k', s=100, zorder=3)
 plt.xlabel('Frequency (MHz)')
 plt.xlim([0,10])
 if Experiment_folder_name=='D': plt.xlim([0,20])
+
+
+#%%
+# plt.figure()
+# plt.xlabel('Frequency (MHz)')
+# plt.xlim([0,10])
+
+# for trace in np.abs(PEs_FFT):
+#     plt.plot(freq_axis*1e-6, trace, zorder=1)
+#     plt.pause(2)
+
+
+
+
+
+
+
 
 #%% Best method for each trace
 if Experiment_folder_name=='A':
@@ -144,11 +161,13 @@ bw_inf_idx, bw_inf = US.find_nearest(Maxs_full[:peak_idx], peak/np.sqrt(2))
 BW = new_freq_axis[bw_sup_idx] - new_freq_axis[bw_inf_idx]
 print(f'BW = {BW*1e-6} MHz')
 print(f'Center = {new_freq_axis[peak_idx]*1e-6} MHz')
+print(f'Center = {np.sqrt(new_freq_axis[bw_sup_idx] * new_freq_axis[bw_inf_idx])*1e-6} MHz')
 
 #%% Plot fit (or interpolation) and bandwidth
 max_val_A = 4.557009808215583e-05
+max_val_B = 3.224393828340578e-05
 max_val_F = 0.0008946725327523992
-max_val_chosen = max_val_A
+max_val_chosen = max_val_B
 
 dashedlinescolor = 'gray'
 linecolor = 'k'

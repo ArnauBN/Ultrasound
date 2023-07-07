@@ -253,7 +253,7 @@ if Temperature:
         mean2 = None
         mean1 = tmp
     
-    WP_Cw = US.speedofsound_in_water(mean1, method='Abdessamad', method_param=148)
+    WP_Cw = US.temp2sos(mean1, method='Abdessamad', method_param=148)
     config_dict['WP_temperature'] = mean1
     config_dict['Outside_temperature'] = mean2
     US.saveDict2txt(Path=Config_path, d=config_dict, mode='w', delimiter=',')
@@ -398,7 +398,7 @@ for i in range(N_acqs):
         else:
             means1[i] = tmp
         
-        Cw = US.speedofsound_in_water(means1[i], method='Abdessamad', method_param=148)
+        Cw = US.temp2sos(means1[i], method='Abdessamad', method_param=148)
         Cw_vector[i] = Cw
     
 

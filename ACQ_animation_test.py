@@ -18,10 +18,10 @@ RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
 # Smax = RecLen                     # last point of the scan of each channel - samples
 
 Smin = 5000                     # starting point of the scan of each channel - samples
-Smax = 9000                     # last point of the scan of each channel - samples
+Smax = 13000                     # last point of the scan of each channel - samples
 
-# Smin = 4000                     # starting point of the scan of each channel - samples
-# Smax = 6500                     # last point of the scan of each channel - samples
+Smin = 5000                     # starting point of the scan of each channel - samples
+Smax = 10000                     # last point of the scan of each channel - samples
 
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
@@ -46,7 +46,8 @@ ax = plt.axes(xlim=np.array([Smin, Smax])/(100e6)*1e6, ylim=(-0.5, 0.5))
 TT_line, = ax.plot([], [], lw=2)
 PE_line, = ax.plot([], [], lw=2)
 x = np.arange(Smin, Smax)/(100e6)*1e6
-ax.axvline(50)
+# ax.axvline(60)
+ax.grid()
 
 # initialization function: plot the background of each frame
 def init():

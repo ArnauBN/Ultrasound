@@ -130,10 +130,10 @@ def resin_temp2sos(T):
     C : float or ArrayLike
         Speed of sound in m/s.
 
-    Arnau, 06/07/2023
+    Arnau, 07/07/2023
     '''
-    m = -6.578749669765215
-    c = 1854.2829464167598
+    m = -5.390419883650076 # +/- 0.07
+    c = 1820.4117722309022 # +/- 2
     return m*T + c
 
 def resin_sos2temp(C):
@@ -150,10 +150,10 @@ def resin_sos2temp(C):
     T : float or ArrayLike
         Temperature in celsius.
 
-    Arnau, 06/07/2023
+    Arnau, 07/07/2023
     '''
-    m = -6.578749669765215
-    c = 1854.2829464167598
+    m = -5.390419883650076 # +/- 0.07
+    c = 1820.4117722309022 # +/- 2
     return (C - c)/m
 
 

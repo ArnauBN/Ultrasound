@@ -28,8 +28,10 @@ not be imported unless specified by __all__.
 
 """
 from .US_Functions import *
+from .US_SPClasses import *
 from .US_Classes import *
 from .US_GenCode import *
 from .US_Graphics import *
 from .US_Loaders import *
 from .US_LoaderUI import *
+from .US_SoS import *

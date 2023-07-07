@@ -6,8 +6,10 @@ Created on Tue Nov  3 17:14:47 2020.
 """
 from scipy import signal
 import numpy as np
-from . import US_Functions as USF
 import sys
+from scipy import stats
+
+from . import US_Functions as USF
 
 class Material:
     """
@@ -637,3 +639,122 @@ class USScan:
 
 
 #TODO Get time of flight with particular Ascan
+
+
+
+
+#%% ===========================================================================
+
+class SimpleLinReg:
+    '''Least Squares Linear Regression. Arnau, 07/07/2023
+    
+    Ref: https://en.wikipedia.org/wiki/Simple_linear_regression'''
+    def __init__(self, x, y):
+        self._x = x
+        self._y = y
+        
+        n = len(x)
+        Sx = sum(x)
+        Sy = sum(y)
+        Sxx = sum(x**2)
+        Syy = sum(y**2)
+        Sxy = sum(x*y)
+        
+        slope = (n*Sxy - Sx*Sy) / (n*Sxx - Sx**2)
+        intercept = Sy/n - slope*Sx/n
+    
+        s2eps = (n*Syy - Sy**2 - slope**2*(n*Sxx - Sx**2)) / (n*(n-2))
+        s2m = (n*s2eps**2) / (n*Sxx - Sx**2)
+        s2c = s2m*Sxx/n
+
+        self._slope = Estimator(slope, np.sqrt(s2m), 0.95, len(x))
+        self._intercept = Estimator(intercept, np.sqrt(s2c), 0.95, len(x))       
+    
+        self._r = (n*Sxy - Sx*Sy) / np.sqrt((n*Sxx - Sx**2) * (n*Syy - Sy**2))
+    
+        tvalue = self._slope.tvalue
+        m = slope
+        c = intercept
+        diffs = y - (m*x + c)
+        self._parabolas = (lambda p: m*p + c + tvalue*np.sqrt(sum(diffs**2)/(n-2) * (1/n + (p-np.mean(x))**2 / sum((x-np.mean(x))**2))),
+                           lambda p: m*p + c - tvalue*np.sqrt(sum(diffs**2)/(n-2) * (1/n + (p-np.mean(x))**2 / sum((x-np.mean(x))**2))))
+        self._predictionIntervals = (lambda p: m*p + c + tvalue*np.sqrt(sum(diffs**2)/(n-2) * (1 + 1/n + (p-np.mean(x))**2 / sum((x-np.mean(x))**2))),
+                                     lambda p: m*p + c - tvalue*np.sqrt(sum(diffs**2)/(n-2) * (1 + 1/n + (p-np.mean(x))**2 / sum((x-np.mean(x))**2))))
+        
+    @property
+    def x(self):
+        return self._x
+    
+    @property
+    def y(self):
+        return self._y
+    
+    @property
+    def slope(self):
+        return self._slope
+
+    @property
+    def intercept(self):
+        return self._intercept
+
+    @property
+    def r(self):
+        return self._r
+
+    @property
+    def parabolas(self):
+        return self._parabolas
+    
+    @property
+    def predictionIntervals(self):
+        return self._predictionIntervals
+    
+
+class Estimator:
+    '''Estimator for a regression model. Arnau, 07/07/2023
+    
+    Ref: https://en.wikipedia.org/wiki/Simple_linear_regression'''
+    def __init__(self, value, stderror, confidence, n):
+        self.value = value
+        self._stderror = stderror
+        self._confidence = confidence
+        self._n = n
+        
+        self._tvalue = stats.t.ppf(1 - (1 - self._confidence)/2, self.n-2)
+        self._confidenceInterval = self._tvalue * self._stderror
+
+    @property
+    def stderror(self):
+        return self._stderror
+
+    @stderror.setter
+    def stderror(self, v):
+        self._stderror = v
+        self._confidenceInterval = self._tvalue * self._stderror
+
+    @property
+    def confidence(self):
+        return self._confidence
+
+    @confidence.setter
+    def confidence(self, v):
+        self._confidence = v
+        self._tvalue = stats.t.ppf(1 - (1 - self._confidence)/2, self.n-2)
+        self._confidenceInterval = self._tvalue * self._stderror
+
+    @property
+    def tvalue(self):
+        return self._tvalue
+
+    @property
+    def confidenceInterval(self):
+        return self._confidenceInterval
+    
+    @property
+    def n(self):
+        return self._n
+
+    @n.setter
+    def n(self, v):
+        self._n = v
+        self._tvalue = stats.t.ppf(1 - (1 - self._confidence)/2, self.n-2)

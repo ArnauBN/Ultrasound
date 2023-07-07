@@ -53,6 +53,7 @@ ax.set_xlabel('Temperature (\u2103)')
 ax.plot(temperature, Cw)
 
 x1, x2, y1, y2 = 16, 22, 1469, 1490 # inset
+x1, x2, y1, y2 = 20, 30, 1480, 1510 # inset
 axins = ax.inset_axes([0.65, 0.1, 0.3, 0.3])
 axins.set_xlim(x1, x2)
 axins.set_ylim(y1, y2)

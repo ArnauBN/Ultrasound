@@ -9,8 +9,10 @@ import numpy as np
 from scipy import signal
 import sys
 import winsound
+from scipy import stats
 from scipy.signal import find_peaks
 from scipy.optimize import fsolve
+import re
 
 
 def fastxcorr(x, y, Extend=True, Same=False):
@@ -122,7 +124,7 @@ def ShiftSubsampleByfft(Signal, Delay):
     FAxis2 = (np.arange(HalfN + 2, N + 1, 1) - (N + 1)) / N  # Negative semi-frequency axis
     FAxis = np.concatenate((FAxis1, FAxis2))  # Full reordered frequency axis
 
-    return np.real( np.fft.ifft(np.fft.fft(Signal) * np.exp(-1j*2*np.pi*FAxis*Delay)))
+    return np.real(np.fft.ifft(np.fft.fft(Signal) * np.exp(-1j*2*np.pi*FAxis*Delay)))
 
 
 def CosineInterpMax_generic(MySignal, UseHilbEnv=False):
@@ -638,6 +640,9 @@ def makeWindow(SortofWin='boxcar', WinLen=512,
         1D array of lenth WinLen or Span.
         
     Docstring: Arnau, 12/12/2022
+    Correction: Arnau, 24/05/2023
+        ShiftSubsampleByfft(MyWin, -Delay) changed to
+        ShiftSubsampleByfft(MyWin, Delay)
     '''
     
     lstWinWithParameter = ['barthannkaiser','gaussian','slepian','dpss',
@@ -655,7 +660,7 @@ def makeWindow(SortofWin='boxcar', WinLen=512,
         if isinstance(Delay, int):
             MyWin = np.roll(MyWin, int(Delay))  # if interger use numpy roll
         else:
-            MyWin = ShiftSubsampleByfft(MyWin, -Delay)  # if float use subsample
+            MyWin = ShiftSubsampleByfft(MyWin, Delay)  # if float use subsample
     return MyWin
 
 def CheckIntegrityScan(Scan, FixIt=True):
@@ -830,7 +835,7 @@ def find_Subsampled_peaks(Data, **kwargs):
 
     Parameters
     ----------
-    Data : sequence
+    Data : ndarray
         A signal with peaks.
 
     Returns
@@ -838,24 +843,25 @@ def find_Subsampled_peaks(Data, **kwargs):
     Real_peaks : ndarray
         Subsampled peaks that satisfy all given conditions.
 
+    Arnau, 24/05/2023
     '''
     if np.isnan(np.sum(Data)):
-        return np.ones(4)*np.nan
+        return np.nan
     peaks, _ = find_peaks(Data, **kwargs)
 
     # now we use cosine interpolation to be more precise... although not really important
-    Real_peaks = np.zeros((4))
-    for i in np.arange(4):
-        A = peaks[i]-1
-        B = peaks[i]+2
-        MaxLoc = peaks[i]
+    Real_peaks = []
+    for p in peaks:
+        A = p - 1
+        B = p + 2
+        MaxLoc = p
         Alpha = np.arccos((Data[A] + Data[B]) / (2 * Data[MaxLoc]))
         Beta = np.arctan((Data[A] - Data[B]) / (2 * Data[MaxLoc] * np.sin(Alpha)))
         Px = Beta / Alpha
         
         # recalculate peak location in samples adding the interpolated value
-        Real_peaks[i] = peaks[i] - Px
-    return Real_peaks
+        Real_peaks.append(p - Px)
+    return np.array(Real_peaks)
 
 
 def Zscore(data):
@@ -908,108 +914,55 @@ def reject_outliers(data, m=0.6745):
     outliers_indexes = np.where(np.abs(Z)>=m)[0]
     return new_data, outliers, outliers_indexes
 
-def speedofsound_in_water(T, method: str='Abdessamad', method_param=148):
+def maskOutliers(data, m: float=0.6745, UseMedian: bool=False):
     '''
-    Compute speed of sound in pure water as a function of temperature with the
-    given method. Some methods require parameters given in method_param.
-    
-    Available methods:
-        'Bilaniuk'
-        'Marczak'
-        'Lubbers'
-        'Abdessamad'
-    
-    Available method parameters:
-        'Bilaniuk':
-            112
-            36
-            148
-        'Lubbers':
-            '15-35'
-            '10-40'
-        'Abdessamad':
-            148
-            36
+    Return a numpy masked array where the masked values are the outliers of the
+    data (row-wise in the case of a 2D matrix) given a certain threshold `m`.
+    If UseMedian is True, outliers are difned from the median instead of the
+    mean.
 
     Parameters
     ----------
-    T : float or ndarray
-        Temperature of water in Celsius.
-    method : str, optional
-        Method to use. The default is 'Abdessamad'.
-    method_param : int or str, optional
-        Parameter for the method. The default is 148.
+    data : ArrayLike
+        Input 2D matrix. The Outliers are found row-wise.
+    m : float, optional
+        Outlier threshold. The default is 0.6745.
+    UseMedian : bool, optional
+        If True, use median instead of mean. The default is False.
 
     Returns
     -------
-    c : float or ndarray
-        the speed of sound in pure (distilled) water in m/s.
+    data_masked : numpy.ma.core.MaskedArray
+        Array with masked outliers.
 
-    Arnau, 10/01/2023
+    Arnau, 29/06/2023
     '''
-    if method.lower()=='bilaniuk':
-        # Bilaniuk and Wong (0-100 ºC) - year 1993-1996
-        if method_param==112:
-            c = 1.40238742e3 + 5.03821344*T - 5.80539349e-2*(T**2) + \
-                3.32000870e-4*(T**3) - 1.44537900e-6*(T**4) + 2.99402365e-9*(T**5)
-        elif method_param==36:
-            c = 1.40238677e3 + 5.03798765*T - 5.80980033e-2*(T**2) + \
-                3.34296650e-4*(T**3) - 1.47936902e-6*(T**4) + 3.14893508e-9*(T**5)
-        elif method_param==148:
-            c = 1.40238744e3 + 5.03836171*T - 5.81172916e-2*(T**2) + \
-                3.34638117e-4*(T**3) - 1.48259672e-6*(T**4) + 3.16585020e-9*(T**5)
-    elif method.lower()=='marczak':
-        # Marczak (0-95 ºC) - year 1997
-        c = 1.402385e3 + 5.038813*T - 5.799136e-2*(T**2) + 3.287156e-4*(T**3) - \
-            1.398845e-6*(T**4) + 2.787860e-9*(T**5)
-    elif method.lower()=='lubbers':
-        if method_param=='15-35':
-            # Lubbers and Graaff (15-35 ºC) - year 1998
-            c = 1404.3 + 4.7*T - 0.04*(T**2)
-        elif method_param=='10-40':
-            # Lubbers and Graaff (10-40 ºC) - year 1998
-            c = 1405.03 + 4.62*T - 3.83e-2*(T**2)
-    elif method.lower()=='abdessamad':
-        # Abdessamad, Malaoui & Iqdour, Radouane & Ankrim, Mohammed & Zeroual, 
-        # Abdelouhab & Benhayoun, Mohamed & Quotb, K.. (2005). 
-        # New model for speed of sound with temperature in pure water. 
-        # AMSE Review (Association for the Advancement of Modelling and Simulation
-        # Techniques in Enterprises). 74. 12.10-12.13.
-        if method_param==148:
-            # (0.001-95.126 ºC)
-            c = 1.569678141e3*np.exp(-((T-5.907868678e1)/(-3.443078912e2))**2) - \
-                2.574064370e4*np.exp(-((T+3.705052160e2)/(-1.601257116e2))**2)
-        elif method_param==36:
-            # (0.056-74.022 ºC)
-            c = 1.567302324e3*np.exp(-((T-6.101414576e1)/(-3.388027429e2))**2) - \
-                1.468922269e4*np.exp(-((T+3.255477156e2)/(-1.478114724e2))**2)
-    return c
-
-
-def speedofsound2temperature(target_speed, temperature_guess=20, method: str='Abdessamad', method_param=148):
-    '''
-    Finds the water temperature that would induce the specified target speed
-    of sound.
-
-    Parameters
-    ----------
-    target_speed : float
-        Target speed of sound in pure water in m/s.
-    temperature_guess : float, optional
-        Initial temperature guess in celsius. The default is 20.
-    method : str, optional
-        Method to use. The default is 'Abdessamad'.
-    method_param : int or str, optional
-        Parameter for the method. The default is 148.
-
-    Returns
-    -------
-    temperature : float
-        The water temperature that produces the desired speed of sound.
-
-    Arnau, 23/02/2023
-    '''
-    return fsolve(lambda x: target_speed - speedofsound_in_water(x, method, method_param), temperature_guess)[0]
+    if data.ndim == 1:
+        if UseMedian:
+            med = (data - np.median(data))/np.std(data)
+            outliers_indexes = np.where(np.abs(med) >= m)[0]
+        else:
+            outliers_indexes = reject_outliers(data, m=m)[2]
+        _temp = np.zeros(len(data))
+        _temp[outliers_indexes] = outliers_indexes
+        mask = np.array(_temp, dtype=bool)
+        data_masked = np.ma.masked_array(data, mask=mask)
+        return data_masked
+    else:
+        masks = np.zeros([1, data.shape[1]])
+        for x in data:
+            if UseMedian:
+                med = (x - np.median(x))/np.std(x)
+                outliers_indexes = np.where(np.abs(med) >= m)[0]
+            else:
+                outliers_indexes = reject_outliers(x, m=m)[2]
+            _temp = np.zeros(len(x))
+            _temp[outliers_indexes] = outliers_indexes
+            mask = np.array(_temp, dtype=bool)
+            masks = np.vstack([masks, mask])
+        masks = masks[1:,:]
+        data_masked = np.ma.masked_array(data, mask=masks)
+        return data_masked
 
 
 def winwidth2n(win, width):
@@ -1127,6 +1080,28 @@ def time2str(seconds) -> str:
     s = f'{hours} h, {minutes} min, {seconds} s'
     return s
 
+def str2time(strtime) -> int:
+    '''
+    Convert the given string (time) to seconds (int). The inout time must
+    specify hours, minutes and seconds.
+
+    Parameters
+    ----------
+    strtime : str
+        The time to converto to seconds.
+
+    Returns
+    -------
+    seconds : int
+        The corresponding number of seconds.
+
+    Arnau, 31/05/2023
+    '''
+    factors = [3600, 60, 1]
+    list_hms = [int(s) for s in re.findall(r'\d+', strtime)]
+    seconds = factors[0]*list_hms[0] + factors[1]*list_hms[1] + factors[2]*list_hms[2]
+    return seconds
+
 def getNbins(x, mode: str='auto', **kwargs):
     '''
     Returns the appropiate number of bins to compute the histogram of x with
@@ -1218,7 +1193,7 @@ def slice_array(x, slicesize, overlap=0.5):
     sliced : ndarray
         Matrix containing a slice in each row (N x slicesize).
     idxs : ndarray
-        Matrix containing the original indeces of the slices in each row
+        Matrix containing the original indices of the slices in each row
         (N x slicesize). Can be used for plotting, e.g.:
             plt.scatter(idxs, sliced, color='k', marker='.')
     
@@ -1235,7 +1210,7 @@ def slice_array(x, slicesize, overlap=0.5):
 
 def max_in_slice(x, slice_idxs, axis=None):
     '''
-    Find maximum of an array in the given indices. Indices does not need to be
+    Find maximum of an array in the given indices. Indices do not need to be
     consecutive.
 
     Parameters
@@ -1263,7 +1238,7 @@ def max_in_slice(x, slice_idxs, axis=None):
 
 def min_in_slice(x, slice_idxs, axis=None):
     '''
-    Find minimum of an array in the given indices. Indices does not need to be
+    Find minimum of an array in the given indices. Indices do not need to be
     consecutive.
 
     Parameters

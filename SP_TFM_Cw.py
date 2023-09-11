@@ -32,11 +32,11 @@ axins.set_ylim(y1, y2)
 for k, v in method_params_dict.items():
     if k != methods[1]:
         for value in v:
-            Cw = US.speedofsound_in_water(temperature, k, value)
+            Cw = US.temp2sos(temperature, material='water', method=k, method_param=value)
             ax.plot(temperature, Cw, label=f'{k} - {value}')
             axins.plot(temperature, Cw)
     else:
-        Cw = US.speedofsound_in_water(temperature, k)
+        Cw = US.temp2sos(temperature, material='water', method=k)
         ax.plot(temperature, Cw, label=k)
         axins.plot(temperature, Cw)
 plt.legend(loc='upper left', prop={'size': 8})
@@ -45,7 +45,7 @@ plt.tight_layout()
 
 
 #%% Chosen method
-Cw = US.speedofsound_in_water(temperature, 'Abdessamad', 148)
+Cw = US.temp2sos(temperature, material='water', method='Abdessamad', method_param=148)
 
 ax = plt.subplots(1, num='Cw')[1]
 ax.set_ylabel('Speed of sound in pure water (m/s)')

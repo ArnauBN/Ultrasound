@@ -90,9 +90,9 @@ target_Cw = target_L * Fs / (TTmax + Smin1)
 
 found_temperatures = np.zeros(N_acqs)
 for i in range(N_acqs):
-    found_temperatures[i] = US.speedofsound2temperature(target_Cw[i])
+    found_temperatures[i] = US.water_sos2temp(target_Cw[i])
 
-corrected_L = (TTmax + Smin1) * US.speedofsound_in_water(found_temperatures, 'Abdessamad', 148) / Fs
+corrected_L = (TTmax + Smin1) * US.water_temp2sos(found_temperatures, 'Abdessamad', 148) / Fs
 uncorrected_temperature = np.ones(N_acqs) * temperature[0]
 
 

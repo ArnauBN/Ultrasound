@@ -5,6 +5,8 @@ Python version: Python 3.9
 
 @author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
 
+SP = Signal Processing
+
 """
 from scipy import signal as scsig
 import numpy as np
@@ -20,10 +22,13 @@ from . import US_SoS as USS
 
 #%%
 class RealtimeSP:
-    def __init__(self, Path, compute=False):
-        '''Class for processing experiment data. If compute is True, the constructor computes everything. If not, it is loaded from results.txt.'''
+    def __init__(self, Path, compute=False, Cw_material='water'):
+        '''Class for processing experiment data. 
+        If compute is True, the constructor computes everything. 
+        If not, it is loaded from results.txt.'''
         self.Path = Path
         self.name = Path.split('\\')[-1]
+        self.Cw_material = Cw_material
         
         self._paths() # set paths
         self._load() # load data
@@ -283,7 +288,7 @@ class RealtimeSP:
         -------
         None.
     
-        Arnau, 16/05/2023
+        Arnau, 27/07/2023
         '''
         self.lpf_order = 2
         self.lpf_fc = 2e-3 # Hz
@@ -292,7 +297,7 @@ class RealtimeSP:
         else:
             b_IIR, a_IIR = scsig.iirfilter(self.lpf_order, 2*self.lpf_fc*self.Ts, btype='lowpass')
             self.temperature_lpf = scsig.filtfilt(b_IIR, a_IIR, self.temperature)
-            self.Cw_lpf = USS.temp2sos(self.temperature_lpf, material='water')
+            self.Cw_lpf = USS.temp2sos(self.temperature_lpf, material=self.Cw_material)
     
     def saveResults(self):
         '''
@@ -316,13 +321,35 @@ class RealtimeSP:
                 row = f'{Time_axis[i]},{self.Lc[i]},{self.L[i]},{self.C[i]}'
                 f.write(row+'\n')
 
+    def saveCw(self):
+        '''
+        Save temperature (raw and lpf) and Cw (raw and lpf) in
+        {self.Temperature_path} path column-wise with a header. Saved data is
+        temperature, temperature_lpf, Cw and Cw_lpf with header
+        Inside,Inside_lpf,Cw,Cw_lpf. Separator is a comma.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 27/07/2023
+        '''
+        with open(self.Temperature_path, 'w') as f:
+            row = 'Inside,Inside_lpf,Cw,Cw_lpf'
+            f.write(row+'\n')
+
+        with open(self.Temperature_path, 'a') as f:
+            for i in range(self.N_acqs):
+                row = f'{self.temperature[i]},{self.temperature_lpf[i]},{self.Cw[i]},{self.Cw_lpf[i]}'
+                f.write(row+'\n')
+
 
 # =============================================================================
+#%%
 # =============================================================================
-
 
 class DogboneSP:
-    def __init__(self, Path, compute=True, imgName=None):
+    def __init__(self, Path, compute=True, imgName=None, **kwargs):
         '''Class for processing experiment data. If compute is True, the constructor computes everything.'''
         self.Path = Path
         self.name = Path.split('\\')[-1]
@@ -334,9 +361,7 @@ class DogboneSP:
         self.LPFtemperature() # Low-Pass filter temperature
         
         if compute:
-            self.computeTOF() # Compute Time-of-Flights
-            self.computeResults() # Compute results
-            self.computeDensity() # Compute density
+            self.computeAll(**kwargs)
     
     def _paths(self):
         '''
@@ -363,6 +388,7 @@ class DogboneSP:
         self.Experiment_scanpath_file_name = 'scanpath.txt'
         self.Experiment_img_file_name = f'img{self.name}.jpg' if self.imgName is None else self.imgName
         self.Experiment_results_file_name = 'results.txt'
+        self.Experiment_archdensity_file_name = 'archdensity.txt'
         
         self.Config_path = os.path.join(self.Path, self.Experiment_config_file_name)
         self.PEref_path = os.path.join(self.Path, self.Experiment_PEref_file_name)
@@ -372,6 +398,7 @@ class DogboneSP:
         self.Scanpath_path = os.path.join(self.Path, self.Experiment_scanpath_file_name)
         self.Img_path = os.path.join(self.Path, self.Experiment_img_file_name)
         self.Results_path = os.path.join(self.Path, self.Experiment_results_file_name)
+        self.Archdensity_path = os.path.join(self.Path, self.Experiment_archdensity_file_name)
     
     def _load(self):
         '''
@@ -400,6 +427,18 @@ class DogboneSP:
         # Scan pattern
         self.scanpattern = USL.load_columnvectors_fromtxt(self.Scanpath_path, delimiter=',', header=False, dtype=str)
         
+        # Results
+        if os.path.exists(self.Results_path):
+            self.results_dict = USL.load_columnvectors_fromtxt(self.Results_path)
+            if 'L'             in self.results_dict: self.L             = self.results_dict['L']
+            if 'CL'            in self.results_dict: self.CL            = self.results_dict['CL']
+            if 'Cs'            in self.results_dict: self.Cs            = self.results_dict['Cs']
+            if 'density'       in self.results_dict: self.density       = self.results_dict['density']
+            if 'shear_modulus' in self.results_dict: self.shear_modulus = self.results_dict['shear_modulus']
+            if 'young_modulus' in self.results_dict: self.young_modulus = self.results_dict['young_modulus']
+            if 'bulk_modulus'  in self.results_dict: self.bulk_modulus  = self.results_dict['bulk_modulus']
+            if 'poisson_ratio' in self.results_dict: self.poisson_ratio = self.results_dict['poisson_ratio']
+        
         # WP
         with open(self.WP_path, 'rb') as f:
             self.WP = np.fromfile(f)
@@ -413,6 +452,9 @@ class DogboneSP:
             self.img = mpimg.imread(self.Img_path)
         else:
             self.img = None
+        
+        if os.path.exists(self.Archdensity_path):
+            self.archdensity = float(USL.load_columnvectors_fromtxt(self.Archdensity_path, header=False, dtype=float))
 
     def _angleAndScanpos(self):
         '''
@@ -426,8 +468,8 @@ class DogboneSP:
         '''
         self.Ridx = [np.where(self.scanpattern == s)[0][0] for s in self.scanpattern if 'R' in s][0] + 1
         self.theta = float(self.scanpattern[self.Ridx-1][1:]) * np.pi / 180
-        step = float(self.scanpattern[0][1:])
-        self.scanpos = np.arange(self.Ridx)*step # mm
+        self.scanpos_step = float(self.scanpattern[0][1:])
+        self.scanpos = np.arange(self.Ridx)*self.scanpos_step # mm
 
     def LPFtemperature(self):
         '''
@@ -447,9 +489,9 @@ class DogboneSP:
         else:
             b_IIR, a_IIR = scsig.iirfilter(self.lpf_order, 2*self.lpf_fc*self.Ts, btype='lowpass')
             self.temperature_lpf = scsig.filtfilt(b_IIR, a_IIR, self.temperature)
-            self.Cw_lpf = USF.speedofsound_in_water(self.temperature_lpf)
+            self.Cw_lpf = USS.temp2sos(self.temperature_lpf, material='water')
     
-    def computeTOF(self, UseHilbEnv: bool=False, UseCentroid: bool=False, WindowTTshear: bool=False, Loc_TT: int=1175):
+    def computeTOF(self, UseHilbEnv: bool=False, UseCentroid: bool=False, WindowTTshear: bool=False, Loc_TT: int=None):
         '''
         Compute all Time-Of-Flights.
 
@@ -462,78 +504,35 @@ class DogboneSP:
         WindowTTshear : bool, optional
             Window the shear TT pulse. The default is False.
         Loc_TT : int, optional
-            Location of the TT window. The default is 1175.
+            Location of the TT window. If None, it is automatically estimated
+            using the average of the first 20 mm of the specimen. The default
+            is None.
             
         Returns
         -------
         None.
 
-        Arnau, 23/03/2023
+        Arnau, 31/08/2023
         '''
         def TOF(x, y):
-            # m1 = US.CosineInterpMax(x, xcor=False)
-            # m2 = US.CosineInterpMax(y, xcor=False)
-            # return m1 - m2
-            
-            # xh = np.absolute(scsig.hilbert(x))
-            # yh = np.absolute(scsig.hilbert(y))
-            # return US.CalcToFAscanCosine_XCRFFT(xh, yh, UseHilbEnv=False, UseCentroid=False)[0]
-
             return USF.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=UseHilbEnv, UseCentroid=UseCentroid)[0]
 
-        def ID(x, y):
-            # xh = np.absolute(scsig.hilbert(x))
-            # yh = np.absolute(scsig.hilbert(y))
-            # return US.deconvolution(xh, yh, stripIterNo=2, UseHilbEnv=False, Extend=True, Same=False)[0]
-            
+        def ID(x, y):           
             return USF.deconvolution(x, y, stripIterNo=2, UseHilbEnv=UseHilbEnv, Extend=True, Same=False)[0]
 
-        self.winTT(WindowTTshear, Loc_TT)
-        self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
+        if WindowTTshear:
+            if Loc_TT is None:
+                self.ToF_TW = np.apply_along_axis(TOF, 0, self.TT, self.WP)
+                self.winTT(Loc_TT)
+                self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
+            else:
+                self.winTT(Loc_TT)
+                self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
+        else:
+            self.ToF_TW = np.apply_along_axis(TOF, 0, self.TT, self.WP)
+        
         self.ToF_RW = np.apply_along_axis(ID, 0, self.PE, self.PEref)
         self.ToF_R21 = self.ToF_RW[1] - self.ToF_RW[0]
-        
-        
-        # #%%
-        # # cw = np.mean(Cw)
-        # # cw = config_dict['Cw']
-        # # cw = Cw
-        # cw = Cw2
-        # cw_aux = np.asarray([cw]).flatten()[::-1]
-
-        # def TOF(x, y, Cwx, Cwy, Fs=100e6):
-        #     m1 = US.CosineInterpMax(x, xcor=False)
-        #     m2 = US.CosineInterpMax(y, xcor=False)
-        #     return (Cwx*m1 - Cwy*m2) / Fs
-
-        # def TOF2(x, y):
-        #     return US.CalcToFAscanCosine_XCRFFT(x,y)[0]
-
-        # def ID(x, y):
-        #     return US.deconvolution(x, y)[0]
-
-        # # ToF_TW = np.apply_along_axis(TOF, 0, TT, WP, Cw, Cw[0], Fs=Fs)
-        # ToF_TW = np.zeros(N_acqs)
-        # for i in range(N_acqs):
-        #     ToF_TW[i] = TOF(TT[:,i], WP, cw[i], cw[0], Fs=Fs)
-        #     # ToF_TW[i] = TOF(TT[:,i], WP, cw, cw, Fs=Fs)
-        #     # ToF_TW[i] = TOF2(TT[:,i], WP)
-
-        # # ToF_TW = cw*ToF_TW/Fs
-        # # ToF_TW = cw[0]*ToF_TW/Fs
-
-        # ToF_RW = np.apply_along_axis(ID, 0, PE, PEref)
-        # ToF_R21 = ToF_RW[1] - ToF_RW[0]
-        # ToF_R21 = cw*ToF_R21/Fs
-
-
-        # L = np.abs(ToF_TW) + ToF_R21/2 # thickness - m   
-        # CL = 2*np.abs(ToF_TW)/(ToF_R21/cw) + cw # longitudinal velocity - m/s
-        # Cs = cw_aux / np.sqrt(np.sin(theta)**2 + (np.abs(ToF_TW[::-1])/L + np.cos(theta))**2) # shear velocity - m/s
-
-        # CL = CL[:Ridx]
-        # L = L[:Ridx]
-        # Cs = Cs[:Ridx]
         
     def computeResults(self, Cw_mode='mean'):
         '''
@@ -562,6 +561,19 @@ class DogboneSP:
 
         Arnau, 16/03/2023
         '''
+        cw = self.getCwfromCwMode(Cw_mode)
+        cw_aux = np.asarray([cw]).flatten()[::-1]
+
+        self.L = cw/2*(2*np.abs(self.ToF_TW) + self.ToF_R21)/self.Fs # thickness - m
+        self.CL = cw*(2*np.abs(self.ToF_TW)/self.ToF_R21 + 1) # longitudinal velocity - m/s
+        self.Cs = cw_aux / np.sqrt(np.sin(self.theta)**2 + (cw_aux * np.abs(self.ToF_TW[::-1]) / (self.L * self.Fs) + np.cos(self.theta))**2) # shear velocity - m/s
+
+        self.CL = self.CL[:self.Ridx]
+        self.L = self.L[:self.Ridx]
+        self.Cs = self.Cs[:self.Ridx]
+
+    def getCwfromCwMode(self, Cw_mode):
+        self.Cw_mode = Cw_mode
         if type(Cw_mode) is not str:
             cw = self.config_dict['Cw']
         else:
@@ -573,15 +585,7 @@ class DogboneSP:
                 cw = np.mean(self.Cw)
             elif Cw_mode.lower()=='lpf':
                 cw = self.Cw_lpf
-        cw_aux = np.asarray([cw]).flatten()[::-1]
-
-        self.L = cw/2*(2*np.abs(self.ToF_TW) + self.ToF_R21)/self.Fs # thickness - m
-        self.CL = cw*(2*np.abs(self.ToF_TW)/self.ToF_R21 + 1) # longitudinal velocity - m/s
-        self.Cs = cw_aux / np.sqrt(np.sin(self.theta)**2 + (cw_aux * np.abs(self.ToF_TW[::-1]) / (self.L * self.Fs) + np.cos(self.theta))**2) # shear velocity - m/s
-
-        self.CL = self.CL[:self.Ridx]
-        self.L = self.L[:self.Ridx]
-        self.Cs = self.Cs[:self.Ridx]
+        return cw
 
     def computeDensity(self, UseAvgAcrossGains: bool=False):
         '''
@@ -609,16 +613,42 @@ class DogboneSP:
 
         G = self.config_dict['Gain_Ch2']
         if UseAvgAcrossGains:
-            AR1 = np.max(np.abs(self.PE)*(10**(-G/20)), axis=0)[:self.Ridx]
-            Aref = np.mean(self.Arefs[:4]*(10**(-self.ArefsGains[:4]/20)))
+            self.AR1 = np.max(np.abs(self.PE)*(10**(-G/20)), axis=0)[:self.Ridx]
+            self.Aref = np.mean(self.Arefs[:4]*(10**(-self.ArefsGains[:4]/20)))
         else:
             idx = np.where(self.ArefsGains==G)[0][0]
-            Aref = self.Arefs[idx]
-            AR1 = np.max(np.abs(self.PE), axis=0)[:self.Ridx]
+            self.Aref = self.Arefs[idx]
+            self.AR1 = np.max(np.abs(self.PE), axis=0)[:self.Ridx]
             
         Zw = 1.48e6 # acoustic impedance of water (N.s/m)
-        d = Zw / self.CL * (Aref + AR1) / (Aref - AR1) # density (kg/m^3)
+        d = Zw / self.CL * (self.Aref + self.AR1) / (self.Aref - self.AR1) # density (kg/m^3)
         self.density = d * 1e-3 # density (g/cm^3)
+
+    def computeModuli(self, UseArchDensity=False):
+        '''
+        Computes the Shear modulus, Young's modulus, Bulk modulus and Poisson's
+        ratio. To do this, the density, longitudinal velocity and shear
+        velocity are used.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 05/08/2023
+        '''
+        Cs2 = self.Cs**2
+        CL2 = self.CL**2
+        d = self.archdensity if UseArchDensity else self.density
+        self.shear_modulus = d * Cs2
+        self.young_modulus = d * Cs2 * (3*CL2 - 4*Cs2) / (CL2 - Cs2)
+        self.bulk_modulus  = d * (CL2 - 4*Cs2/3)
+        self.poisson_ratio = d * (CL2 - 2*Cs2) / (2*(CL2 - Cs2))
+
+    def computeAll(self, **kwargs):
+        self.computeTOF(**kwargs) # Compute Time-of-Flights
+        self.computeResults() # Compute results
+        self.computeDensity() # Compute density
+        self.computeModuli() # Compute mechanical properties
 
     def saveResults(self, binary=False):
         '''
@@ -639,39 +669,47 @@ class DogboneSP:
         _wmode = 'wb' if binary else 'w'
         _amode = 'ab' if binary else 'a'
         with open(self.Results_path, _wmode) as f:
-            row = 'scanpos,L,CL,Cs,density'
+            row = 'scanpos,L,CL,Cs,density,shear_modulus,young_modulus,bulk_modulus,poisson_ratio'
             f.write(row+'\n')
         with open(self.Results_path, _amode) as f:
-            for i in range(self.N_acqs):
-                row = f'{self.scanpos[i]},{self.L[i]},{self.CL[i]},{self.Cs[i]},{self.density[i]}'
+            for i in range(len(self.CL)):
+                row = f'{self.scanpos[i]},{self.L[i]},{self.CL[i]},{self.Cs[i]},{self.density[i]},{self.shear_modulus[i]},{self.young_modulus[i]},{self.bulk_modulus[i]},{self.poisson_ratio[i]}'
                 f.write(row+'\n')
 
-    def winTT(self, WindowTTshear, Loc_TT):
+    def winTT(self, Loc_TT=None):
         '''
         Window TT pulses for shear velocity.
 
         Parameters
         ----------
-        WindowTTshear : bool
-            If True, window TT. Else, self.windowTT = self.TT.copy().
         Loc_TT : int, optional
-            Location of the TT window.
+            Location of the TT window. If None, it is automatically estimated
+            using the average of the first 20 mm of the specimen.
             
         Returns
         -------
         None.
 
-        Arnau, 23/03/23
+        Arnau, 31/08/23
         '''
         self.windowedTT = self.TT.copy()
-        if WindowTTshear:
-            ScanLen = self.config_dict['Smax1'] - self.config_dict['Smin1']
-            # Loc_TT = 1175 # educated guess: Epoxy Resin
-            WinLen_TT = 50
-            MyWin_TT = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_TT,
-                            param1=0.25, param2=1, Span=ScanLen, Delay=Loc_TT - int(WinLen_TT/2))
-            for i in range(self.Ridx, self.N_acqs):
-                self.windowedTT[:,i] = self.TT[:,i] * MyWin_TT
+        
+        position_limit = 20 # mm
+        WinLen_TT = 80 # samples
+        ScanLen = self.config_dict['Smax1'] - self.config_dict['Smin1']
+        
+        if Loc_TT is None:
+            idx = USF.find_nearest(self.scanpos, position_limit)[0]
+            tofs = np.mean(self.ToF_TW[::-1][:idx])
+            wp_tofs = USF.CosineInterpMax(self.WP, xcor=False)
+            Loc = wp_tofs + tofs
+        else:
+            Loc = Loc_TT
+
+        MyWin_TT = USF.makeWindow(SortofWin='tukey', WinLen=WinLen_TT,
+                        param1=0.25, param2=1, Span=ScanLen, Delay=Loc - int(WinLen_TT/2))
+        for i in range(self.Ridx, self.N_acqs):
+            self.windowedTT[:,i] = self.TT[:,i] * MyWin_TT
     
     def plotGUI(self, ptxt: str='northwest'):
         '''
@@ -726,3 +764,272 @@ class DogboneSP:
         plt.tight_layout()
         
         return ax1, ax2
+
+
+# =============================================================================
+# =============================================================================
+
+
+class BasicSP:
+    '''Class with only static methods to compute basic properties of signals.
+    Signals must be numpy arrays.'''
+    
+    @staticmethod
+    def mean(x, ddof=0):
+        '''
+        Compute the mean of x. Produces the same result as np.mean(x) if 
+        ddof==0.
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+        ddof : int, optional
+            Degrees of freedom. The default is 0.
+
+        Returns
+        -------
+        result: float
+            The mean of x.
+
+        Arnau, 24/07/2023
+        '''
+        return x.sum() / (len(x) - ddof)
+
+    @staticmethod
+    def var(x, ddof=0):
+        '''
+        Compute the variance of x. Produces the same result as np.var(x, ddof).
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+        ddof : int, optional
+            Degrees of freedom. The default is 0.
+
+        Returns
+        -------
+        result: float
+            The variance of x.
+
+        Arnau, 24/07/2023
+        '''
+        return BasicSP.mean(np.abs(x - x.mean())**2, ddof=ddof)
+
+    @staticmethod
+    def std(x, ddof=0):
+        '''
+        Compute the standard deviation of x. Produces the same result as 
+        np.std(x, ddof).
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+        ddof : int, optional
+            Degrees of freedom. The default is 0.
+
+        Returns
+        -------
+        result: float
+            The standard deviation of x.
+
+        Arnau, 24/07/2023
+        '''
+        return np.sqrt(BasicSP.var(x, ddof=ddof))
+    
+    @staticmethod
+    def energy(x):
+        '''
+        Computes the energy of a signal. Produces the same result as
+        np.correlate(x, x, mode='valid')[0]
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+
+        Returns
+        -------
+        result: float
+            The energy of x.
+
+        Arnau, 24/07/2023
+        '''
+        return np.sum(np.abs(x)**2)
+    
+    @staticmethod
+    def stdpower(x, ddof=0):
+        '''
+        Computes the power of a signal by computing its variance. Also known as
+        'average power'. If ddof==1, it is almost the same as BasicSP.power(x).
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+        ddof : int, optional
+            Degrees of freedom. The default is 0.
+
+        Returns
+        -------
+        result: float
+            The power (variance) of x.
+
+        Arnau, 24/07/2023
+        '''
+        return BasicSP.var(x, ddof=ddof)
+
+    @staticmethod
+    def power(x):
+        '''
+        Computes the power of a signal. Also known as 'average power'. Produces
+        the same result as:
+            np.sum(BasicSP.PSD(x)) / len(x)
+        and:
+            np.sum(BasicSP.PSDfromAutocorr(x)) / len(x)
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+
+        Returns
+        -------
+        result: float
+            The power of x.
+
+        Arnau, 24/07/2023
+        '''
+        return BasicSP.energy(x) / len(x)
+
+    @staticmethod
+    def rms(x):
+        '''
+        Computes the root-mean-square amplitude of x (it is the square root of 
+        its BasicSP.power(x)).
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+
+        Returns
+        -------
+        result: float
+            The rms value of x.
+
+        Arnau, 24/07/2023
+        '''
+        return np.sqrt(BasicSP.power(x))
+    
+    @staticmethod
+    def cv(x, ddof=0):
+        '''
+        Compute the CV (Coefficient of Variation) of a signal. Also known as 
+        RSD (Relative Standard Deviation) or NRMSD (Normalized Root-Mean-Square
+        Deviation)
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+        ddof : int, optional
+            Degrees of freedom. The default is 0.
+
+        Returns
+        -------
+        result: float
+            The Coefficient of Variation of x.
+
+        Arnau, 24/07/2023
+        '''
+        return BasicSP.std(x, ddof=ddof) / BasicSP.mean(x, ddof=ddof)
+    
+    @staticmethod
+    def statisticalSNR(x, ddof=0): 
+        '''
+        Computes the SNR of x from its CV (Coefficient of Variation). Here, 
+        this SNR is defined as a power ratio. In some references, one may find 
+        the definition to be an amplitude ratio. This SNR is only useful for
+        non-negative values.
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+        ddof : int, optional
+            Degrees of freedom. The default is 0.
+
+        Returns
+        -------
+        result: float
+            The SNR of x.
+
+        Arnau, 24/07/2023
+        '''
+        return 1 / BasicSP.cv(x, ddof=ddof)**2
+
+    @staticmethod
+    def PSD(x, nfft=None):
+        '''
+        Computes the PSD (Power Spectral Density) of a signal in W/Hz. If 
+        nfft==2*len(x)-1, this produces the same result as 
+        BasicSP.PSDfromAutocorr(x).
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+        nfft : int, optional
+            Number of FFT points. The default is None.
+
+        Returns
+        -------
+        result: ndarray
+            The PSD of x.
+
+        Arnau, 24/07/2023
+        '''
+        n = len(x) if nfft is None else nfft
+        return np.abs(np.fft.fft(x, n)**2) / n
+    
+    @staticmethod
+    def autocorr(x):
+        '''
+        Computes the autocorrelation of x. The resulting length is 2*len(x)-1.
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+
+        Returns
+        -------
+        result: ndarray
+            The autocorrelation of x.
+
+        Arnau, 24/07/2023
+        '''
+        return np.correlate(x, x, mode='full')
+
+    @staticmethod
+    def PSDfromAutocorr(x):
+        '''
+        Computes the PSD of x from its autocorrelation using the
+        Wiener-Khinchin theorem. The resulting length is 2*len(x)-1.
+
+        Parameters
+        ----------
+        x : ndarray
+            Input signal.
+
+        Returns
+        -------
+        result: ndarray
+            The PSD of x.
+
+        Arnau, 24/07/2023
+        '''
+        return np.abs(np.fft.fft(BasicSP.autocorr(x))) / (2*len(x)-1)

@@ -20,6 +20,7 @@ from IPython.display import clear_output
 import matplotlib.pylab as plt
 from matplotlib import colors
 from matplotlib.widgets import Slider, Button, SpanSelector
+from win32api import GetSystemMetrics
 
 from . import US_Functions as USF
 
@@ -1203,9 +1204,10 @@ def plot_GenCod_Rx(OriginalRx, OriginalGenCode, Fs=100e6, OffSet = 0,
 
 
 
-def movefig(location: str):
+def movefig(location: str, fig=None):
     '''
-    Moves the current figure to the specified location on the screen.
+    If fig is None, moves the current figure to the specified location on the
+    screen. Otherwise, move the specific figure.
     
     Accepted locations are:
         'northeast' or 'ne'
@@ -1219,18 +1221,19 @@ def movefig(location: str):
     ----------
     location : str
         Location on the screen to move the figure to.
+    fig : matplotlib.figure.Figure, optional
+        Figure handle. If None, the current figure is used. Default is None.
 
     Returns
     -------
     None.
     
-    Arnau, 02/11/2022
+    Arnau, 05/09/2023
     '''
-    from win32api import GetSystemMetrics
     width = GetSystemMetrics(0)
     height = GetSystemMetrics(1)
     
-    mngr = plt.get_current_fig_manager()
+    mngr = plt.get_current_fig_manager() if fig is None else fig.canvas.manager
     
     geom = mngr.window.geometry()
     x,y,dx,dy = geom.getRect()

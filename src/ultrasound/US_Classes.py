@@ -8,6 +8,8 @@ from scipy import signal
 import numpy as np
 import sys
 from scipy import stats
+import scipy.optimize
+import inspect
 
 from . import US_Functions as USF
 
@@ -653,12 +655,12 @@ class SimpleLinReg:
         self._x = x
         self._y = y
         
-        n = len(x)
-        Sx = sum(x)
-        Sy = sum(y)
-        Sxx = sum(x**2)
-        Syy = sum(y**2)
-        Sxy = sum(x*y)
+        n = x.shape[0]
+        Sx = np.sum(x)
+        Sy = np.sum(y)
+        Sxx = np.sum(x**2)
+        Syy = np.sum(y**2)
+        Sxy = np.sum(x*y)
         
         slope = (n*Sxy - Sx*Sy) / (n*Sxx - Sx**2)
         intercept = Sy/n - slope*Sx/n
@@ -667,8 +669,8 @@ class SimpleLinReg:
         s2m = (n*s2eps**2) / (n*Sxx - Sx**2)
         s2c = s2m*Sxx/n
 
-        self._slope = Estimator(slope, np.sqrt(s2m), 0.95, len(x))
-        self._intercept = Estimator(intercept, np.sqrt(s2c), 0.95, len(x))       
+        self._slope = Estimator(slope, np.sqrt(s2m), 0.95, x.shape[0])
+        self._intercept = Estimator(intercept, np.sqrt(s2c), 0.95, x.shape[0])       
     
         self._r = (n*Sxy - Sx*Sy) / np.sqrt((n*Sxx - Sx**2) * (n*Syy - Sy**2))
     
@@ -676,10 +678,10 @@ class SimpleLinReg:
         m = slope
         c = intercept
         diffs = y - (m*x + c)
-        self._parabolas = (lambda p: m*p + c + tvalue*np.sqrt(sum(diffs**2)/(n-2) * (1/n + (p-np.mean(x))**2 / sum((x-np.mean(x))**2))),
-                           lambda p: m*p + c - tvalue*np.sqrt(sum(diffs**2)/(n-2) * (1/n + (p-np.mean(x))**2 / sum((x-np.mean(x))**2))))
-        self._predictionIntervals = (lambda p: m*p + c + tvalue*np.sqrt(sum(diffs**2)/(n-2) * (1 + 1/n + (p-np.mean(x))**2 / sum((x-np.mean(x))**2))),
-                                     lambda p: m*p + c - tvalue*np.sqrt(sum(diffs**2)/(n-2) * (1 + 1/n + (p-np.mean(x))**2 / sum((x-np.mean(x))**2))))
+        self._parabolas = (lambda p: m*p + c + tvalue*np.sqrt(np.sum(diffs**2)/(n-2) * (1/n + (p-np.mean(x))**2 / np.sum((x-np.mean(x))**2))),
+                           lambda p: m*p + c - tvalue*np.sqrt(np.sum(diffs**2)/(n-2) * (1/n + (p-np.mean(x))**2 / np.sum((x-np.mean(x))**2))))
+        self._predictionIntervals = (lambda p: m*p + c + tvalue*np.sqrt(np.sum(diffs**2)/(n-2) * (1 + 1/n + (p-np.mean(x))**2 / np.sum((x-np.mean(x))**2))),
+                                     lambda p: m*p + c - tvalue*np.sqrt(np.sum(diffs**2)/(n-2) * (1 + 1/n + (p-np.mean(x))**2 / np.sum((x-np.mean(x))**2))))
         
     @property
     def x(self):
@@ -758,3 +760,149 @@ class Estimator:
     def n(self, v):
         self._n = v
         self._tvalue = stats.t.ppf(1 - (1 - self._confidence)/2, self.n-2)
+
+
+class CurveFit:
+    '''Non-linear curve fitting. Assumes Gaussian Noise. Arnau, 18/07/2023'''
+    def __init__(self, x, y, seed, func=3, errorfunc='L2', nparams: int=2, npredictions: int=10_000):
+        self._x = x
+        self._y = y
+        self._seed = seed
+        
+        self.func = func
+        if isinstance(func, int):
+            self._nparams = func + 1
+        if inspect.isfunction(errorfunc):
+            self.errorfunc = errorfunc
+        else:
+            self.errorfunctype = errorfunc
+        
+        
+        self._params_opt = scipy.optimize.fmin(func=self.errorfunc, x0=self.seed, args=(self.x, self.y))
+        self._r2 = USF.CoefficientOfDetermination(self.y, self.func(self.params_opt, self.x), nparams=self.nparams)
+    
+        self._npredictions = npredictions
+    
+        self._ypred = self.func(self.params_opt, self.x)
+        self._noise = np.std(self.y - self._ypred)
+        self._predictions = np.array([np.random.normal(self.ypred, self.noise) for _ in range(self.npredictions)])
+        self._u, self._l = np.quantile(self.predictions, [0.025, 0.975], axis = 0)
+    
+    # -------
+    # Getters
+    # -------
+    @property
+    def x(self):
+        return self._x
+    
+    @property
+    def y(self):
+        return self._y
+
+    @property
+    def seed(self):
+        return self._seed
+
+    @property
+    def params_opt(self):
+        return self._params_opt
+
+    @property
+    def func(self):
+        return self._func
+
+    @property
+    def errorfunctype(self):
+        return self._errorfunctype
+
+    @property
+    def errorfunc(self):
+        return self._errorfunc
+
+    @property
+    def nparams(self):
+        return self._nparams
+
+    @property
+    def r2(self):
+        return self._r2
+
+    @property
+    def npredictions(self):
+        return self._npredictions
+
+    @property
+    def ypred(self):
+        return self._ypred
+
+    @property
+    def noise(self):
+        return self._noise
+
+    @property
+    def predictions(self):
+        return self._predictions
+
+    @property
+    def u(self):
+        return self._u
+
+    @property
+    def l(self):
+        return self._l
+
+    # -------
+    # Setters
+    # -------
+    @seed.setter
+    def seed(self, s):  
+        self._params_opt = scipy.optimize.fmin(func=self.errorfunc, x0=s, args=(self.x, self.y))
+        self._seed = s
+    
+    @func.setter
+    def func(self, f):
+        if inspect.isfunction(f):
+            self._func = f
+        elif isinstance(f, int):
+            self._func = USF.polgen(f)
+            self._nparams = f + 1
+        else:
+            raise NotImplementedError('Attribute must be a function or an int.')
+
+    @errorfunctype.setter
+    def errorfunctype(self, eft: str):
+        if eft.lower() in ['l1', '1']:
+            self._errorfunc = lambda params, x, y: np.sum(y - self.func(params, x))
+        elif eft.lower() in ['l2', '2']:
+            self._errorfunc = lambda params, x, y: np.sum((y - self.func(params, x))**2)
+        else:
+            raise NotImplementedError('Attribute must be a function or a string.')
+        self._errorfunctype = eft
+        
+    @errorfunc.setter
+    def errorfunc(self, ef):
+        if inspect.isfunction(ef):
+            self._errorfunc = ef
+            self._errorfunctype = 'custom'
+        else:
+            raise NotImplementedError('Attribute must be a function.')
+
+    @nparams.setter
+    def nparams(self, n: int):
+        self._r2 = USF.CoefficientOfDetermination(self.y, self.func(self.params_opt, self.x), nparams=n)
+        self._nparams = n       
+
+    @npredictions.setter
+    def npredictions(self, n):
+        self._predictions = np.array([np.random.normal(self.ypred, self.noise) for _ in range(n)])
+        self._u, self._l = np.quantile(self.predictions, [0.025, 0.975], axis = 0)
+        self._npredictions = n
+
+    def __str__(self):
+        if self.func.__name__ == 'pol':
+            s = ''
+            for i in range(self.nparams):
+                s += f'{self.params_opt[i]:+}*(x^{i}) '
+            return s
+        else:
+            return self.__repr__

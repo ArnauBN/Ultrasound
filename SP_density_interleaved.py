@@ -9,7 +9,6 @@ Python version: Python 3.8
 import numpy as np
 import matplotlib.pylab as plt
 import os
-import scipy.signal as scsig
 
 import src.ultrasound as US
 
@@ -23,13 +22,15 @@ import src.ultrasound as US
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\Density'
+Path = r'..\Data\Density'
+ScanPath = r'..\Data\Scanner\EpoxyResin\DogboneScan'
 Experiment_folder_name = 'A' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_acqdata_file_name = 'acqdata.bin'
 Experiment_Temperature_file_name = 'temperature.txt'
 Experiment_description_file_name = 'Experiment_description.txt'
 Experiment_weights_file_name = 'weights.txt'
+Experiment_archdensity_file_name = 'archdensity.txt'
 
 MyDir = os.path.join(Path, Experiment_folder_name)
 Config_path = os.path.join(MyDir, Experiment_config_file_name)
@@ -37,6 +38,8 @@ Acqdata_path = os.path.join(MyDir, Experiment_acqdata_file_name)
 Temperature_path = os.path.join(MyDir, Experiment_Temperature_file_name)
 Experiment_description_path = os.path.join(MyDir, Experiment_description_file_name)
 Weights_path = os.path.join(MyDir, Experiment_weights_file_name)
+
+ScannerDir = os.path.join(ScanPath, Experiment_folder_name)
 
 
 #%%
@@ -70,17 +73,24 @@ r = d/2
 
 
 #%% TOF computations
+refs = PE[:,::2]
+data = PE[:,1::2]
+
 ToF = np.zeros(int(N_acqs//2))
 Cw_means = np.zeros_like(ToF)
 for i in range(len(ToF)):
-    ToF[i] = US.CalcToFAscanCosine_XCRFFT(PE[:,2*i+1], PE[:,2*i])[0]
-    Cw_means[i] = np.mean([Cw[2*i], Cw[2*i+1]])
+    ToF[i] = US.CalcToFAscanCosine_XCRFFT(data[:,i], refs[:,i])[0]
+    # Cw_means[i] = np.mean([Cw[2*i], Cw[2*i+1]])
 
 
 #%% Results
-Dh = Cw_means*1e2 * ToF / Fs / 2 # cm
+Dh = Cw*1e2 * ToF / Fs / 2 # cm
 V = np.pi * (r**2) * Dh # cm^3
 densities = m / V # g/cm^3
+
+# V2 = (densities + 0.1)*m
+# Dh2 = V2 / (np.pi * (r**2))
+# ToF2 = Dh2 * Fs * 2 / (Cw*1e2)
 
 print('Volumes (cm^3):')
 for i,vol in enumerate(V):
@@ -100,19 +110,22 @@ std_d = np.std(densities)
 print(f'Mean: {mean_d} g/cm^3')
 print(f'Std:  {std_d} g/cm^3')
 
-d_aux    = np.linspace(mean_d - Nsigmas*std_d, mean_d + Nsigmas*std_d, Npoints)
+d_aux   = np.linspace(mean_d - Nsigmas*std_d, mean_d + Nsigmas*std_d, Npoints)
 d_gauss = np.exp(-((d_aux - mean_d) / std_d)**2 / 2) / (std_d*np.sqrt(2*np.pi))
 
-ax = plt.subplots(1)[1]
-ax.bar(np.arange(len(ToF)), densities, edgecolor='k')
-ax.set_xticks(np.arange(len(ToF)))
-ax.set_ylim([np.min(densities)*0.99,np.max(densities)*1.01]);
+hd = US.hist(densities, density=True)
+US.plot_hist(*hd, xlabel='Density (g/cm$^3$)', edgecolor='k')
+plt.plot(d_aux, d_gauss, c='r')
+
+# ax = plt.subplots(1)[1]
+# ax.bar(np.arange(len(ToF)), densities, edgecolor='k')
+# ax.set_xticks(np.arange(len(ToF)))
+# ax.set_ylim([np.min(densities)*0.99,np.max(densities)*1.01]);
 
 # h, b, width = US.hist(densities, density=True, bins=10)
 # US.plot_hist(h, b, width, xlabel='Density ($g/cm^3$)', ylabel='pdf', edgecolor='k')
 # plt.plot(d_aux, d_gauss, c='r')
 # plt.tight_layout()
-
 
 #%% Aref
 # Arefs = np.max(np.abs(PE[::2]), axis=0)
@@ -123,3 +136,11 @@ ax.set_ylim([np.min(densities)*0.99,np.max(densities)*1.01]);
 
 # Mean_Arefs_noGain = np.mean(Arefs_noGain)
 # print(f'{Mean_Arefs_noGain = } V')
+
+
+#%% Save densities
+# for i,d in enumerate(densities):
+#     ArchDensity_path = os.path.join(ScannerDir, f'{Experiment_folder_name}{i+1}')
+#     file_path = os.path.join(ArchDensity_path, Experiment_archdensity_file_name)
+#     with open(file_path, 'w') as f:
+#         f.write(f'{d}')

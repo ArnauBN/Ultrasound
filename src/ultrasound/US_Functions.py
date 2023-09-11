@@ -4,15 +4,12 @@ Created on Wed Nov  4 09:47:56 2020.
 
 @author: alrom
 """
-import matplotlib.pylab as plt
 import numpy as np
 from scipy import signal
-import sys
 import winsound
-from scipy import stats
 from scipy.signal import find_peaks
-from scipy.optimize import fsolve
 import re
+import os
 
 
 def fastxcorr(x, y, Extend=True, Same=False):
@@ -1076,13 +1073,13 @@ def time2str(seconds) -> str:
     '''
     hours = seconds//3600
     minutes = seconds%3600//60
-    seconds = round(seconds - hours*3600 - minutes*60)
+    seconds = seconds - hours*3600 - minutes*60
     s = f'{hours} h, {minutes} min, {seconds} s'
     return s
 
 def str2time(strtime) -> int:
     '''
-    Convert the given string (time) to seconds (int). The inout time must
+    Convert the given string (time) to seconds (int). The input time must
     specify hours, minutes and seconds.
 
     Parameters
@@ -1402,3 +1399,303 @@ def round2signif(x):
     Arnau, 02/05/2023
     '''
     return np.round(x, -int(np.floor(np.log10(np.abs(x)))))
+
+
+def polgen(deg: int):
+    '''
+    Returns a function that generates a polynomial of the specified degree. 
+    This new function has two parameters (in this order): 
+        - The coefficients of the polynomial starting with the zero'th order.
+        - The independent variable, x.
+
+    Parameters
+    ----------
+    deg : int
+        Degree of the desired polynomial.
+
+    Returns
+    -------
+    pol : function
+        Function that generates polynomial values given the coefficients and 
+        the independent variable. Example:
+            >>> pol = polgen(2)
+            >>> pol([1,2,3], 5)
+            57
+            >>> 1 + 2*4 + 3*(4**2)
+            57
+            >>> pol([1,2,3], [3,4])
+            array([34, 57])
+            >>> 1 + 2*np.array([3,4]) + 3*(np.array([3,4])**2)
+            array([34, 57])
+
+    Arnau, 18/07/2023
+    '''
+    def pol(coeffs, x):
+        aux = np.array(x)
+        result = 0
+        for i in range(deg + 1):
+            result += coeffs[i]*(aux**i)
+        return result
+    return pol
+
+
+def CoefficientOfDetermination(y, f, nparams: int=2):
+    '''
+    Compute the adjusted coefficient of determination. The number of estimated 
+    parameters is `nparams` (e.g. `2` for a linear regression).
+
+    Parameters
+    ----------
+    y : float or ArrayLike
+        Measured values.
+    f : float or ArrayLike
+        Estimated values.
+    nparams : int, optional
+        The number of estimated parameters. The default is 2.
+
+    Returns
+    -------
+    r2 : float or ArrayLike
+        The adjusted coefficient of determination (R squared).
+
+    Arnau, 18/07/2023
+    '''
+    SSres = np.sum((y - f)**2)
+    SStot = np.sum((y - np.mean(y))**2)
+    
+    n = len(y)
+    p = nparams - 1
+    dftot = n - 1
+    dfres = n - p
+    
+    adjusted_SSres = SSres/dfres
+    adjusted_SStot = SStot/dftot
+    
+    return 1 - adjusted_SSres / adjusted_SStot
+
+
+
+
+
+
+
+
+
+def find_numbers_in_string(input_string: str, IgnoreSign: bool=False, IgnoreDot: bool=False) -> list:
+    '''
+    Finds all numbers in a string and returns them in a list.
+
+    Parameters
+    ----------
+    input_string : str
+        Input string.
+    IgnoreSign : bool, optional
+        If True, do not use '-' as the sign of the numbers (e.g. 'ab12g-34')
+        would result in [12, 34] instead of [12, -34]. The default is False.
+    IgnoreDot : bool, optional
+        If True, do not use '.' as the decimal point (e.g. 'ab12.3g-45.6')
+        would result in [12, 3, -45, 6] instead of [12.3, -45.6]. The default
+        is False.
+
+    Returns
+    -------
+    numbers : list
+        List of all numbers found. Each number is converted to int or float
+        accordingly.
+
+    Arnau, 14/08/2023
+    '''
+    number_pattern = r'-?\d+\.\d+|-?\d+' # default
+    if IgnoreSign and IgnoreDot:
+        number_pattern = r'\d+'
+    if IgnoreSign and (not IgnoreDot):
+        number_pattern = r'\d+\.\d+|\d+'
+    if (not IgnoreSign) and IgnoreDot:
+        number_pattern = r'-?\d+'
+    matches = re.findall(number_pattern, input_string)
+    return [float(match) if '.' in match else int(match) for match in matches]
+
+def sort_strings_by_number(str_list: list[str], numidx: int=0, reverse: bool=False, **kwargs) -> list[str]:
+    '''
+    Sort a list of string using the {numidx}th number found in them. If numidx
+    is 0, the first number found in each string is used as the sorting key. If
+    numidx is -1, the last one is used instead. Any index is allowed.
+
+    Parameters
+    ----------
+    str_list : list[str]
+        List of string to sort.
+    numidx : int, optional
+        The index of the number in the string to use as key (e.g., 0 is the
+        first number found in each string while -1 is the last). The default
+        is 0.
+    reverse : bool, optional
+        If True, the sorted list is reversed (descending order). The default is
+        False.
+    **kwargs : keyword args
+        Keyword arguments for `find_numbers_in_string`.
+
+    Returns
+    -------
+    sorted_str_list : list[str]
+        Sorted list of strings.
+
+    Arnau, 14/08/2023
+    '''    
+    def keyfunc(s):
+        return find_numbers_in_string(s, **kwargs)[numidx]
+    return sorted(str_list, key=keyfunc, reverse=reverse)
+
+def get_dir_names(Path: str=None) -> list[str]:
+    '''
+    Returns a list of all directory names inside a specified path. 
+    Subdirectories are not searched. If Path is None, the current working
+    directory is used.
+
+    Parameters
+    ----------
+    Path : str, optional
+        Path in which to search directories. The default is None (current
+        working directory).
+
+    Returns
+    -------
+    dir_names = list[str]
+        List of directory names found.
+
+    Arnau, 14/08/2023
+    '''
+    p = os.getcwd() if Path is None else Path
+    return [name for name in os.listdir(p) if os.path.isdir(os.path.join(p, name))]
+
+
+def apply2listElements(inlst: list, func: callable, *args) -> list:
+    '''
+    Apply function to each element of a list recursively.
+
+    Parameters
+    ----------
+    obj : list
+        Input list.
+    func : callable
+        Function to apply to each element.
+    *args : args
+        Extra arguments for func.
+
+    Returns
+    -------
+    outlst : list
+        Resulting list.
+
+    Arnau, 23/08/2023
+    '''
+    if isinstance(inlst, list):
+        return [apply2listElements(v, func, *args) for v in inlst]
+    else:
+        return func(inlst, *args)
+
+def multiplyMaskedArraybyScalar(inarr, scalar):
+    '''
+    Multiply each element in a numpy masked array by a scalar, INCLUDING THE
+    MASKED VALUES.
+
+    Parameters
+    ----------
+    arr : numpy.MaskedArray
+        Input numpy masked array.
+    scalar : float or int
+        Scalar to multiply the array by.
+
+    Returns
+    -------
+    outarr : numpy.MaskedArray
+        Resulting numpy masked array.
+
+    Arnau, 23/08/2023
+    '''
+    return np.ma.masked_array(inarr.data*scalar, mask=inarr.mask)
+
+
+def popBadSpecimens(BatchName: str, Specimens: list[str]) -> list[str]:
+    '''
+    Removes bad specimen names for the given list. A good specimen name is the
+    one that is only made of the batch name and a number. 
+    
+    Usage example:
+        >>> BatchName = 'A'
+        >>> Specimens = ['A1', 'A2', 'D3', '4A', 'A-5']
+        >>> popBadSpecimens(BatchName, Specimens)
+        ['A1', 'A2', '4A', 'A-5']
+
+    Parameters
+    ----------
+    BatchName : str
+        Batch name.
+    Specimens : list[str]
+        List of specimen names.
+
+    Returns
+    -------
+    GoodSpecimens : list[str]
+        List of good specimen names.
+
+    Arnau, 29/08/2023
+    '''
+    GoodSpecimens = []
+    for s in Specimens:
+        if isGoodSpecimen(BatchName, s):
+            GoodSpecimens.append(s)
+    return GoodSpecimens
+
+def isNumber(n) -> bool:
+    '''
+    Check if the given variable can be converted to a float.
+
+    Parameters
+    ----------
+    n : any
+        Input variable.
+
+    Returns
+    -------
+    bool
+        True if the input variable can be converted to float.
+
+    Arnau, 25/08/2023
+    '''
+    try:
+        float(n)
+    except:
+        return False
+    return True
+
+def isGoodSpecimen(BatchName: str, SpecimenName: str) -> bool:
+    '''
+    Returns True if the given specimen name is a valid name for the specified
+    batch. A good specimen name is the one that is only made of the batch name
+    and a number. 
+
+    Usage example:
+        >>> BatchName = 'A'
+        >>> SpecimenName = 'A1'
+        >>> isGoodSpecimen(BatchName, SpecimenName)
+        True
+        >>> SpecimenName = 'An1'
+        >>> isGoodSpecimen(BatchName, SpecimenName)
+        False
+    
+    Parameters
+    ----------
+    BatchName : str
+        Batch name.
+    SpecimenName : str
+        Specimen name.
+
+    Returns
+    -------
+    GoodSpecimen : bool
+        True if the specimen name is valid.
+
+    Arnau, 29/08/2023
+    '''
+    return isNumber(SpecimenName.replace(BatchName, ''))

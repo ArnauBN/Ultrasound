@@ -15,7 +15,7 @@ import src.ultrasound as US
 
 #%% Load the data
 Path = r'G:\Unidades compartidas\Proyecto Cianocrilatos\Data\transducer_characterization\stainless_steel-50mm'
-Experiment_folder_name = 'F' # Without Backslashes
+Experiment_folder_name = 'D' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_basename = 'acqdata.bin'
@@ -167,7 +167,7 @@ print(f'Center = {np.sqrt(new_freq_axis[bw_sup_idx] * new_freq_axis[bw_inf_idx])
 max_val_A = 4.557009808215583e-05
 max_val_B = 3.224393828340578e-05
 max_val_F = 0.0008946725327523992
-max_val_chosen = max_val_B
+max_val_chosen = max_val_A
 
 dashedlinescolor = 'gray'
 linecolor = 'k'

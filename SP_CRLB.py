@@ -11,6 +11,7 @@ import matplotlib.pylab as plt
 import os
 
 import src.ultrasound as US
+from src.ultrasound import BasicSP
 
 
 #%%
@@ -33,10 +34,21 @@ for i, Name in enumerate(Names[1:], 1):
         WP2 = np.fromfile(f)
     WPs[i] = WP2
 
-Loc = np.argmax(WP)
-WinLen = 400
+Loc = np.argmax(np.abs(WP))
+WinLen = 1500
 Win = US.makeWindow(SortofWin='tukey', WinLen=WinLen,
                     param1=0.25, param2=1, Span=len(WP), Delay=Loc - int(WinLen/2))
+
+idx1 = Loc - int(WinLen/2)
+idx2 = Loc + int(WinLen/2)
+sn = np.r_[WP[:idx1], WP[idx2:]]
+M = len(sn)
+M_s = M
+s = WP[:M]
+sR = sn
+plt.figure()
+plt.plot(sn)
+plt.plot(s)
 
 plt.figure()
 plt.plot(WP)
@@ -44,16 +56,16 @@ plt.plot(Win*np.max(WP))
 
 # WP = WP * Win
 
-sR = WP[Loc-WinLen//2:Loc+WinLen//2]
-s = WP[Loc-WinLen//2:Loc+WinLen//2]
-sR = WP
-s = WP
-s = s - np.mean(s)
-sR = sR - np.mean(sR)
+# sR = WP[Loc-WinLen//2:Loc+WinLen//2]
+# s = WP[Loc-WinLen//2:Loc+WinLen//2]
+# sR = WP
+# s = WP
+# s = s - np.mean(s)
+# sR = sR - np.mean(sR)
 
 AvgSamplesNumber = 25
-M = len(sR)
-M_s = len(s)
+# M = len(sR)
+# M_s = len(s)
 Fs = 100e6
 
 HalfM_s = np.floor(M_s / 2)  # length of the semi-frequency axis in frequency domain
@@ -65,55 +77,51 @@ dt = 1/Fs
 df = f[1]-f[0]
 
 
-#%%
-E = np.sum(s * s) # signal energy (J)
-fftsR = np.fft.fft(sR)
-ffts = np.fft.fft(s)
-Sr2 = (np.abs(fftsR)/Fs)**2
-S2 = (np.abs(ffts)/Fs)**2 # divide by Fs to obtain spectral density (bilateral)
 
-N0 = np.sum(Sr2*(Fs**2)) * df / Fs / M # noise power spectral density
-SNR = 2*E/N0
+#%% Computation
+# ---
+# SNR
+# ---
+E = BasicSP.energy(s[Loc-WinLen//2:Loc+WinLen//2])
+N0 = BasicSP.power(sn)
+SNR = E/N0
 SNR_dB = 10*np.log10(SNR)
 
-f0 = np.sum(f * S2) * df / E # center frequency
-beta = np.sqrt(np.sum((f-f0)**2 * S2) * df / E) # envelope bandwidth
-Fe = np.sqrt(beta**2 + f0**2) # effective signal bandwidth
 
-sigma_ToF = 1 / (2 * np.pi * Fe * np.sqrt(SNR))
-eps_ToF = np.sqrt(np.pi) * (beta**2) / (Fs**3)
-
-print(f'{E         = } J')
-print(f'{N0        = } W')
-print(f'{SNR_dB    = } dB')
-print(f'f0        = {f0*1e-6} MHz')
-print(f'beta      = {beta*1e-6} MHz')
-print(f'Fe        = {Fe*1e-6} MHz')
-print(f'sigma_ToF = {sigma_ToF*1e9} ns')
-print(f'eps_ToF   = {eps_ToF*1e9} ns')
-
-
-#%%
-uniS2 = S2[:len(S2)//2]
+# --
+# BW
+# --
+S = BasicSP.PSD(s)
+uniS = S[:len(S)//2]
 unif = f[:len(f)//2]
 
-peak_idx = np.argmax(uniS2)
-peak = np.max(uniS2)
+peak_idx = np.argmax(uniS)
+peak = np.max(uniS)
 
-bw_sup_idx, bw_sup = US.find_nearest(uniS2[peak_idx:], peak/2)
+bw_sup_idx, bw_sup = US.find_nearest(uniS[peak_idx:], peak/2)
 bw_sup_idx = bw_sup_idx + peak_idx
-bw_inf_idx, bw_inf = US.find_nearest(uniS2[:peak_idx], peak/2)
+bw_inf_idx, bw_inf = US.find_nearest(uniS[:peak_idx], peak/2)
 
 BW = unif[bw_sup_idx] - unif[bw_inf_idx]
-f0 = np.sqrt(unif[bw_sup_idx] * unif[bw_inf_idx])
+f0 = np.sqrt(unif[bw_sup_idx] * unif[bw_inf_idx]) # geometric mean
+# f0 = unif[peak_idx] # center
 sigma_ToF = 1 / (2 * np.pi * f0 * np.sqrt(BW*M/Fs) * np.sqrt(SNR) * np.sqrt(1 + BW**2/12/f0))
-print(f'BW        = {BW*1e-6 :.4f} MHz')
-# print(f'Center    = {unif[peak_idx]*1e-6 :.4f} MHz')
-print(f'f0        = {f0*1e-6 :.4f} MHz')
-print(f'sigma_ToF = {sigma_ToF*1e9 :.4f} ns')
 
 
-#%%
+# --
+# Fe
+# --
+f0_Fe = np.sum(f * S) * df / E # center frequency
+beta = np.sqrt(np.sum((f-f0_Fe)**2 * S) * df / E) # envelope bandwidth
+Fe = np.sqrt(beta**2 + f0_Fe**2) # effective signal bandwidth
+
+sigma_ToF_Fe = 1 / (2 * np.pi * Fe * np.sqrt(SNR))
+eps_ToF = np.sqrt(np.pi) * (beta**2) / (Fs**3)
+
+
+# --------
+# Envelope
+# --------
 env_s = US.envelope(s)
 fft_env_s = np.fft.fft(env_s)
 envS2 = (np.abs(fft_env_s)/Fs)**2 # divide by Fs to obtain spectral density (bilateral)
@@ -123,12 +131,28 @@ peak_idx = np.argmax(uni_envS2)
 peak = np.max(uni_envS2)
 bw_sup_idx = US.find_nearest(uni_envS2, peak/2)[0]
 
-beta = unif[bw_sup_idx]
-Fe = np.sqrt(beta**2 + f0**2) # effective signal bandwidth
-sigma_ToF = 1 / (2 * np.pi * Fe * np.sqrt(SNR))
-eps_ToF = np.sqrt(np.pi) * (beta**2) / (Fs**3)
+beta_env = unif[bw_sup_idx]
+Fe_env = np.sqrt(beta_env**2 + f0_Fe**2) # effective signal bandwidth
+sigma_ToF_env = 1 / (2 * np.pi * Fe_env * np.sqrt(SNR))
+eps_ToF_env = np.sqrt(np.pi) * (beta_env**2) / (Fs**3)
 
-print(f'beta      = {beta*1e-6} MHz')
-print(f'Fe        = {Fe*1e-6} MHz')
-print(f'sigma_ToF = {sigma_ToF*1e9} ns')
-print(f'eps_ToF   = {eps_ToF*1e9} ns')
+
+# -----
+# print
+# -----
+print(f'E             = {E} J')
+print(f'N0            = {N0} W')
+print(f'SNR_dB        = {SNR_dB} dB')
+print(f'BW            = {BW*1e-6 :.4f} MHz')
+print(f'Center        = {unif[peak_idx]*1e-6 :.4f} MHz')
+print(f'f0            = {f0*1e-6} MHz')
+print(f'f0_Fe         = {f0_Fe*1e-6} MHz')
+print(f'beta          = {beta*1e-6} MHz')
+print(f'Fe            = {Fe*1e-6} MHz')
+print(f'sigma_ToF     = {sigma_ToF*1e9} ns')
+print(f'sigma_ToF_Fe  = {sigma_ToF_Fe*1e9} ns')
+print(f'eps_ToF       = {eps_ToF*1e9} ns')
+print(f'beta_env      = {beta_env*1e-6} MHz')
+print(f'Fe_env        = {Fe_env*1e-6} MHz')
+print(f'sigma_ToF_env = {sigma_ToF_env*1e9} ns')
+print(f'eps_ToF_env   = {eps_ToF_env*1e9} ns')

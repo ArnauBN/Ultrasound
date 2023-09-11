@@ -20,8 +20,8 @@ from src.devices import Arduino
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'D:\Data\density'
-Experiment_folder_name = 'A' # Without Backslashes
+Path = r'D:\Data\Density'
+Experiment_folder_name = 'D' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_acqdata_file_name = 'acqdata.bin'
@@ -201,7 +201,7 @@ if Temperature:
     else:
         temperature1 = tmp
 
-    Cwt = US.speedofsound_in_water(temperature1, method='Abdessamad', method_param=148)
+    Cwt = US.temp2sos(temperature1)
 
 
 # ----------------
@@ -229,7 +229,7 @@ print(f'Acquisiton {i} done.')
 ########################################################################
 # End Acquisition
 ########################################################################
-N_acqs = i # Number of devices under test (+1 for no device) - int
+N_acqs = i
 
 # ----------------------------------------
 # Write N_acqs and end time to config file

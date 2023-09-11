@@ -21,8 +21,8 @@ from src.devices import Scanner
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'D:\Data\Areversed'
-Experiment_folder_name = 'A10' # Without Backslashes
+Path = r'D:\Data\DogboneScan\D'
+Experiment_folder_name = 'D4' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
@@ -58,8 +58,8 @@ print(f'Experiment path set to {MyDir}')
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
 Experiment_description = """Scanner acq.
 Epoxy Resin dog-bone.
-Batch: Areversed.
-Specimen: A10.
+Batch: D.
+Specimen: D4.
 Focused tx.
 Excitation_params: Pulse frequency (Hz).
 """
@@ -76,7 +76,7 @@ Fc = 5e6                        # Pulse frequency - Hz
 Excitation = 'Pulse'            # Excitation to use ('Pulse, 'Chirp', 'Burst') - string
 Excitation_params = Fc          # All excitation params - list or float
 Smin1, Smin2 = 4000, 4000       # starting point of the scan of each channel - samples
-Smax1, Smax2 = 6500, 6500       # last point of the scan of each channel - samples
+Smax1, Smax2 = 7000, 7000       # last point of the scan of each channel - samples
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
@@ -85,7 +85,7 @@ Temperature = True              # If True, take temperature measurements at each
 twoSensors = False              # If True, assume we have two temperature sensors, one inside and one outside - bool
 PE_as_ref = True                # If True, both a WP and a PE traces are acquired. The resulting ref. signal has the PE pulse aligned at WP - str
 align_PEref = False             # If True, align PEref to zero - bool
-
+Ts_acq = 0.6                    # Time between acquisitions (must be >0.56s) - seconds
 dogbone_length = 168.8          # Length of the specimen in millimeters - float
 
 # -------
@@ -143,7 +143,7 @@ if WP_axis not in water_plane or len(water_plane) != 2 or len(WP_axis) != 1:
 
 scanpattern = Scanner.makeScanPattern(pattern, scan_axis, [X_step, Y_step, Z_step, R_step], [X_end, Y_end, Z_end, R_end])
 N_acqs = len(scanpattern) + 1
-print(f'The experiment will take around {US.time2str(N_acqs*0.5)} plus the calibration.')
+print(f'The experiment will take {US.time2str(N_acqs*Ts_acq)} plus the calibration.')
 
 
 # Axis specification
@@ -259,6 +259,7 @@ config_dict = {'Fs': Fs,
                'AvgSamplesNumber': AvgSamplesNumber,
                'Quantiz_Levels': Quantiz_Levels,
                'N_acqs': N_acqs,
+               'Ts_acq': Ts_acq,
                'WP_temperature' : None,
                'Outside_temperature': None,
                'N_avg' : N_avg,
@@ -548,7 +549,7 @@ try:
             else:
                 temperature1 = tmp
         
-            Cwt = US.speedofsound_in_water(temperature1, method='Abdessamad', method_param=148)
+            Cwt = US.temp2sos(temperature1)
         
         
         # -----------------------------------------------------------
@@ -589,8 +590,13 @@ try:
         # End timer
         # ---------
         elapsed_time = time.time() - start_time
-        print(f'Acquisition #{i+1}/{N_acqs} done in {elapsed_time} s.')
-    
+        time_to_wait = Ts_acq - elapsed_time # time until next acquisition
+        print(f'Acquisition #{i+1}/{N_acqs} done.')
+        print(f'\tRemaining time: {US.time2str((N_acqs-i-1)*Ts_acq)}')
+        if time_to_wait < 0:
+            print(f'Code is slower than Ts_acq = {Ts_acq} s at Acq #{i+1}. Elapsed time is {elapsed_time} s.')
+            time_to_wait = 0
+        time.sleep(time_to_wait)
     
     
     # =========================
@@ -608,7 +614,7 @@ try:
         else:
             temperature1 = tmp
     
-        Cwt = US.speedofsound_in_water(temperature1, method='Abdessamad', method_param=148)
+        Cwt = US.temp2sos(temperature1)
 
     if ScanLen1 < ScanLen:
         TT_Ascan = US.zeroPadding(TT_Ascan, ScanLen)
@@ -657,7 +663,7 @@ if MeasureCW:
     PE0 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     
     scanner.diffMoveAxis(WP_axis, MeasureCW_dist)
-    
+    time.sleep(3)
     PE10 = SeDaq.GetAscan_Ch2(Smin2, Smax2)
     
     # Find ToF

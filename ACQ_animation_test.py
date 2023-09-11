@@ -17,8 +17,12 @@ RecLen = 32*1024                # Maximum range of ACQ - samples (max=32*1024)
 # Smin = 0                     # starting point of the scan of each channel - samples
 # Smax = RecLen                     # last point of the scan of each channel - samples
 
-Smin = 5000                     # starting point of the scan of each channel - samples
-Smax = 13000                     # last point of the scan of each channel - samples
+# Smin = 3000                     # starting point of the scan of each channel - samples
+# Smax = 4500                     # last point of the scan of each channel - samples
+
+
+# Smin = 4000                     # starting point of the scan of each channel - samples
+# Smax = 7000                     # last point of the scan of each channel - samples
 
 Smin = 5000                     # starting point of the scan of each channel - samples
 Smax = 10000                     # last point of the scan of each channel - samples

@@ -1,4 +1,4 @@
-name: base
+name: ultrasound2023
 channels:
   - conda-forge
   - defaults

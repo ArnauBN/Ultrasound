@@ -8,12 +8,13 @@ Python version: Python 3.8
 """
 import serial
 import numpy as np
+import time
 
 
 #%%
 class Arduino:
     '''Class for temperature readings via serial comm. with the Arduino board'''
-    def __init__(self, board='Arduino UNO', baudrate=9600, port='COM3', twoSensors=False, N_avg=1):
+    def __init__(self, board='Arduino UNO', baudrate=9600, port='COM3', twoSensors=False, N_avg=1, timeout=None):
         self.board = board                 # Board type
         self.N_avg = N_avg                 # Number of temperature measurements to be averaged - int
         self.twoSensors = twoSensors
@@ -22,7 +23,7 @@ class Arduino:
         self.floatDigits = 3
         self.sepLength = 0
         
-        self.ser = serial.Serial(port, baudrate, timeout=None)  # open comms
+        self.ser = serial.Serial(port, baudrate, timeout=timeout)  # open comms
 
     @property
     def port(self):
@@ -152,8 +153,13 @@ class Arduino:
             self.ser.reset_input_buffer()
             self.ser.reset_output_buffer()
         
-            while self.ser.read() != b'\n':
-                pass
+            start_time = time.time()
+            _value = self.ser.read()
+            while _value != b'\n':
+                if time.time() - start_time > 5:
+                    print('Timeout')
+                    break
+                _value = self.ser.read()
         
             for i in range(self.N_avg):
                 lines[i] = self.ser.readline()

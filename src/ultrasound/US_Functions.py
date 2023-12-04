@@ -1515,7 +1515,7 @@ def find_numbers_in_string(input_string: str, IgnoreSign: bool=False, IgnoreDot:
     matches = re.findall(number_pattern, input_string)
     return [float(match) if '.' in match else int(match) for match in matches]
 
-def sort_strings_by_number(str_list: list[str], numidx: int=0, reverse: bool=False, **kwargs) -> list[str]:
+def sort_strings_by_number(str_list: list, numidx: int=0, reverse: bool=False, **kwargs) -> list:
     '''
     Sort a list of string using the {numidx}th number found in them. If numidx
     is 0, the first number found in each string is used as the sorting key. If
@@ -1546,7 +1546,7 @@ def sort_strings_by_number(str_list: list[str], numidx: int=0, reverse: bool=Fal
         return find_numbers_in_string(s, **kwargs)[numidx]
     return sorted(str_list, key=keyfunc, reverse=reverse)
 
-def get_dir_names(Path: str=None) -> list[str]:
+def get_dir_names(Path: str=None) -> list:
     '''
     Returns a list of all directory names inside a specified path. 
     Subdirectories are not searched. If Path is None, the current working
@@ -1616,7 +1616,7 @@ def multiplyMaskedArraybyScalar(inarr, scalar):
     return np.ma.masked_array(inarr.data*scalar, mask=inarr.mask)
 
 
-def popBadSpecimens(BatchName: str, Specimens: list[str]) -> list[str]:
+def popBadSpecimens(BatchName: str, Specimens: list) -> list:
     '''
     Removes bad specimen names for the given list. A good specimen name is the
     one that is only made of the batch name and a number. 

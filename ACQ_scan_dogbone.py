@@ -21,8 +21,8 @@ from src.devices import Scanner
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'D:\Data\DogboneScan\D'
-Experiment_folder_name = 'D4' # Without Backslashes
+Path = r'D:\Data\DogboneScan\aluminum'
+Experiment_folder_name = 'aluminum9' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
@@ -57,9 +57,9 @@ print(f'Experiment path set to {MyDir}')
 ########################################################
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
 Experiment_description = """Scanner acq.
-Epoxy Resin dog-bone.
-Batch: D.
-Specimen: D4.
+Aluminum dog-bone.
+Batch: aluminum.
+Specimen: aluminum9.
 Focused tx.
 Excitation_params: Pulse frequency (Hz).
 """
@@ -82,11 +82,11 @@ Quantiz_Levels = 1024           # Number of quantization levels
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool
 Save_acq_data = True            # If True, save all acq. data to {Acqdata_path} - bool
 Temperature = True              # If True, take temperature measurements at each acq. (temperature data is always saved to file) and plot Cw - bool
-twoSensors = False              # If True, assume we have two temperature sensors, one inside and one outside - bool
 PE_as_ref = True                # If True, both a WP and a PE traces are acquired. The resulting ref. signal has the PE pulse aligned at WP - str
 align_PEref = False             # If True, align PEref to zero - bool
-Ts_acq = 0.6                    # Time between acquisitions (must be >0.56s) - seconds
+Ts_acq = 0.65                    # Time between acquisitions (must be >0.56s) - seconds
 dogbone_length = 168.8          # Length of the specimen in millimeters - float
+
 
 # -------
 # Arduino
@@ -95,6 +95,10 @@ board = 'Arduino UNO'           # Board type - str
 baudrate = 9600                 # Baudrate (symbols/s) - int
 port = 'COM3'                   # Port to connect to - str
 N_avg = 1                       # Number of temperature measurements to be averaged - int
+twoSensors = True               # If True, assume we have two temperature sensors, one inside and one outside - bool
+intDigits = 2
+floatDigits = 4
+sepLength = 1
 
 
 # -------
@@ -115,7 +119,7 @@ pattern = 'line+turn'           # Available patterns: 'line', 'line+turn', 'zigz
 X_step = 0                      # smallest step to move in the X axis (mm), min is 0.01 - float
 Y_step = 0                      # smallest step to move in the Y axis (mm), min is 0.01 - float
 Z_step = 0.2                    # smallest step to move in the Z axis (mm), min is 0.005 - float
-R_step = 50.4                   # smallest step to move in the R axis (deg), min is 1.8  - float
+R_step = 19.8                   # smallest step to move in the R axis (deg), min is 1.8  - float
 # If the step is zero, do not move on that axis
 # Y = -70.3
 # Methacrylate: R = 39.6 deg
@@ -191,6 +195,9 @@ elif longaxis == 'Z':
 #%% Start serial communication
 if Temperature:
     arduino = Arduino.Arduino(board, baudrate, port, twoSensors, N_avg)  # open comms
+    arduino.intDigits = intDigits
+    arduino.floatDigits = floatDigits
+    arduino.sepLength = sepLength
 
 
 #%%

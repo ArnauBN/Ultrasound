@@ -154,12 +154,10 @@ class Arduino:
             self.ser.reset_output_buffer()
         
             start_time = time.time()
-            _value = self.ser.read()
-            while _value != b'\n':
+            while self.ser.read() != b'\n':
                 if time.time() - start_time > 5:
                     print('Timeout')
                     break
-                _value = self.ser.read()
         
             for i in range(self.N_avg):
                 lines[i] = self.ser.readline()

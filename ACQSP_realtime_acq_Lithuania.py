@@ -23,11 +23,12 @@ from src.devices import Arduino
 ########################################################
 # Paths and file names to use
 ########################################################
-Path = r'D:\Data\Deposition'
-Experiment_folder_name = 'R0_0_M_rt_vh2' # Without Backslashes
+Path = r'D:\Data\DepositionTwoSensors'
+Experiment_folder_name = 'W00-00' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
+Experiment_PEref2_file_name = 'PEref2.bin'
 Experiment_WP_file_name = 'WP.bin'
 Experiment_acqdata_file_name = 'acqdata.bin'
 Experiment_Temperature_file_name = 'temperature.txt'
@@ -37,6 +38,7 @@ MyDir = os.path.join(Path, Experiment_folder_name)
 Config_path = os.path.join(MyDir, Experiment_config_file_name)
 Results_path = os.path.join(MyDir, Experiment_results_file_name)
 PEref_path = os.path.join(MyDir, Experiment_PEref_file_name)
+PEref2_path = os.path.join(MyDir, Experiment_PEref2_file_name)
 WP_path = os.path.join(MyDir, Experiment_WP_file_name)
 Acqdata_path = os.path.join(MyDir, Experiment_acqdata_file_name)
 Temperature_path = os.path.join(MyDir, Experiment_Temperature_file_name)
@@ -54,7 +56,7 @@ print(f'Experiment path set to {MyDir}')
 # For Experiment_description do NOT use '\n'.
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
 Experiment_description = """Deposition analysis.
-Epoxi Resin with a graphite mass concentration of 0%.
+Water with a graphite mass concentration of 0%.
 With 0 min sonication.
 Focused tx.
 Excitation_params: Pulse frequency (Hz).
@@ -69,7 +71,7 @@ WinLen_WP = 1000
 WinLen_PER = 1000
 WinLen_PETR = 1000
 Cw is the speed of the resin vs temperature.
-Temperature is measured inside the container (resin).
+Temperature is measured inside the container (water).
 Temperature for WP is correct.
 """
 
@@ -97,7 +99,6 @@ Save_acq_data = True            # If True, save all acq. data to {Acqdata_path} 
 Load_refs_from_bin = False      # If True, load reference signals from {WP_path} and {Ref_path} instead of making an acquisiton - bool
 Plot_all_acq = True             # If True, plot every acquisition - bool
 Temperature = True              # If True, take temperature measurements at each acq. (temperature data is always saved to file) and plot Cw - bool
-twoSensors = False              # If True, assume we have two temperature sensors, one inside and one outside - bool
 Plot_temperature = True         # If True, plots temperature measuements at each acq. (has no effect if Temperature==False) - bool
 ID = True                       # use Iterative Deconvolution or find_peaks - bool
 PE_as_ref = True                # If True, both a WP and a PE traces are acquired. The resulting ref. signal has the PE pulse aligned at WP - str
@@ -123,6 +124,10 @@ board = 'Arduino UNO'           # Board type
 baudrate = 9600                 # Baudrate (symbols/s)
 port = 'COM3'                   # Port to connect to
 N_avg = 1                       # Number of temperature measurements to be averaged - int
+twoSensors = True               # If True, assume we have two temperature sensors, one inside and one outside - bool
+intDigits = 2
+floatDigits = 4
+sepLength = 1
 
 if Ts_acq is not None:
     print(f'The experiment will take {US.time2str(N_acqs*Ts_acq)}.')
@@ -131,6 +136,9 @@ if Ts_acq is not None:
 #%% Start serial communication
 if Temperature:
     arduino = Arduino.Arduino(board, baudrate, port, twoSensors, N_avg)  # open comms
+    arduino.intDigits = intDigits
+    arduino.floatDigits = floatDigits
+    arduino.sepLength = sepLength
 
 
 #%%
@@ -233,12 +241,19 @@ if not Load_refs_from_bin:
         MyWin_PEref = US.SliderWindow(PEref_Ascan, SortofWin='tukey', param1=0.25, param2=1)
         PEref_Ascan = PEref_Ascan * MyWin_PEref
         
+        PEref2_Ascan = SeDaq.GetAscan_Ch2(Smin2, Smax2)
+        MyWin_PEref2 = US.SliderWindow(PEref2_Ascan, SortofWin='tukey', param1=0.25, param2=1)
+        PEref2_Ascan = PEref2_Ascan * MyWin_PEref2
+        
         if align_PEref:
             US.align2zero(PEref_Ascan, UseCentroid=False, UseHilbEnv=False)
+            US.align2zero(PEref2_Ascan, UseCentroid=False, UseHilbEnv=False)
         print('Pulse echo as reference acquired.')
     else:
         PEref_Ascan = WP_Ascan
+        PEref2_Ascan = WP_Ascan
         print('PE_as_ref is False. Setting PEref_Ascan = WP_Ascan.')
+        print('PE_as_ref is False. Setting PEref2_Ascan = WP_Ascan.')
 print("===================================================\n")
 
 if Temperature:
@@ -273,6 +288,8 @@ if Save_acq_data:
         WP_Ascan.tofile(f)
     with open(PEref_path, 'wb') as f:
         PEref_Ascan.tofile(f)
+    with open(PEref2_path, 'wb') as f:
+        PEref2_Ascan.tofile(f)
 
 input("Press any key to start the experiment.")
 print("===================================================\n")
@@ -307,6 +324,7 @@ if ScanLen1 < ScanLen:
     WP_Ascan = US.zeroPadding(WP_Ascan, ScanLen)
 elif ScanLen2 < ScanLen:
     PEref_Ascan = US.zeroPadding(PEref_Ascan, ScanLen)
+    PEref2_Ascan = US.zeroPadding(PEref2_Ascan, ScanLen)
 
 N = int(np.ceil(np.log2(np.abs(ScanLen)))) + 1 # next power of 2 (+1)
 nfft = 2**N # Number of FFT points (power of 2)
@@ -400,7 +418,8 @@ for i in range(N_acqs):
             means1[i] = tmp
         
         material = 'resin' if ResinCw else 'water'
-        Cw = US.temp2sos(means1[i], material=material)
+        Cw = US.temp2sos(means1[i], material='water')
+        # Cw = US.temp2sos(means1[i], material=material)
         Cw_vector[i] = Cw
     
 
@@ -506,9 +525,9 @@ for i in range(N_acqs):
         ToF_TRW = Real_peaks[2:]
     
     if stripIterNo == 2:
-        ToF_TR1R2 = ToF_TRW[0] - ToF_RW[1] # t_TR1 - t_R2 (this does not work if the second echo's amplitude is larger than the first)
+        ToF_TR1R2 = ToF_TRW[0] - ToF_RW[1] # t_TR1 - t_R2 (this does not work if the second echo is found first)
     elif stripIterNo == 4:
-        ToF_TR1R2 = ToF_RW[2] - ToF_RW[1] # t_TR1 - t_R2 (this does not work if the second echo's amplitude is larger than the first)
+        ToF_TR1R2 = ToF_RW[2] - ToF_RW[1] # t_TR1 - t_R2 (this does not work if the second echo is found first)
     
     # This should always work
     # -----------------------

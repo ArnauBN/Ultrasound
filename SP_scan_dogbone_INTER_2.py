@@ -291,7 +291,9 @@ Batches = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
 # Batches = ['A', 'B', 'C', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'Ans', 'Bns', 'Cns', 'Dns', 'Ens', 'Fns', 'Gns','Hns', 'Ins', 'Jns', 'Kns']
 # Batches = ['A', 'B', 'C', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
 Batches = ['Ans', 'Bns', 'Cns', 'Dns', 'Ens', 'Fns', 'Gns','Hns', 'Ins', 'Jns', 'Kns']
+# Batches = ['Ans', 'Dns', 'Ens', 'Hns', 'Ins']
 # Batches = ['Ans']
+# Batches = ['Ens']
 Verbose = True
 
 RejectOutliers = {'RejectOutliers_CL': True,
@@ -341,16 +343,18 @@ Loc_TT = None
 experiments = loadDogBoneExperiments(get_experiment_paths(Path, Batches), Verbose=Verbose, 
                                      compute=True, UseHilbEnv=UseHilbEnv, WindowTTshear=WindowTTshear, Loc_TT=Loc_TT)
 # for e in experiments.values():
-#     e.saveResults()
-
+#     e.computeResults()
+#%%
+for e in experiments.values():
+    e.saveResults()
 
 #%%
 # ---------
 # Load data
 # ---------
 experiments = loadDogBoneExperiments(get_experiment_paths(Path, Batches), Verbose=Verbose, compute=False)
-for e in experiments.values():
-    e.computeModuli(UseArchDensity=True)
+# for e in experiments.values():
+#     e.computeModuli(UseArchDensity=True)
 
 Nbatches = len(Batches)
 N = len(experiments)

@@ -105,12 +105,14 @@ for i,k in enumerate(Names):
                                     WinLen_WP=1000, WinLen_TT=1000, WinLen_PER=1000, WinLen_PETR=1000)
     else:
         experiments[k].windowAscans()
-    experiments[k].computeTOF(windowXcor=False, correction=True, filter_tofs_pe=True, UseHilbEnv=False)
+    # experiments[k].computeTOF(windowXcor=False, correction=True, filter_tofs_pe=True, UseHilbEnv=False)
+    experiments[k].computeTOF(windowXcor=False, correction=False, filter_tofs_pe=True, UseHilbEnv=False)
     
     cws[i] = US.temp2sos(experiments[k].config_dict['WP_temperature'], material='water') if 'rt' in k else None
     if 'rt' in k: experiments[k].LPFtemperature()
     
-    experiments[k].computeResults(Cc=Cc, charac_container=False, cw=cws[i])
+    # experiments[k].computeResults(Cc=Cc, charac_container=False, cw=cws[i])
+    experiments[k].computeResultsFinal(Cc=Cc, lpf_temperature=True)
 
 
 #%% Outlier detection

@@ -932,7 +932,7 @@ def maskOutliers(data, m: float=0.6745, UseMedian: bool=False):
     data_masked : numpy.ma.core.MaskedArray
         Array with masked outliers.
 
-    Arnau, 29/06/2023
+    Arnau, 09/11/2023
     '''
     if data.ndim == 1:
         if UseMedian:
@@ -956,6 +956,8 @@ def maskOutliers(data, m: float=0.6745, UseMedian: bool=False):
             _temp = np.zeros(len(x))
             _temp[outliers_indexes] = outliers_indexes
             mask = np.array(_temp, dtype=bool)
+            if 0 in outliers_indexes:
+                mask[0] = True
             masks = np.vstack([masks, mask])
         masks = masks[1:,:]
         data_masked = np.ma.masked_array(data, mask=masks)
@@ -1515,7 +1517,7 @@ def find_numbers_in_string(input_string: str, IgnoreSign: bool=False, IgnoreDot:
     matches = re.findall(number_pattern, input_string)
     return [float(match) if '.' in match else int(match) for match in matches]
 
-def sort_strings_by_number(str_list: list, numidx: int=0, reverse: bool=False, **kwargs) -> list:
+def sort_strings_by_number(str_list: list[str], numidx: int=0, reverse: bool=False, **kwargs) -> list[str]:
     '''
     Sort a list of string using the {numidx}th number found in them. If numidx
     is 0, the first number found in each string is used as the sorting key. If
@@ -1546,7 +1548,7 @@ def sort_strings_by_number(str_list: list, numidx: int=0, reverse: bool=False, *
         return find_numbers_in_string(s, **kwargs)[numidx]
     return sorted(str_list, key=keyfunc, reverse=reverse)
 
-def get_dir_names(Path: str=None) -> list:
+def get_dir_names(Path: str=None) -> list[str]:
     '''
     Returns a list of all directory names inside a specified path. 
     Subdirectories are not searched. If Path is None, the current working
@@ -1616,7 +1618,7 @@ def multiplyMaskedArraybyScalar(inarr, scalar):
     return np.ma.masked_array(inarr.data*scalar, mask=inarr.mask)
 
 
-def popBadSpecimens(BatchName: str, Specimens: list) -> list:
+def popBadSpecimens(BatchName: str, Specimens: list[str]) -> list[str]:
     '''
     Removes bad specimen names for the given list. A good specimen name is the
     one that is only made of the batch name and a number. 
@@ -1699,3 +1701,34 @@ def isGoodSpecimen(BatchName: str, SpecimenName: str) -> bool:
     Arnau, 29/08/2023
     '''
     return isNumber(SpecimenName.replace(BatchName, ''))
+
+
+def fillMaskedArrayWithPrevVal(x):
+    '''
+    Fill numpy.MaskedArray masked values with their corresponding previous
+    unmasked value.
+
+    Parameters
+    ----------
+    x : numpy.MaskedArray
+        Input masked array.
+
+    Returns
+    -------
+    data : ndarray
+        Array with the same number of elements as the input masked array where.
+    
+    Arnau, 09/11/2023
+    '''
+    mask = x.mask.copy()
+    data = x.data.copy()
+    outlier_indices = np.where(mask)[0]
+    for i in outlier_indices:
+        if i==0:
+            prev = 1
+            while prev in outlier_indices:
+                prev += 1
+            data[i] = data[i + prev]
+        else:
+            data[i] = data[i-1]
+    return data

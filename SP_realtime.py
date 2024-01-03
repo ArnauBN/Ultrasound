@@ -86,6 +86,7 @@ def LPF2mHz(x, Fs):
 
 #%% Load experiments
 Path = r'..\Data\Deposition'
+Path = r'..\Data\DepositionTests'
 Names = ['W0_0', 'W0_0_2', 'W0_0_3', 'W0_0_4', 'W0_0_5', 'W0_0_6', 
          'W0_0_7a', 'W0_0_7b', 'W0_0_7c', 'W0_0_7d', 'W0_0_7e', 'W0_0_7f', 'W0_0_7g', 'W0_0_7h', 'W0_0_7i', 
          'W01_0', 'W02_0', 'W03_0', 'W05_0', 'W06_0', 'W07_0', 'W08_0', 'W09_0', 'W10_0']
@@ -106,10 +107,12 @@ Names = ['R0_0_M_rt1m', 'R0_0_M_rt2m', 'R0_0_M_rt3m', 'R0_0_M_rt4m', 'R0_20_M_rt
 # Names += Names2
 # Names = ['Rb0_0_M_rt1', 'Rb01_0_M_rtw', 'Rb02_0_M_rtw', 'Rb03_0_M_rtw', 'Rb04_0_M_rtw', 'Rb05_0_M_rtw', 'Rb06_0_M_rtw', 'Rb07_0_M_rtw', 'Rb08_0_M_rtw', 'Rb09_0_M_rtw', 'Rb10_0_M_rtw']
 # Names = ['Rb0_0_M_rt_vh', 'Rb0_0_M_rt_vh2']
+Names = ['test2water', 'test3water']
 concentrations = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.3, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 concentrations = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 Cw20 = US.temp2sos(20, material='water')
-experiments = loadExperiments(Path, Names, Verbose=True, Cw_material='resin')
+experiments = loadExperiments(Path, Names, Verbose=True, Cw_material='water')
+# experiments = loadExperiments(Path, Names, Verbose=True, Cw_material='resin')
 # Error in speed of sound will be at least 0.1 m/s due to the temperature resolution of 0.032 ºC
 # Prediction error in resin temperature model is +/- 4.52 m/s
 #%%
@@ -120,28 +123,47 @@ Cc = 2726 # methacrylate (small container)
 cws = np.zeros(len(experiments))
 for i,k in enumerate(Names):
     print(f'--------- {k} ---------')
-    if 'M' in k and 'W' in k:
-        experiments[k].windowAscans(Loc_WP=3200, Loc_TT=2970, Loc_PER=1180, Loc_PETR=5500, 
-                                    WinLen_WP=1000, WinLen_TT=1000, WinLen_PER=1300, WinLen_PETR=1000)
-    elif 'M' in k and 'R' in k:
-        experiments[k].windowAscans(Loc_WP=3200, Loc_TT=2850, Loc_PER=1180, Loc_PETR=3650, 
-                                    WinLen_WP=1000, WinLen_TT=1000, WinLen_PER=1000, WinLen_PETR=1000)
-    else:
-        experiments[k].windowAscans()
-    experiments[k].computeTOF(windowXcor=False, correction=True, filter_tofs_pe=True, UseHilbEnv=False)
+    experiments[k].windowAscans(Loc_WP=3200, Loc_TT=2850, Loc_PER=1180, Loc_PETR=3650, 
+                                WinLen_WP=1000, WinLen_TT=1000, WinLen_PER=1000, WinLen_PETR=1000)
+    # if 'M' in k and 'W' in k:
+    #     experiments[k].windowAscans(Loc_WP=3200, Loc_TT=2970, Loc_PER=1180, Loc_PETR=5500, 
+    #                                 WinLen_WP=1000, WinLen_TT=1000, WinLen_PER=1300, WinLen_PETR=1000)
+    # elif 'M' in k and 'R' in k:
+    #     experiments[k].windowAscans(Loc_WP=3200, Loc_TT=2850, Loc_PER=1180, Loc_PETR=3650, 
+    #                                 WinLen_WP=1000, WinLen_TT=1000, WinLen_PER=1000, WinLen_PETR=1000)
+    # else:
+    #     experiments[k].windowAscans()
+    windowSecondFace = True if k=='test1_2' else False
+    experiments[k].computeTOF(windowXcor=False, correction=False, filter_tofs_pe=True, UseHilbEnv=False, windowSecondFace=windowSecondFace)
     
-    cws[i] = US.temp2sos(experiments[k].config_dict['WP_temperature'], material='water') if 'rt' in k else None
-    if 'rt' in k: experiments[k].LPFtemperature()
+    # cws[i] = US.temp2sos(experiments[k].config_dict['WP_temperature'], material='water') if 'rt' in k else None
+    # if 'rt' in k: experiments[k].LPFtemperature()
+    cws[i] = US.temp2sos(experiments[k].config_dict['WP_temperature'], material='water')
+    experiments[k].LPFtemperature()
     
-    experiments[k].computeResults(Cc=Cc, charac_container=False, cw=cws[i])
+    # experiments[k].computeResults(Cc=Cc, charac_container=False, cw=cws[i])
+    experiments[k].computeResultsFinal(Cc=Cc, lpf_temperature=False)
     
-    experiments[k].saveResults()
-    experiments[k].saveCw()
+    # experiments[k].saveResults()
+    # experiments[k].saveCw()
     
 #%%
 plt.figure()
 for e in experiments.values():
-    plt.plot(e.temperature_lpf)
+    plt.plot(e.temperature_inside)
+    plt.plot(e.temperature_inside_lpf)
+#%%
+# (self.ToF_R21 + np.abs(self.ToF_TW) + self.ToF_TR1R2/2)*cw/self.Fs - 2*self.Lc
+plt.figure()
+for e in experiments.values():
+    # plt.plot(e.ToF_R21)
+    # plt.plot(np.abs(e.ToF_TW))
+    # plt.plot(e.ToF_TR1R2)
+    # plt.plot(e.Lc)
+    plt.plot(e.L)
+    # plt.plot(e.tofs_pe)
+    
+    
 
 #%% Plotting
 # for e in experiments.values():
@@ -158,6 +180,7 @@ m_l = 0.6745 # Outlier detection threshold for L
 Call = np.array([e.C for e in experiments.values()]) # Size of this array is: len(experiments) x N_acqs
 Lall = np.array([e.L for e in experiments.values()]) # Size of this array is: len(experiments) x N_acqs
 L_lpf = np.array([LPF2mHz(e.L, 1/e.Ts) for e in experiments.values()])
+C_lpf = np.array([LPF2mHz(e.C, 1/e.Ts) for e in experiments.values()])
 Call_masked = US.maskOutliers(Call, m=m_c, UseMedian=UseMedian)
 Lall_masked = US.maskOutliers(Lall, m=m_l, UseMedian=UseMedian)
 
@@ -167,11 +190,18 @@ _tempCall = [l for l in Call_masked]
 Call_without_outliers = US.apply2listElements(_tempCall, lambda x: x.compressed())
 Lall_without_outliers = US.apply2listElements(_tempLall, lambda x: x.compressed())
 
-L_lpf_from_masked = [LPF2mHz(l, 1/e.Ts) for l,e in zip(Lall_without_outliers, experiments.values())]
+# L_lpf_from_masked = [LPF2mHz(l, 1/e.Ts) for l,e in zip(Lall_without_outliers, experiments.values())]
+L_lpf_from_masked = [LPF2mHz(US.fillMaskedArrayWithPrevVal(l), 1/e.Ts) for l,e in zip(Lall_masked, experiments.values())]
+C_lpf_from_masked = [LPF2mHz(US.fillMaskedArrayWithPrevVal(c), 1/e.Ts) for c,e in zip(Call_masked, experiments.values())]
 
-Call_diffs = np.array([e.C - US.temp2sos(e.temperature_lpf, material='resin') for e in experiments.values()]) # Size of this array is: len(experiments) x N_acqs
+
+# Call_diffs = np.array([e.C - US.temp2sos(e.temperature_lpf, material='resin') for e in experiments.values()]) # Size of this array is: len(experiments) x N_acqs
+Call_diffs = np.array([e.C - US.temp2sos(e.temperature_lpf, material='water') for e in experiments.values()]) # Size of this array is: len(experiments) x N_acqs
+C_lpf_diffs = np.array([LPF2mHz(c, 1/e.Ts) for c,e in zip(Call_diffs, experiments.values())])
 Call_masked_diffs = US.maskOutliers(Call_diffs, m=m_c, UseMedian=UseMedian)
 Call_without_outliers_diffs = Call_masked_diffs.compressed()
+C_lpf_from_masked_diffs = [LPF2mHz(US.fillMaskedArrayWithPrevVal(c), 1/e.Ts) for c,e in zip(Call_masked_diffs, experiments.values())]
+
 
 # --------
 # Plotting
@@ -190,11 +220,15 @@ axs[1,1].set_ylabel('Diameter (mm)')
 Time_axis = np.arange(0, len(experiments[list(experiments.keys())[0]].C))*experiments[list(experiments.keys())[0]].Ts/60
 idx = np.where(Time_axis<=15)[0][-1]
 
-plot_diffs = True
+plot_diffs = False
 for e in experiments.values():
     L_lpf_ = LPF2mHz(e.L, 1/e.Ts)
-    c = e.C - US.temp2sos(e.temperature_lpf, material='resin') if plot_diffs else e.C
-    axs[0,0].plot(Time_axis, c, label=e.name)
+    c = e.C - US.temp2sos(e.temperature_lpf, material='water') if plot_diffs else e.C
+    # c = e.C - US.temp2sos(e.temperature_lpf, material='resin') if plot_diffs else e.C
+    C_lpf_ = LPF2mHz(c, 1/e.Ts)
+    _p = axs[0,0].plot(Time_axis, c, label=e.name, alpha=0.5)
+    axs[0,0].plot(Time_axis, C_lpf_, label=e.name, c=_p[-1].get_color(), alpha=1, zorder=3)
+    axs[0,0].plot(Time_axis, e.Cw_lpf, label=e.name, c='r', alpha=1, zorder=3)
     axs[0,1].plot(Time_axis, e.Cw_lpf, label=e.name)
     axs[1,0].plot(Time_axis, e.Lc*1e6, label=e.name)
     _p = axs[1,1].plot(Time_axis, e.L*1e3, label=e.name, alpha=0.5)
@@ -220,16 +254,18 @@ def callback(label):
     
     _check = check.get_status()[0]
     if (not _check) and (not plot_diffs):
-        data = zip(Call, Lall, L_lpf)
+        data = zip(Call, Lall, L_lpf, C_lpf)
     elif (not _check) and plot_diffs:
-        data = zip(Call_diffs, Lall, L_lpf)
+        data = zip(Call_diffs, Lall, L_lpf, C_lpf_diffs)
     elif _check and not plot_diffs:
-        data = zip(Call_masked, Lall_masked, L_lpf)
+        data = zip(Call_masked, Lall_masked, L_lpf_from_masked, C_lpf_from_masked)
     elif _check and plot_diffs:
-        data = zip(Call_masked_diffs, Lall_masked, L_lpf)
+        data = zip(Call_masked_diffs, Lall_masked, L_lpf_from_masked, C_lpf_from_masked_diffs)
     
-    for i,(c, l, l_lpf) in enumerate(data):
-        axs[0,0].plot(Time_axis, c, label=Names[i])
+    for i,(c, l, l_lpf, c_lpf) in enumerate(data):
+        _p = axs[0,0].plot(Time_axis, c, label=Names[i], alpha=0.5)
+        axs[0,0].plot(Time_axis, c_lpf, label=Names[i], c=_p[-1].get_color(), alpha=1, zorder=3)
+        axs[0,0].plot(Time_axis, e.Cw_lpf, label=e.name, c='r', alpha=1, zorder=3)
         _p = axs[1,1].plot(Time_axis, l*1e3, label=Names[i], alpha=0.5)
         axs[1,1].plot(Time_axis, l_lpf*1e3, label=Names[i], c=_p[-1].get_color(), alpha=1, zorder=3)
     axs[0,1].legend()

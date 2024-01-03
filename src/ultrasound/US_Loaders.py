@@ -500,8 +500,8 @@ def saveDict2txt(Path: str, d: dict, mode: str='w', delimiter: str=','):
             
 def load_config(Path: str):
     '''
-    Load an experiment's configuration file with as a dictionary. The 
-    configuration file needs to have at least the following keys:
+    Load an experiment's configuration file as a dictionary. The configuration
+    file needs to have at least the following keys:
         Fs, Fs_Gencode_Generator, Gain_Ch1, Gain_Ch2, Attenuation_Ch1,
         Attenuation_Ch2, Excitation_voltage, Excitation_params, Smin1, Smin2,
         Smax1, Smax2, AvgSamplesNumber, Quantiz_Levels, Ts_acq, N_acqs.

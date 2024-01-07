@@ -22,7 +22,7 @@ from . import US_SoS as USS
 
 #%%
 class RealtimeSP:
-    def __init__(self, Path, compute=False, material='resin', Cw_material='water'):
+    def __init__(self, Path, compute=False, material='resin', Cw_material='water', Verbose=False):
         '''Class for processing experiment data. 
         If compute is True, the constructor computes everything. 
         If not, it is loaded from results.txt.'''
@@ -32,6 +32,7 @@ class RealtimeSP:
         self.material = material
         
         self.paths() # set paths
+        if Verbose: self.checkFiles()
         self.load() # load data
         self.setParamsFromFiles()
         
@@ -142,7 +143,7 @@ class RealtimeSP:
 
         Arnau, 01/12/2023
         '''
-        self.config_dict = USL.load_config(self.Config_path) if os.isfile(self.Config_path) else None
+        self.config_dict = USL.load_config(self.Config_path) if os.path.isfile(self.Config_path) else None
     
     def loadResultsDict(self):
         '''
@@ -154,7 +155,7 @@ class RealtimeSP:
 
         Arnau, 01/12/2023
         '''
-        self.results_dict = USL.load_columnvectors_fromtxt(self.Results_path) if os.isfile(self.Results_path) else None
+        self.results_dict = USL.load_columnvectors_fromtxt(self.Results_path) if os.path.isfile(self.Results_path) else None
     
     def loadTemperatureDict(self):
         '''
@@ -166,7 +167,7 @@ class RealtimeSP:
 
         Arnau, 01/12/2023
         '''
-        self.temperature_dict = USL.load_columnvectors_fromtxt(self.Temperature_path) if os.isfile(self.Temperature_path) else None
+        self.temperature_dict = USL.load_columnvectors_fromtxt(self.Temperature_path) if os.path.isfile(self.Temperature_path) else None
     
     def loadWP(self):
         '''
@@ -178,7 +179,7 @@ class RealtimeSP:
 
         Arnau, 01/12/2023
         '''
-        if os.isfile(self.WP_path):
+        if os.path.isfile(self.WP_path):
             with open(self.WP_path, 'rb') as f:
                 self.WPraw = np.fromfile(f)
         else:
@@ -194,7 +195,7 @@ class RealtimeSP:
 
         Arnau, 01/12/2023
         '''
-        if os.isfile(self.Acqdata_path) and self.config_dict is not None:
+        if os.path.isfile(self.Acqdata_path) and self.config_dict is not None:
             self.TTraw, self.PEraw = USL.load_bin_acqs(self.Acqdata_path, self.config_dict['N_acqs'])
         else:
             self.TTraw, self.PEraw = None, None
@@ -209,7 +210,7 @@ class RealtimeSP:
 
         Arnau, 01/12/2023
         '''
-        if os.isfile(self.PEref_path):
+        if os.path.isfile(self.PEref_path):
             with open(self.PEref_path, 'rb') as f:
                 self.PEref = np.fromfile(f)
         else:
@@ -225,7 +226,7 @@ class RealtimeSP:
 
         Arnau, 01/12/2023
         '''
-        if os.isfile(self.PEref2_path):
+        if os.path.isfile(self.PEref2_path):
             with open(self.PEref2_path, 'rb') as f:
                 self.PEref2 = np.fromfile(f)
         else:
@@ -244,19 +245,19 @@ class RealtimeSP:
         
         Arnau, 01/12/2023
         '''
-        if os.isfile(self.config_dict):
-            print(f'Config File Not Found: {self.config_dict}')
-        if os.isfile(self.Results_path):
+        if not os.path.isfile(self.Config_path):
+            print(f'Config File Not Found: {self.Config_path}')
+        if not os.path.isfile(self.Results_path):
             print(f'Results File Not Found: {self.Results_path}')
-        if os.isfile(self.Temperature_path):
+        if not os.path.isfile(self.Temperature_path):
             print(f'Temperature File Not Found: {self.Temperature_path}')
-        if os.isfile(self.WP_path):
+        if not os.path.isfile(self.WP_path):
             print(f'Water-Path File Not Found: {self.WP_path}')
-        if os.isfile(self.Acqdata_path):
+        if not os.path.isfile(self.Acqdata_path):
             print(f'Acq. data File Not Found: {self.Acqdata_path}')
-        if os.isfile(self.PEref_path):
+        if not os.path.isfile(self.PEref_path):
             print(f'Pulse-Echo Reference File Not Found: {self.PEref_path}')
-        if os.isfile(self.PEref2_path):
+        if not os.path.isfile(self.PEref2_path):
             print(f'Second Face Pulse-Echo Reference File Not Found: {self.PEref2_path}')
     
     def load(self):
@@ -269,9 +270,6 @@ class RealtimeSP:
 
         Arnau, 01/12/2023
         '''
-        print('---------------------')
-        self.checkFiles()
-        print('---------------------')
         self.loadConfigDict()
         self.loadResultsDict()
         self.loadTemperatureDict()
@@ -600,14 +598,16 @@ class RealtimeSP:
 # =============================================================================
 
 class DogboneSP:
-    def __init__(self, Path, compute=True, imgName=None, **kwargs):
+    def __init__(self, Path, compute=True, imgName=None, Verbose=False, **kwargs):
         '''Class for processing experiment data. If compute is True, the constructor computes everything.'''
         self.Path = Path
         self.name = Path.split('\\')[-1]
         self.imgName = imgName
         
         self.paths() # set paths
+        if Verbose: self.checkFiles()
         self.load() # load data
+        self.setParamsFromFiles()
         self.angleAndScanpos() # get rotation angle and scanner position vector
         self.LPFtemperature() # Low-Pass filter temperature
         
@@ -708,10 +708,11 @@ class DogboneSP:
         -------
         None.
 
-        Arnau, 11/12/2023
+        Arnau, 04/01/2024
         '''
         self.Experiment_config_file_name = 'config.txt' # Without Backslashes
         self.Experiment_PEref_file_name = 'PEref.bin'
+        self.Experiment_PEref2_file_name = 'PEref2.bin'
         self.Experiment_WP_file_name = 'WP.bin'
         self.Experiment_acqdata_file_name = 'acqdata.bin'
         self.Experiment_Temperature_file_name = 'temperature.txt'
@@ -722,6 +723,7 @@ class DogboneSP:
         
         self.Config_path = os.path.join(self.Path, self.Experiment_config_file_name)
         self.PEref_path = os.path.join(self.Path, self.Experiment_PEref_file_name)
+        self.PEref2_path = os.path.join(self.Path, self.Experiment_PEref2_file_name)
         self.WP_path = os.path.join(self.Path, self.Experiment_WP_file_name)
         self.Acqdata_path = os.path.join(self.Path, self.Experiment_acqdata_file_name)
         self.Temperature_path = os.path.join(self.Path, self.Experiment_Temperature_file_name)
@@ -742,7 +744,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        self.config_dict = USL.load_config(self.Config_path) if os.isfile(self.Config_path) else None
+        self.config_dict = USL.load_config(self.Config_path) if os.path.isfile(self.Config_path) else None
     
     def loadResultsDict(self):
         '''
@@ -754,7 +756,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        self.results_dict = USL.load_columnvectors_fromtxt(self.Results_path) if os.isfile(self.Results_path) else None
+        self.results_dict = USL.load_columnvectors_fromtxt(self.Results_path) if os.path.isfile(self.Results_path) else None
     
     def loadTemperatureDict(self):
         '''
@@ -766,7 +768,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        self.temperature_dict = USL.load_columnvectors_fromtxt(self.Temperature_path) if os.isfile(self.Temperature_path) else None
+        self.temperature_dict = USL.load_columnvectors_fromtxt(self.Temperature_path) if os.path.isfile(self.Temperature_path) else None
     
     def loadScanpattern(self):
         '''
@@ -778,7 +780,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        self.scanpattern = USL.load_columnvectors_fromtxt(self.Scanpath_path, delimiter=',', header=False, dtype=str) if os.isfile(self.Scanpath_path) else None
+        self.scanpattern = USL.load_columnvectors_fromtxt(self.Scanpath_path, delimiter=',', header=False, dtype=str) if os.path.isfile(self.Scanpath_path) else None
     
     def loadWP(self):
         '''
@@ -790,7 +792,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        if os.isfile(self.WP_path):
+        if os.path.isfile(self.WP_path):
             with open(self.WP_path, 'rb') as f:
                 self.WPraw = np.fromfile(f)
         else:
@@ -807,7 +809,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        if os.isfile(self.Acqdata_path) and self.config_dict is not None:
+        if os.path.isfile(self.Acqdata_path) and self.config_dict is not None:
             self.TTraw, self.PEraw = USL.load_bin_acqs(self.Acqdata_path, self.config_dict['N_acqs'])
         else:
             self.TTraw, self.PEraw = None, None
@@ -823,7 +825,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        if os.isfile(self.PEref_path):
+        if os.path.isfile(self.PEref_path):
             with open(self.PEref_path, 'rb') as f:
                 self.PEref = np.fromfile(f)
         else:
@@ -839,7 +841,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        if os.isfile(self.PEref2_path):
+        if os.path.isfile(self.PEref2_path):
             with open(self.PEref2_path, 'rb') as f:
                 self.PEref2 = np.fromfile(f)
         else:
@@ -858,7 +860,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        self.img = mpimg.imread(self.Img_path) if os.isfile(self.Img_path) else None
+        self.img = mpimg.imread(self.Img_path) if os.path.isfile(self.Img_path) else None
 
     def loadArchDensity(self):
         '''
@@ -870,7 +872,7 @@ class DogboneSP:
 
         Arnau, 11/12/2023
         '''
-        self.archdensity = float(USL.load_columnvectors_fromtxt(self.Archdensity_path, header=False, dtype=float)) if os.isfile(self.Archdensity_path) else None
+        self.archdensity = float(USL.load_columnvectors_fromtxt(self.Archdensity_path, header=False, dtype=float)) if os.path.isfile(self.Archdensity_path) else None
     
     def checkFiles(self):
         '''
@@ -882,25 +884,25 @@ class DogboneSP:
         
         Arnau, 01/12/2023
         '''
-        if os.isfile(self.config_dict):
-            print(f'Config File Not Found: {self.config_dict}')
-        if os.isfile(self.Results_path):
+        if not os.path.isfile(self.Config_path):
+            print(f'Config File Not Found: {self.Config_path}')
+        if not os.path.isfile(self.Results_path):
             print(f'Results File Not Found: {self.Results_path}')
-        if os.isfile(self.Temperature_path):
+        if not os.path.isfile(self.Temperature_path):
             print(f'Temperature File Not Found: {self.Temperature_path}')
-        if os.isfile(self.WP_path):
+        if not os.path.isfile(self.WP_path):
             print(f'Water-Path File Not Found: {self.WP_path}')
-        if os.isfile(self.Acqdata_path):
+        if not os.path.isfile(self.Acqdata_path):
             print(f'Acq. data File Not Found: {self.Acqdata_path}')
-        if os.isfile(self.PEref_path):
+        if not os.path.isfile(self.PEref_path):
             print(f'Pulse-Echo Reference File Not Found: {self.PEref_path}')
-        if os.isfile(self.PEref2_path):
+        if not os.path.isfile(self.PEref2_path):
             print(f'Second Face Pulse-Echo Reference File Not Found: {self.PEref2_path}')
-        if os.isfile(self.Scanpath_path):
+        if not os.path.isfile(self.Scanpath_path):
             print(f'Scanpattern File Not Found: {self.Scanpath_path}')
-        if os.isfile(self.Img_path):
+        if not os.path.isfile(self.Img_path):
             print(f'Image File Not Found: {self.Img_path}')
-        if os.isfile(self.Archdensity_path):
+        if not os.path.isfile(self.Archdensity_path):
             print(f'Archimedean Density File Not Found: {self.Archdensity_path}')
     
     def load(self):
@@ -913,9 +915,6 @@ class DogboneSP:
 
         Arnau, 01/12/2023
         '''
-        print('---------------------')
-        self.checkFiles()
-        print('---------------------')
         self.loadConfigDict()
         self.loadResultsDict()
         self.loadTemperatureDict()

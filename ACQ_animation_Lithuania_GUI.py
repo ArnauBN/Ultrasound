@@ -6,16 +6,6 @@ Python version: Python 3.8
 @author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
 
 """
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jan 31 10:06:56 2023
-Python version: Python 3.8
-
-@author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
-
-ICONS: https://p.yusukekamiyamane.com/
-
-"""
 import numpy as np
 import pyqtgraph as pg
 from PyQt5.QtCore import QSize, Qt, QTimer
@@ -28,10 +18,10 @@ SeDaqAnimation = SD.SeDaqDLL()
 
 
 #%% Set acq. system parameters
-AvgSamplesNumber = 1           # Number of traces to average to improve SNR
-Quantiz_Levels = 1024           # Number of quantization levels
-SeDaqAnimation.AvgSamplesNumber = AvgSamplesNumber
-SeDaqAnimation.Quantiz_Levels = Quantiz_Levels
+AvgSamplesNumber_Animation = 1           # Number of traces to average to improve SNR
+Quantiz_Levels_Animation = 1024           # Number of quantization levels
+SeDaqAnimation.AvgSamplesNumber = AvgSamplesNumber_Animation
+SeDaqAnimation.Quantiz_Levels = Quantiz_Levels_Animation
 
 
 #%%
@@ -61,7 +51,7 @@ class MainWindow(pg.GraphicsLayoutWidget):
         self.Fs = 100e6
         self.Smin = 5000
         self.Smax = 10000
-        self.timeFactor = self.Fs*1e6
+        self.timeFactor = self.Fs*1e-6
         self.xTop = np.arange(self.Smin, self.Smax)
         self.x = np.arange(self.Smin, self.Smax)/self.timeFactor
         

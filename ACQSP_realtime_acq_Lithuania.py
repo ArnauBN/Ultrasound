@@ -5,10 +5,7 @@ Python version: Python 3.8
 
 @author: Arnau Busqué Nadal <arnau.busque@goumh.umh.es>
 
-
 This script uses the Lithuanian acquisition system.
-Last updated: 31/01/2023.
-
 """
 import time
 import numpy as np
@@ -24,7 +21,7 @@ from src.devices import Arduino
 # Paths and file names to use
 ########################################################
 Path = r'D:\Data\DepositionTwoSensors'
-Experiment_folder_name = 'W00-00' # Without Backslashes
+Experiment_folder_name = 'R05-00' # Without Backslashes
 Experiment_config_file_name = 'config.txt' # Without Backslashes
 Experiment_results_file_name = 'results.txt'
 Experiment_PEref_file_name = 'PEref.bin'
@@ -56,7 +53,7 @@ print(f'Experiment path set to {MyDir}')
 # For Experiment_description do NOT use '\n'.
 # Suggestion: write material brand, model, dopong, etc. in Experiment_description
 Experiment_description = """Deposition analysis.
-Water with a graphite mass concentration of 0%.
+Epoxy resin with a graphite mass concentration of 0.5%.
 With 0 min sonication.
 Focused tx.
 Excitation_params: Pulse frequency (Hz).
@@ -91,7 +88,7 @@ Smax1, Smax2 = 10000, 10000       # last point of the scan of each channel - sam
 AvgSamplesNumber = 25           # Number of traces to average to improve SNR
 Quantiz_Levels = 1024           # Number of quantization levels
 Ts_acq = 4                      # Time between acquisitions (if None, script waits for user input). Coding time is about 1.5s (so Ts_acq must be >1.5s) - seconds
-N_acqs = 1000                   # Total number of acquisitions
+N_acqs = 600                   # Total number of acquisitions
 Charac_container = False         # If True, then the material inside the container is assumed to be water (Cc=Cw) - bool
 no_container = False             # If True, the material is held by itself, without a container (results are Lc and Cc) (has priority over Charac_container) - bool
 Reset_Relay = False             # Reset delay: ON>OFF>ON - bool

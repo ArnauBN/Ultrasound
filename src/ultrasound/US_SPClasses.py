@@ -22,27 +22,90 @@ from . import US_SoS as USS
 
 #%%
 class RealtimeSP:
-    def __init__(self, Path, compute=False, Cw_material='water'):
+    def __init__(self, Path, compute=False, material='resin', Cw_material='water', Verbose=False):
         '''Class for processing experiment data. 
         If compute is True, the constructor computes everything. 
         If not, it is loaded from results.txt.'''
         self.Path = Path
         self.name = Path.split('\\')[-1]
         self.Cw_material = Cw_material
+        self.material = material
         
-        self._paths() # set paths
-        self._load() # load data
+        self.paths() # set paths
+        if Verbose: self.checkFiles()
+        self.load() # load data
+        self.setParamsFromFiles()
         
         self.LPFtemperature()
         if compute:
             self.computeTOF() # Compute Time-of-Flights
             self.computeResults() # Compute results
+        
+        
+        # =======
+        # METHODS
+        # =======
+        # paths()
+        # loadConfigDict()
+        # loadResultsDict()
+        # loadTemperatureDict()
+        # loadWP()
+        # loadTTandPE()
+        # loadPEref()
+        # loadPEref2()
+        
+        # checkFiles()
+        # load()
+        # setParamsFromFiles()
+        # windowAscans(Loc_WP: int=3300, Loc_TT: int=3200, Loc_PER: int=1000, Loc_PETR: int=7000,
+        #              WinLen_WP: int=1000, WinLen_TT: int=1000, WinLen_PER: int=1300, WinLen_PETR: int=1300)
+        
+        
+        # =========
+        # VARIABLES
+        # =========
+        # self.config_dict
+        # self.results_dict
+        # self.temperature_dict
+        # self.WPraw
+        # self.TTraw
+        # self.PEraw
+        # self.PEref
+        # self.PEref2
+        # ---------
+        # self.Fs
+        # self.Ts
+        # self.N_acqs
+        # self.temperature_inside
+        # self.temperature_outside
+        # self.Cw
+        # self.Cfromtemp
+        # self.Lc
+        # self.L
+        # self.C
+        # self.Cc
+        # ---------
+        # self.Win_PER
+        # self.Win_PETR
+        # self.Win_WP
+        # self.Win_TT
+        # self.WP
+        # self.PE_R
+        # self.PE_TR
+        # self.TT
+        # self.windowed
+        # ---------
+        
+        
+        
+        
     
-    def _paths(self):
+    def paths(self):
         '''
         Set all file paths of the experiment. Expected file names are:
              'config.txt'
              'PEref.bin'
+             'PEref2.bin'
              'WP.bin'
              'acqdata.bin'
              'temperature.txt'
@@ -56,6 +119,7 @@ class RealtimeSP:
         '''
         self.Experiment_config_file_name = 'config.txt' # Without Backslashes
         self.Experiment_PEref_file_name = 'PEref.bin'
+        self.Experiment_PEref2_file_name = 'PEref2.bin'
         self.Experiment_WP_file_name = 'WP.bin'
         self.Experiment_acqdata_file_name = 'acqdata.bin'
         self.Experiment_Temperature_file_name = 'temperature.txt'
@@ -63,12 +127,140 @@ class RealtimeSP:
         
         self.Config_path = os.path.join(self.Path, self.Experiment_config_file_name)
         self.PEref_path = os.path.join(self.Path, self.Experiment_PEref_file_name)
+        self.PEref2_path = os.path.join(self.Path, self.Experiment_PEref2_file_name)
         self.WP_path = os.path.join(self.Path, self.Experiment_WP_file_name)
         self.Acqdata_path = os.path.join(self.Path, self.Experiment_acqdata_file_name)
         self.Temperature_path = os.path.join(self.Path, self.Experiment_Temperature_file_name)
         self.Results_path = os.path.join(self.Path, self.Experiment_Results_file_name)
     
-    def _load(self):
+    def loadConfigDict(self):
+        '''
+        Load Config dictionary.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 01/12/2023
+        '''
+        self.config_dict = USL.load_config(self.Config_path) if os.path.isfile(self.Config_path) else None
+    
+    def loadResultsDict(self):
+        '''
+        Load Results dictionary.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 01/12/2023
+        '''
+        self.results_dict = USL.load_columnvectors_fromtxt(self.Results_path) if os.path.isfile(self.Results_path) else None
+    
+    def loadTemperatureDict(self):
+        '''
+        Load Temperature dictionary.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 01/12/2023
+        '''
+        self.temperature_dict = USL.load_columnvectors_fromtxt(self.Temperature_path) if os.path.isfile(self.Temperature_path) else None
+    
+    def loadWP(self):
+        '''
+        Load Water-Path.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 01/12/2023
+        '''
+        if os.path.isfile(self.WP_path):
+            with open(self.WP_path, 'rb') as f:
+                self.WPraw = np.fromfile(f)
+        else:
+            self.WPraw = None
+    
+    def loadTTandPE(self):
+        '''
+        Load Acq data (TE and PE).
+
+        Returns
+        -------
+        None.
+
+        Arnau, 01/12/2023
+        '''
+        if os.path.isfile(self.Acqdata_path) and self.config_dict is not None:
+            self.TTraw, self.PEraw = USL.load_bin_acqs(self.Acqdata_path, self.config_dict['N_acqs'])
+        else:
+            self.TTraw, self.PEraw = None, None
+    
+    def loadPEref(self):
+        '''
+        Load Pulse-Echo reference.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 01/12/2023
+        '''
+        if os.path.isfile(self.PEref_path):
+            with open(self.PEref_path, 'rb') as f:
+                self.PEref = np.fromfile(f)
+        else:
+            self.PEref = None
+    
+    def loadPEref2(self):
+        '''
+        Load Pulse-Echo reference for second face.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 01/12/2023
+        '''
+        if os.path.isfile(self.PEref2_path):
+            with open(self.PEref2_path, 'rb') as f:
+                self.PEref2 = np.fromfile(f)
+        else:
+            if self.PEref is not None:
+                self.PEref2 = self.PEref.copy()
+            else:
+                self.PEref2 = None
+    
+    def checkFiles(self):
+        '''
+        Check which files do not exist.
+
+        Returns
+        -------
+        None.
+        
+        Arnau, 01/12/2023
+        '''
+        if not os.path.isfile(self.Config_path):
+            print(f'Config File Not Found: {self.Config_path}')
+        if not os.path.isfile(self.Results_path):
+            print(f'Results File Not Found: {self.Results_path}')
+        if not os.path.isfile(self.Temperature_path):
+            print(f'Temperature File Not Found: {self.Temperature_path}')
+        if not os.path.isfile(self.WP_path):
+            print(f'Water-Path File Not Found: {self.WP_path}')
+        if not os.path.isfile(self.Acqdata_path):
+            print(f'Acq. data File Not Found: {self.Acqdata_path}')
+        if not os.path.isfile(self.PEref_path):
+            print(f'Pulse-Echo Reference File Not Found: {self.PEref_path}')
+        if not os.path.isfile(self.PEref2_path):
+            print(f'Second Face Pulse-Echo Reference File Not Found: {self.PEref2_path}')
+    
+    def load(self):
         '''
         Load all data.
 
@@ -76,25 +268,40 @@ class RealtimeSP:
         -------
         None.
 
-        Arnau, 12/05/2023
+        Arnau, 01/12/2023
         '''
-        self.config_dict, self.results_dict, self.temperature_dict, self.WPraw, self.TTraw, self.PEraw = USL.load_all(self.Path)
-        
-        with open(self.PEref_path, 'rb') as f:
-            self.PEref = np.fromfile(f)
-        
+        self.loadConfigDict()
+        self.loadResultsDict()
+        self.loadTemperatureDict()
+        self.loadWP()
+        self.loadTTandPE()
+        self.loadPEref()
+        self.loadPEref2()
+    
+    def setParamsFromFiles(self):
+        '''
+        Set several parameters from config, results and temperature files.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 01/12/2023
+        '''
         self.Fs = self.config_dict['Fs']
         self.Ts = self.config_dict['Ts_acq']
         self.N_acqs = self.config_dict['N_acqs']
-        self.temperature = self.temperature_dict['Inside']
-        self.Cw = self.temperature_dict['Cw']
+        self.temperature_inside = self.temperature_dict['Inside'] if 'Inside' in self.temperature_dict else None
+        self.temperature_outside = self.temperature_dict['Outside'] if 'Outside' in self.temperature_dict else None
+        self.Cw = USS.temp2sos(self.temperature_outside, material=self.Cw_material) if 'Outside' in self.temperature_dict else self.temperature_dict['Cw']
+        self.Cfromtemp = USS.temp2sos(self.temperature_inside, material=self.material)
         self.Lc = self.results_dict['Lc']
         if 'LM' in self.results_dict: self.L = self.results_dict['LM']
         if 'L' in self.results_dict: self.L = self.results_dict['L']
         if 'CM' in self.results_dict: self.C = self.results_dict['CM']
         if 'C' in self.results_dict: self.C = self.results_dict['C']
         if 'Cc' in self.results_dict: self.Cc = self.results_dict['Cc']
-        
+    
     def windowAscans(self, Loc_WP: int=3300, Loc_TT: int=3200, Loc_PER: int=1000, Loc_PETR: int=7000,
                      WinLen_WP: int=1000, WinLen_TT: int=1000, WinLen_PER: int=1300, WinLen_PETR: int=1300):
         '''
@@ -147,7 +354,7 @@ class RealtimeSP:
         
         self.windowed = True
     
-    def computeTOF(self, windowXcor=False, correction=True, filter_tofs_pe=True, UseHilbEnv=False):
+    def computeTOF(self, windowXcor=False, correction=True, filter_tofs_pe=True, UseHilbEnv=False, windowSecondFace=True):
         '''
         Compute Time-Of-Flights.
 
@@ -164,12 +371,15 @@ class RealtimeSP:
             mHz. The default is False.
         UseHilbEnv : bool, optional
             If True, uses envelope instead of raw signal. The default is False.
-            
+        windowSecondFace : bool, optional
+            If True, apply windowing to the second face's echoes to ensure that
+            the first one is found first. Default is True.
+        
         Returns
         -------
         None.
         
-        Arnau, 18/05/2023
+        Arnau, 09/11/2023
         '''
         def TOF(x, y, UseHilbEnv):
             return USF.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=UseHilbEnv, UseCentroid=False)[0]
@@ -185,6 +395,8 @@ class RealtimeSP:
                                 param1=0.25, param2=1, Span=len(MyXcor), Delay=peak - int(50/2))
             MyXcor *= Win
             return USF.CosineInterpMax(MyXcor, UseHilbEnv=UseHilbEnv)
+        def FindMax(x):
+            return USF.CosineInterpMax(x, xcor=False, UseHilbEnv=True)
         
         if correction:
             self.tofs_pe = np.apply_along_axis(TOF, 0, self.PEraw, self.PEraw[:,0], UseHilbEnv)/2
@@ -194,7 +406,13 @@ class RealtimeSP:
             else:
                 b_IIR, a_IIR = scsig.iirfilter(self.lpf_order, 2*self.lpf_fc*self.Ts, btype='lowpass')
                 self.tofs_pe_lpf = scsig.filtfilt(b_IIR, a_IIR, self.tofs_pe)
-        tof_correction = self.tofs_pe_lpf if filter_tofs_pe else self.tofs_pe           
+            tof_correction = self.tofs_pe_lpf if filter_tofs_pe else self.tofs_pe           
+        
+        self.tw = FindMax(self.WP) + self.config_dict['Smin1']
+        if self.windowed:
+            self.tT = np.apply_along_axis(FindMax, 0, self.TT) + self.config_dict['Smin1']
+        else:
+            self.tT = np.apply_along_axis(FindMax, 0, self.TTraw) + self.config_dict['Smin1']
         
         if self.windowed:
             if windowXcor:
@@ -211,24 +429,34 @@ class RealtimeSP:
             print('ToF_RW done.')
     
             # Second face
-            _PEtemp = self.PE_TR.copy()
-            mref = np.argmax(self.PEref)
-            _toftemp = np.apply_along_axis(TOF, 0, _PEtemp, self.PEref, True)
-            for i, t in enumerate(_toftemp):
-                _PEtemp[int(t + mref - 70) : int(t + mref + 70), i] = 0
-            _toftemp2 = np.apply_along_axis(TOF, 0, _PEtemp, self.PEref, True)
-            self._PEtemp  = _PEtemp
-            self.ToF_TRW = np.zeros_like(self.ToF_RW)
-            for i in range(len(_toftemp)):
-                if _toftemp[i] > _toftemp2[i]:
-                    self.ToF_TRW[0,i] = _toftemp2[i]
-                    self.ToF_TRW[1,i] = _toftemp[i]
+            if windowSecondFace:
+                _PEtemp = self.PE_TR.copy()
+                mref = np.argmax(self.PEref)
+                _toftemp = np.apply_along_axis(TOF, 0, _PEtemp, self.PEref, True)
+                for i, t in enumerate(_toftemp):
+                    _PEtemp[int(t + mref - 70) : int(t + mref + 70), i] = 0
+                _toftemp2 = np.apply_along_axis(TOF, 0, _PEtemp, self.PEref, True)
+                self._PEtemp  = _PEtemp
+                self.ToF_TRW = np.zeros_like(self.ToF_RW)
+                for i in range(len(_toftemp)):
+                    if _toftemp[i] > _toftemp2[i]:
+                        self.ToF_TRW[0,i] = _toftemp2[i]
+                        self.ToF_TRW[1,i] = _toftemp[i]
+                    else:
+                        self.ToF_TRW[0,i] = _toftemp[i]
+                        self.ToF_TRW[1,i] = _toftemp2[i]
+            else:
+                # Iterative Deconvolution: second face
+                # self.ToF_TRW = np.apply_along_axis(ID, 0, self.PE_TR, self.PEref2, UseHilbEnv)
+                if os.path.isfile(self.PEref2_path):
+                    self._temp = np.apply_along_axis(ID, 0, self.PE_TR, self.PEref2, True)
+                    self.ToF_TRW = self._temp.copy()
+                    self.ToF_TRW[1] = self._temp[1]
+                    self.ToF_TRW[0] = self._temp[0]
+                    self.peref2_tof = TOF(self.PEref2, self.PEref, True)
+                    self.ToF_TRW = self.ToF_TRW + self.peref2_tof
                 else:
-                    self.ToF_TRW[0,i] = _toftemp[i]
-                    self.ToF_TRW[1,i] = _toftemp2[i]
-            
-            # Iterative Deconvolution: second face
-            # self.ToF_TRW = np.apply_along_axis(ID, 0, self.PE_TR, self.PEref, UseHilbEnv)
+                    self.ToF_TRW = np.apply_along_axis(ID, 0, self.PE_TR, self.PEref, True)
             self.ToF_TR21 = self.ToF_TRW[1] - self.ToF_TRW[0]
             self.ToF_TR1R2 = self.ToF_TRW[0] - self.ToF_RW[1]
             print('ToF_TRW done.')
@@ -247,14 +475,14 @@ class RealtimeSP:
             self.ToF_TR1R2 = self.ToF_RW[2] - self.ToF_RW[1]
             print('ToF_RW and ToF_TRW done.')           
 
-    def computeResults(self, Cc=5490, charac_container=False, cw=None):
+    def computeResults(self, Cc=2726, charac_container=False, cw=None):
         '''
         Compute results.
 
         Parameters
         ----------
         Cc : float, optional
-            Speed of sound in the container in m/s. The default is 4459.
+            Speed of sound in the container in m/s. The default is 5490.
         charac_container : bool, optional
             If True, compute Cc and Lc assuming water inside. The default is
             False.
@@ -278,7 +506,16 @@ class RealtimeSP:
             self.Lc = self.Cc*self.ToF_R21/2/self.Fs # container thickness - m
             self.L = (self.ToF_R21 + np.abs(self.ToF_TW) + self.ToF_TR1R2/2)*cw/self.Fs - 2*self.Lc # material thickness - m
             self.C = 2*self.L/self.ToF_TR1R2*self.Fs # material speed - m/s
-
+    
+    def computeResultsFinal(self, Cc=2726, lpf_temperature=True):
+        self.Cc = Cc
+        cw0 = USS.temp2sos(self.config_dict['WP_temperature'], material='water')
+        cw = self.Cw_lpf if lpf_temperature else self.Cw
+        
+        self.Lc = self.Cc*self.ToF_R21/2/self.Fs # container thickness - m
+        self.L = (cw0*self.tw + cw*(self.ToF_R21 - self.tT + self.ToF_TR1R2/2))/self.Fs - 2*self.Lc # material thickness - m
+        self.C = 2*self.L/self.ToF_TR1R2*self.Fs # material speed - m/s
+        
     def LPFtemperature(self):
         '''
         Filter the temperature readings with a Low-Pass IIR filter of order 2 
@@ -296,8 +533,10 @@ class RealtimeSP:
             print(f'Signal does not have frequency components beyond {self.lpf_fc*1e3} mHz, therefore it is not filtered.')
         else:
             b_IIR, a_IIR = scsig.iirfilter(self.lpf_order, 2*self.lpf_fc*self.Ts, btype='lowpass')
-            self.temperature_lpf = scsig.filtfilt(b_IIR, a_IIR, self.temperature)
-            self.Cw_lpf = USS.temp2sos(self.temperature_lpf, material=self.Cw_material)
+            self.temperature_inside_lpf = scsig.filtfilt(b_IIR, a_IIR, self.temperature_inside)
+            self.temperature_outside_lpf = scsig.filtfilt(b_IIR, a_IIR, self.temperature_outside)
+            self.Cw_lpf = USS.temp2sos(self.temperature_outside_lpf, material=self.Cw_material)
+            self.Cfromtemp_lpf = USS.temp2sos(self.temperature_inside_lpf, material=self.material)
     
     def saveResults(self):
         '''
@@ -332,16 +571,26 @@ class RealtimeSP:
         -------
         None.
 
-        Arnau, 27/07/2023
+        Arnau, 17/11/2023
         '''
-        with open(self.Temperature_path, 'w') as f:
-            row = 'Inside,Inside_lpf,Cw,Cw_lpf'
-            f.write(row+'\n')
-
-        with open(self.Temperature_path, 'a') as f:
-            for i in range(self.N_acqs):
-                row = f'{self.temperature[i]},{self.temperature_lpf[i]},{self.Cw[i]},{self.Cw_lpf[i]}'
+        if 'Outside' in self.temperature_dict:
+            with open(self.Temperature_path, 'w') as f:
+                row = 'Inside,Inside_lpf,Outside,Outside_lpf,Cw,Cw_lpf'
                 f.write(row+'\n')
+    
+            with open(self.Temperature_path, 'a') as f:
+                for i in range(self.N_acqs):
+                    row = f'{self.temperature_inside[i]},{self.temperature_inside_lpf[i]},{self.temperature_outside[i]},{self.temperature_outside_lpf[i]},{self.Cw[i]},{self.Cw_lpf[i]}'
+                    f.write(row+'\n')
+        else:
+            with open(self.Temperature_path, 'w') as f:
+                row = 'Inside,Inside_lpf,Cw,Cw_lpf'
+                f.write(row+'\n')
+    
+            with open(self.Temperature_path, 'a') as f:
+                for i in range(self.N_acqs):
+                    row = f'{self.temperature_inside[i]},{self.temperature_inside_lpf[i]},{self.Cw[i]},{self.Cw_lpf[i]}'
+                    f.write(row+'\n')
 
 
 # =============================================================================
@@ -349,21 +598,102 @@ class RealtimeSP:
 # =============================================================================
 
 class DogboneSP:
-    def __init__(self, Path, compute=True, imgName=None, **kwargs):
+    def __init__(self, Path, compute=True, imgName=None, Verbose=False, **kwargs):
         '''Class for processing experiment data. If compute is True, the constructor computes everything.'''
         self.Path = Path
         self.name = Path.split('\\')[-1]
         self.imgName = imgName
         
-        self._paths() # set paths
-        self._load() # load data
-        self._angleAndScanpos() # get rotation angle and scanner position vector
+        self.paths() # set paths
+        if Verbose: self.checkFiles()
+        self.load() # load data
+        self.setParamsFromFiles()
+        self.angleAndScanpos() # get rotation angle and scanner position vector
         self.LPFtemperature() # Low-Pass filter temperature
         
         if compute:
             self.computeAll(**kwargs)
+            
+        
+        
+        # =======
+        # METHODS
+        # =======
+        # paths()
+        # loadConfigDict()
+        # loadResultsDict()
+        # loadTemperatureDict()
+        # loadScanpattern()
+        # loadWP()
+        # loadTTandPE()
+        # loadPEref()
+        # loadPEref2()
+        # loadImg()
+        # loadArchDensity()
+        # checkFiles()
+        # load()
+        # setParamsFromFiles()
+        # windowAscans(Loc_WP: int=3300, Loc_TT: int=3200, Loc_PER: int=1000, Loc_PETR: int=7000,
+        #              WinLen_WP: int=1000, WinLen_TT: int=1000, WinLen_PER: int=1300, WinLen_PETR: int=1300)
+        
+        
+        # =========
+        # VARIABLES
+        # =========
+        # self.config_dict
+        # self.results_dict
+        # self.temperature_dict
+        # self.WPraw
+        # self.TTraw
+        # self.PEraw
+        # self.PEref
+        # self.PEref2
+        # self.scanpattern
+        # self.img
+        # self.archdensity
+        # ---------
+        # self.Fs
+        # self.Ts
+        # self.N_acqs
+        # self.temperature
+        # self.Cw
+        # self.L
+        # self.CL
+        # self.Cs
+        # self.density
+        # self.shear_modulus
+        # self.young_modulus
+        # self.bulk_modulus
+        # self.poisson_ratio
+        # ---------
+        # self.Ridx
+        # self.theta
+        # self.scanpos_step
+        # self.scanpos
+        # ---------
+        
+        
+        
+        # ---------
+        # self.Win_PER
+        # self.Win_PETR
+        # self.Win_WP
+        # self.Win_TT
+        # self.WP
+        # self.PE_R
+        # self.PE_TR
+        # self.TT
+        # self.windowed
+        # ---------
+        
+        
+        
+        
+        
+        
+        
     
-    def _paths(self):
+    def paths(self):
         '''
         Set all file paths of the experiment. Expected file names are:
              'config.txt'
@@ -378,10 +708,11 @@ class DogboneSP:
         -------
         None.
 
-        Arnau, 16/03/2023
+        Arnau, 04/01/2024
         '''
         self.Experiment_config_file_name = 'config.txt' # Without Backslashes
         self.Experiment_PEref_file_name = 'PEref.bin'
+        self.Experiment_PEref2_file_name = 'PEref2.bin'
         self.Experiment_WP_file_name = 'WP.bin'
         self.Experiment_acqdata_file_name = 'acqdata.bin'
         self.Experiment_Temperature_file_name = 'temperature.txt'
@@ -392,6 +723,7 @@ class DogboneSP:
         
         self.Config_path = os.path.join(self.Path, self.Experiment_config_file_name)
         self.PEref_path = os.path.join(self.Path, self.Experiment_PEref_file_name)
+        self.PEref2_path = os.path.join(self.Path, self.Experiment_PEref2_file_name)
         self.WP_path = os.path.join(self.Path, self.Experiment_WP_file_name)
         self.Acqdata_path = os.path.join(self.Path, self.Experiment_acqdata_file_name)
         self.Temperature_path = os.path.join(self.Path, self.Experiment_Temperature_file_name)
@@ -400,7 +732,180 @@ class DogboneSP:
         self.Results_path = os.path.join(self.Path, self.Experiment_results_file_name)
         self.Archdensity_path = os.path.join(self.Path, self.Experiment_archdensity_file_name)
     
-    def _load(self):
+    
+    
+    def loadConfigDict(self):
+        '''
+        Load Config dictionary.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        self.config_dict = USL.load_config(self.Config_path) if os.path.isfile(self.Config_path) else None
+    
+    def loadResultsDict(self):
+        '''
+        Load Results dictionary.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        self.results_dict = USL.load_columnvectors_fromtxt(self.Results_path) if os.path.isfile(self.Results_path) else None
+    
+    def loadTemperatureDict(self):
+        '''
+        Load Temperature dictionary.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        self.temperature_dict = USL.load_columnvectors_fromtxt(self.Temperature_path) if os.path.isfile(self.Temperature_path) else None
+    
+    def loadScanpattern(self):
+        '''
+        Load scanpattern.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        self.scanpattern = USL.load_columnvectors_fromtxt(self.Scanpath_path, delimiter=',', header=False, dtype=str) if os.path.isfile(self.Scanpath_path) else None
+    
+    def loadWP(self):
+        '''
+        Load Water-Path.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        if os.path.isfile(self.WP_path):
+            with open(self.WP_path, 'rb') as f:
+                self.WPraw = np.fromfile(f)
+        else:
+            self.WPraw = None
+        self.WP = self.WPraw.copy()
+    
+    def loadTTandPE(self):
+        '''
+        Load Acq data (TE and PE).
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        if os.path.isfile(self.Acqdata_path) and self.config_dict is not None:
+            self.TTraw, self.PEraw = USL.load_bin_acqs(self.Acqdata_path, self.config_dict['N_acqs'])
+        else:
+            self.TTraw, self.PEraw = None, None
+        self.TT, self.PE = self.TTraw.copy(), self.PEraw.copy()
+    
+    def loadPEref(self):
+        '''
+        Load Pulse-Echo reference.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        if os.path.isfile(self.PEref_path):
+            with open(self.PEref_path, 'rb') as f:
+                self.PEref = np.fromfile(f)
+        else:
+            self.PEref = None
+    
+    def loadPEref2(self):
+        '''
+        Load Pulse-Echo reference for second face.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        if os.path.isfile(self.PEref2_path):
+            with open(self.PEref2_path, 'rb') as f:
+                self.PEref2 = np.fromfile(f)
+        else:
+            if self.PEref is not None:
+                self.PEref2 = self.PEref.copy()
+            else:
+                self.PEref2 = None
+    
+    def loadImg(self):
+        '''
+        Load Image of specimen.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        self.img = mpimg.imread(self.Img_path) if os.path.isfile(self.Img_path) else None
+
+    def loadArchDensity(self):
+        '''
+        Load Archimedean density.
+
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        self.archdensity = float(USL.load_columnvectors_fromtxt(self.Archdensity_path, header=False, dtype=float)) if os.path.isfile(self.Archdensity_path) else None
+    
+    def checkFiles(self):
+        '''
+        Check which files do not exist.
+
+        Returns
+        -------
+        None.
+        
+        Arnau, 01/12/2023
+        '''
+        if not os.path.isfile(self.Config_path):
+            print(f'Config File Not Found: {self.Config_path}')
+        if not os.path.isfile(self.Results_path):
+            print(f'Results File Not Found: {self.Results_path}')
+        if not os.path.isfile(self.Temperature_path):
+            print(f'Temperature File Not Found: {self.Temperature_path}')
+        if not os.path.isfile(self.WP_path):
+            print(f'Water-Path File Not Found: {self.WP_path}')
+        if not os.path.isfile(self.Acqdata_path):
+            print(f'Acq. data File Not Found: {self.Acqdata_path}')
+        if not os.path.isfile(self.PEref_path):
+            print(f'Pulse-Echo Reference File Not Found: {self.PEref_path}')
+        if not os.path.isfile(self.PEref2_path):
+            print(f'Second Face Pulse-Echo Reference File Not Found: {self.PEref2_path}')
+        if not os.path.isfile(self.Scanpath_path):
+            print(f'Scanpattern File Not Found: {self.Scanpath_path}')
+        if not os.path.isfile(self.Img_path):
+            print(f'Image File Not Found: {self.Img_path}')
+        if not os.path.isfile(self.Archdensity_path):
+            print(f'Archimedean Density File Not Found: {self.Archdensity_path}')
+    
+    def load(self):
         '''
         Load all data.
 
@@ -408,55 +913,45 @@ class DogboneSP:
         -------
         None.
 
-        Arnau, 16/05/2023
+        Arnau, 01/12/2023
         '''
-        # Config
-        self.config_dict = USL.load_config(self.Config_path)
-        self.Fs = self.config_dict['Fs']
-        self.N_acqs = self.config_dict['N_acqs']
-        self.Ts = self.config_dict['Ts_acq']
-        
-        # Data
-        self.TT, self.PE = USL.load_bin_acqs(self.Acqdata_path, self.config_dict['N_acqs'])
-        
-        # Temperature and CW
-        self.temperature_dict = USL.load_columnvectors_fromtxt(self.Temperature_path)
-        self.temperature = self.temperature_dict['Inside']
-        self.Cw = self.temperature_dict['Cw']
-        
-        # Scan pattern
-        self.scanpattern = USL.load_columnvectors_fromtxt(self.Scanpath_path, delimiter=',', header=False, dtype=str)
-        
-        # Results
-        if os.path.exists(self.Results_path):
-            self.results_dict = USL.load_columnvectors_fromtxt(self.Results_path)
-            if 'L'             in self.results_dict: self.L             = self.results_dict['L']
-            if 'CL'            in self.results_dict: self.CL            = self.results_dict['CL']
-            if 'Cs'            in self.results_dict: self.Cs            = self.results_dict['Cs']
-            if 'density'       in self.results_dict: self.density       = self.results_dict['density']
-            if 'shear_modulus' in self.results_dict: self.shear_modulus = self.results_dict['shear_modulus']
-            if 'young_modulus' in self.results_dict: self.young_modulus = self.results_dict['young_modulus']
-            if 'bulk_modulus'  in self.results_dict: self.bulk_modulus  = self.results_dict['bulk_modulus']
-            if 'poisson_ratio' in self.results_dict: self.poisson_ratio = self.results_dict['poisson_ratio']
-        
-        # WP
-        with open(self.WP_path, 'rb') as f:
-            self.WP = np.fromfile(f)
-        
-        # PE ref
-        with open(self.PEref_path, 'rb') as f:
-            self.PEref = np.fromfile(f)
-        
-        # Image
-        if os.path.exists(self.Img_path):
-            self.img = mpimg.imread(self.Img_path)
-        else:
-            self.img = None
-        
-        if os.path.exists(self.Archdensity_path):
-            self.archdensity = float(USL.load_columnvectors_fromtxt(self.Archdensity_path, header=False, dtype=float))
+        self.loadConfigDict()
+        self.loadResultsDict()
+        self.loadTemperatureDict()
+        self.loadScanpattern()
+        self.loadWP()
+        self.loadTTandPE()
+        self.loadPEref()
+        self.loadPEref2()
+        self.loadImg()
+        self.loadArchDensity()
+    
+    def setParamsFromFiles(self):
+        '''
+        Set several parameters from config, results and temperature files.
 
-    def _angleAndScanpos(self):
+        Returns
+        -------
+        None.
+
+        Arnau, 11/12/2023
+        '''
+        self.Fs = self.config_dict['Fs']
+        self.Ts = self.config_dict['Ts_acq']
+        self.N_acqs = self.config_dict['N_acqs']
+        self.temperature = self.temperature_dict['Inside'] if 'Inside' in self.temperature_dict else None
+        self.Cw = self.temperature_dict['Cw'] if 'Cw' in self.temperature_dict else USS.temp2sos(self.temperature, material='water')
+        
+        self.L             = self.results_dict['L']             if 'L'             in self.results_dict else None
+        self.CL            = self.results_dict['CL']            if 'CL'            in self.results_dict else None
+        self.Cs            = self.results_dict['Cs']            if 'Cs'            in self.results_dict else None
+        self.density       = self.results_dict['density']       if 'density'       in self.results_dict else None
+        self.shear_modulus = self.results_dict['shear_modulus'] if 'shear_modulus' in self.results_dict else None
+        self.young_modulus = self.results_dict['young_modulus'] if 'young_modulus' in self.results_dict else None
+        self.bulk_modulus  = self.results_dict['bulk_modulus']  if 'bulk_modulus'  in self.results_dict else None
+        self.poisson_ratio = self.results_dict['poisson_ratio'] if 'poisson_ratio' in self.results_dict else None
+    
+    def angleAndScanpos(self):
         '''
         Obtain rotation angle nad generate position vector.
 
@@ -464,7 +959,7 @@ class DogboneSP:
         -------
         None.
 
-        Arnau, 16/03/2023
+        Arnau, 11/12/2023
         '''
         self.Ridx = [np.where(self.scanpattern == s)[0][0] for s in self.scanpattern if 'R' in s][0] + 1
         self.theta = float(self.scanpattern[self.Ridx-1][1:]) * np.pi / 180
@@ -491,101 +986,188 @@ class DogboneSP:
             self.temperature_lpf = scsig.filtfilt(b_IIR, a_IIR, self.temperature)
             self.Cw_lpf = USS.temp2sos(self.temperature_lpf, material='water')
     
-    def computeTOF(self, UseHilbEnv: bool=False, UseCentroid: bool=False, WindowTTshear: bool=False, Loc_TT: int=None):
-        '''
-        Compute all Time-Of-Flights.
+    # def computeTOF(self, UseHilbEnv: bool=False, UseCentroid: bool=False, WindowTTshear: bool=False, Loc_TT: int=None):
+    #     '''
+    #     Compute all Time-Of-Flights.
 
-        Parameters
-        ----------
-        UseHilbEnv : bool, optional
-            Use maximum of the correlation's envelope. The default is False.
-        UseCentroid : bool, optional
-            Use centroid of the correlation. The default is False.
-        WindowTTshear : bool, optional
-            Window the shear TT pulse. The default is False.
-        Loc_TT : int, optional
-            Location of the TT window. If None, it is automatically estimated
-            using the average of the first 20 mm of the specimen. The default
-            is None.
+    #     Parameters
+    #     ----------
+    #     UseHilbEnv : bool, optional
+    #         Use maximum of the correlation's envelope. The default is False.
+    #     UseCentroid : bool, optional
+    #         Use centroid of the correlation. The default is False.
+    #     WindowTTshear : bool, optional
+    #         Window the shear TT pulse. The default is False.
+    #     Loc_TT : int, optional
+    #         Location of the TT window. If None, it is automatically estimated
+    #         using the average of the first 20 mm of the specimen. The default
+    #         is None.
             
-        Returns
-        -------
-        None.
+    #     Returns
+    #     -------
+    #     None.
 
-        Arnau, 31/08/2023
-        '''
+    #     Arnau, 31/08/2023
+    #     '''
+    #     def TOF(x, y):
+    #         return USF.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=UseHilbEnv, UseCentroid=UseCentroid)[0]
+
+    #     def ID(x, y):           
+    #         return USF.deconvolution(x, y, stripIterNo=2, UseHilbEnv=UseHilbEnv, Extend=True, Same=False)[0]
+
+    #     if WindowTTshear:
+    #         if Loc_TT is None:
+    #             self.ToF_TW = np.apply_along_axis(TOF, 0, self.TT, self.WP)
+    #             self.winTT(Loc_TT)
+    #             self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
+    #         else:
+    #             self.winTT(Loc_TT)
+    #             self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
+    #     else:
+    #         self.ToF_TW = np.apply_along_axis(TOF, 0, self.TT, self.WP) # tt - tw
+        
+    #     self.ToF_RW = np.apply_along_axis(ID, 0, self.PE, self.PEref)
+    #     self.ToF_R21 = self.ToF_RW[1] - self.ToF_RW[0]
+
+    # def computeTOFFinal(self, UseHilbEnv: bool=False, UseCentroid: bool=False, WindowTTshear: bool=False, Loc_TT: int=None):
+    #     def TOF(x, y):
+    #         return USF.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=UseHilbEnv, UseCentroid=UseCentroid)[0]
+    #     def ID(x, y):           
+    #         return USF.deconvolution(x, y, stripIterNo=2, UseHilbEnv=UseHilbEnv, Extend=True, Same=False)[0]
+    #     def FindMax(x):
+    #         return USF.CosineInterpMax(x, xcor=False, UseHilbEnv=False)
+
+    #     self.tw = FindMax(self.WP) + self.config_dict['Smin1']
+    #     if WindowTTshear:
+    #         if Loc_TT is None:
+    #             self.ToF_TW = np.apply_along_axis(TOF, 0, self.TT, self.WP)
+    #             self.winTT(Loc_TT)
+    #             self.tT = np.apply_along_axis(FindMax, 0, self.windowedTT) + self.config_dict['Smin1']
+    #         else:
+    #             self.winTT(Loc_TT)
+    #             self.tT = np.apply_along_axis(FindMax, 0, self.windowedTT) + self.config_dict['Smin1']
+    #     else:
+    #         self.tT = np.apply_along_axis(FindMax, 0, self.TT) + self.config_dict['Smin1']
+        
+    #     self.ToF_RW = np.apply_along_axis(ID, 0, self.PE, self.PEref)
+    #     self.ToF_R21 = self.ToF_RW[1] - self.ToF_RW[0]
+
+
+    def computeTOF(self, UseHilbEnv: bool=False, UseCentroid: bool=False, WindowTTshear: bool=False, Loc_TT: int=None):
         def TOF(x, y):
             return USF.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=UseHilbEnv, UseCentroid=UseCentroid)[0]
-
         def ID(x, y):           
             return USF.deconvolution(x, y, stripIterNo=2, UseHilbEnv=UseHilbEnv, Extend=True, Same=False)[0]
-
+        def FindMax(x):
+            return USF.CosineInterpMax(x, xcor=False, UseHilbEnv=True)
+        
+        self.cw0 = USS.temp2sos(self.config_dict['WP_temperature'], material='water')
+        self.tw0 = FindMax(self.WP) + self.config_dict['Smin1']
+        self.tw = self.cw0 / self.Cw_lpf * self.tw0
+        
+        self.WPs = np.zeros([len(self.WP),len(self.tw)])
+        for i,t in enumerate(self.tw):
+            self.WPs[:,i] = USF.ShiftSubsampleByfft(self.WP, t - self.tw0)
+        
         if WindowTTshear:
             if Loc_TT is None:
                 self.ToF_TW = np.apply_along_axis(TOF, 0, self.TT, self.WP)
-                self.winTT(Loc_TT)
-                self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
-            else:
-                self.winTT(Loc_TT)
-                self.ToF_TW = np.apply_along_axis(TOF, 0, self.windowedTT, self.WP)
-        else:
-            self.ToF_TW = np.apply_along_axis(TOF, 0, self.TT, self.WP)
+            self.winTT(Loc_TT)
         
+        self.ToF_TW = np.zeros(len(self.tw))
+        for i in range(len(self.tw)):
+            tt = self.windowedTT[:,i] if WindowTTshear else self.TT[:,i]
+            self.ToF_TW[i] = USF.CalcToFAscanCosine_XCRFFT(tt, self.WPs[:,i], UseHilbEnv=UseHilbEnv, UseCentroid=UseCentroid)[0]
+                        
         self.ToF_RW = np.apply_along_axis(ID, 0, self.PE, self.PEref)
         self.ToF_R21 = self.ToF_RW[1] - self.ToF_RW[0]
         
-    def computeResults(self, Cw_mode='mean'):
+    # def computeResults(self, Cw_mode='mean'):
+    #     '''
+    #     Compute Thickness (L), Longitudinal velocity (CL), Shear velocity (Cs).
+
+    #     Parameters
+    #     ----------
+    #     Cw_mode : str, optional
+    #         This parameter defines what speed of sound in water to use. The
+    #         available options are:
+    #             'temperature':
+    #                 The Cw obtained from the temperature measurements.
+    #             'mean':
+    #                 The mean of the Cw obtained from the temperature
+    #                 measurements.
+    #             'lpf':
+    #                 The low-pass filtered Cw obtained from the temperature
+    #                 measurements.
+    #             any other value:
+    #                 The Cw measured directly with the ToF (config_dict['Cw']).
+    #         The default is 'mean'.
+
+    #     Returns
+    #     -------
+    #     None.
+
+    #     Arnau, 16/03/2023
+    #     '''
+    #     cw = self.getCwfromCwMode(Cw_mode)
+    #     cw_aux = np.asarray([cw]).flatten()[::-1]
+
+    #     self.L = cw/2*(-2*self.ToF_TW + self.ToF_R21)/self.Fs # thickness - m
+    #     self.CL = cw*(-2*self.ToF_TW/self.ToF_R21 + 1) # longitudinal velocity - m/s
+    #     self.Cs = cw_aux / np.sqrt(np.sin(self.theta)**2 + (cw_aux * self.ToF_TW[::-1] / (self.L * self.Fs) + np.cos(self.theta))**2) # shear velocity - m/s
+
+    #     self.CL = self.CL[:self.Ridx]
+    #     self.L = self.L[:self.Ridx]
+    #     self.Cs = self.Cs[:self.Ridx]
+
+    # def computeResultsFinal(self, lpf_temperature=True):        
+    #     cw0 = USS.temp2sos(self.config_dict['WP_temperature'], material='water')
+    #     cw = self.Cw_lpf if lpf_temperature else self.Cw
+    #     cw_aux = np.asarray([cw]).flatten()[::-1]
+        
+    #     self.L = ((cw0*self.tw - cw*self.tT) + cw*self.ToF_R21/2)/self.Fs # thickness - m
+    #     self.CL = 2*(cw0*self.tw - cw*self.tT)/self.ToF_R21 + cw # longitudinal velocity - m/s
+    #     self.Cs = cw_aux / np.sqrt(np.sin(self.theta)**2 + ((cw_aux*self.tT[::-1] - cw0*self.tw) / (self.L * self.Fs) + np.cos(self.theta))**2) # shear velocity - m/s
+
+    #     self.CL = self.CL[:self.Ridx]
+    #     self.L = self.L[:self.Ridx]
+    #     self.Cs = self.Cs[:self.Ridx]
+
+    def computeResults(self):
         '''
         Compute Thickness (L), Longitudinal velocity (CL), Shear velocity (Cs).
-
-        Parameters
-        ----------
-        Cw_mode : str, optional
-            This parameter defines what speed of sound in water to use. The
-            available options are:
-                'temperature':
-                    The Cw obtained from the temperature measurements.
-                'mean':
-                    The mean of the Cw obtained from the temperature
-                    measurements.
-                'lpf':
-                    The low-pass filtered Cw obtained from the temperature
-                    measurements.
-                any other value:
-                    The Cw measured directly with the ToF (config_dict['Cw']).
-            The default is 'mean'.
 
         Returns
         -------
         None.
 
-        Arnau, 16/03/2023
+        Arnau, 05/12/2023
         '''
-        cw = self.getCwfromCwMode(Cw_mode)
+        cw = self.Cw_lpf
         cw_aux = np.asarray([cw]).flatten()[::-1]
-
-        self.L = cw/2*(2*np.abs(self.ToF_TW) + self.ToF_R21)/self.Fs # thickness - m
-        self.CL = cw*(2*np.abs(self.ToF_TW)/self.ToF_R21 + 1) # longitudinal velocity - m/s
-        self.Cs = cw_aux / np.sqrt(np.sin(self.theta)**2 + (cw_aux * np.abs(self.ToF_TW[::-1]) / (self.L * self.Fs) + np.cos(self.theta))**2) # shear velocity - m/s
+                
+        self.L = cw/2*(-2*self.ToF_TW + self.ToF_R21)/self.Fs # thickness - m
+        self.CL = cw*(-2*self.ToF_TW/self.ToF_R21 + 1) # longitudinal velocity - m/s
+        self.Cs = cw_aux / np.sqrt(np.sin(self.theta)**2 + (cw_aux * self.ToF_TW[::-1] / (self.L * self.Fs) + np.cos(self.theta))**2) # shear velocity - m/s
 
         self.CL = self.CL[:self.Ridx]
         self.L = self.L[:self.Ridx]
         self.Cs = self.Cs[:self.Ridx]
 
-    def getCwfromCwMode(self, Cw_mode):
-        self.Cw_mode = Cw_mode
-        if type(Cw_mode) is not str:
-            cw = self.config_dict['Cw']
-        else:
-            if Cw_mode.lower() not in ['mean', 'lpf', 'temperature']:
-                cw = self.config_dict['Cw']
-            elif Cw_mode.lower()=='temperature':
-                cw = self.Cw
-            elif Cw_mode.lower()=='mean':
-                cw = np.mean(self.Cw)
-            elif Cw_mode.lower()=='lpf':
-                cw = self.Cw_lpf
-        return cw
+    # def getCwfromCwMode(self, Cw_mode):
+    #     self.Cw_mode = Cw_mode
+    #     if type(Cw_mode) is not str:
+    #         cw = self.config_dict['Cw']
+    #     else:
+    #         if Cw_mode.lower() not in ['mean', 'lpf', 'temperature']:
+    #             cw = self.config_dict['Cw']
+    #         elif Cw_mode.lower()=='temperature':
+    #             cw = self.Cw
+    #         elif Cw_mode.lower()=='mean':
+    #             cw = np.mean(self.Cw)
+    #         elif Cw_mode.lower()=='lpf':
+    #             cw = self.Cw_lpf
+    #     return cw
 
     def computeDensity(self, UseAvgAcrossGains: bool=False):
         '''
@@ -624,7 +1206,7 @@ class DogboneSP:
         d = Zw / self.CL * (self.Aref + self.AR1) / (self.Aref - self.AR1) # density (kg/m^3)
         self.density = d * 1e-3 # density (g/cm^3)
 
-    def computeModuli(self, UseArchDensity=False):
+    def computeModuli(self, UseArchDensity=True):
         '''
         Computes the Shear modulus, Young's modulus, Bulk modulus and Poisson's
         ratio. To do this, the density, longitudinal velocity and shear
@@ -766,6 +1348,7 @@ class DogboneSP:
         return ax1, ax2
 
 
+#%%
 # =============================================================================
 # =============================================================================
 

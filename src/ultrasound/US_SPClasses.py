@@ -354,7 +354,7 @@ class RealtimeSP:
         
         self.windowed = True
     
-    def computeTOF(self, windowXcor=False, correction=True, filter_tofs_pe=True, UseHilbEnv=False, windowSecondFace=True):
+    def computeTOF_old(self, windowXcor=False, correction=True, filter_tofs_pe=True, UseHilbEnv=False, windowSecondFace=True):
         '''
         Compute Time-Of-Flights.
 
@@ -475,7 +475,143 @@ class RealtimeSP:
             self.ToF_TR1R2 = self.ToF_RW[2] - self.ToF_RW[1]
             print('ToF_RW and ToF_TRW done.')           
 
-    def computeResults(self, Cc=2726, charac_container=False, cw=None):
+    def computeTOF(self, windowXcor=False, filter_tofs_pe=True, UseHilbEnv=False, windowSecondFace=True):
+        '''
+        Compute Time-Of-Flights.
+
+        Parameters
+        ----------
+        windowXcor : bool, optional
+            If True, window correlation between TT and WP to obtain the ToF of
+            the first TT. Default is False.
+        filter_tofs_pe : bool, optional
+            If True, apply a filter to the correction to reduce noise. The
+            filter is a Low-Pass IIR filter of order 2 and cutoff frequency 2
+            mHz. The default is False.
+        UseHilbEnv : bool, optional
+            If True, uses envelope instead of raw signal. The default is False.
+        windowSecondFace : bool, optional
+            If True, apply windowing to the second face's echoes to ensure that
+            the first one is found first. Default is True.
+        
+        Returns
+        -------
+        None.
+        
+        Arnau, 08/01/2024
+        '''
+        def TOF(x, y, UseHilbEnv):
+            return USF.CalcToFAscanCosine_XCRFFT(x, y, UseHilbEnv=UseHilbEnv, UseCentroid=False)[0]
+        def ID(x, y, UseHilbEnv):
+            return USF.deconvolution(x, y, stripIterNo=2, UseHilbEnv=UseHilbEnv, Extend=True, Same=False)[0]
+        def ID4(x, y, UseHilbEnv):
+            return USF.deconvolution(x, y, stripIterNo=4, UseHilbEnv=UseHilbEnv, Extend=True, Same=False)[0]
+        def windowedXcorTOF(x, y, UseHilbEnv):
+            MyXcor = USF.fastxcorr(x, y, Extend=True, Same=False)
+            peaks = USF.find_Subsampled_peaks(np.abs(USF.envelope(MyXcor)), distance=50, prominence=0.01)
+            peak = peaks[peaks > len(MyXcor)/2][0]
+            Win = USF.makeWindow(SortofWin='tukey', WinLen=50,
+                                param1=0.25, param2=1, Span=len(MyXcor), Delay=peak - int(50/2))
+            MyXcor *= Win
+            return USF.CosineInterpMax(MyXcor, UseHilbEnv=UseHilbEnv)
+        def FindMax(x):
+            return USF.CosineInterpMax(x, xcor=False, UseHilbEnv=True)
+        
+        wp    = self.WP.copy()    if self.windowed else self.WPraw.copy()
+        tt    = self.TT.copy()    if self.windowed else self.TTraw.copy()
+        pe_r  = self.PE_R.copy()  if self.windowed else self.PEraw.copy()
+        pe_tr = self.PE_TR.copy() if self.windowed else self.PEraw.copy()
+        
+        self.cw0 = USS.temp2sos(self.config_dict['WP_temperature'], material='water')
+        self.tw0 = FindMax(wp) + self.config_dict['Smin1']
+        self.tw = self.cw0 / self.Cw_lpf * self.tw0
+        
+        # Correct Water-Paths
+        self.WPs = np.zeros([len(wp),len(self.tw)])
+        for i,t in enumerate(self.tw):
+            self.WPs[:,i] = USF.ShiftSubsampleByfft(wp, t - self.tw0)
+        
+        # Compute Through-Transmission ToFs with corrected Water-Paths
+        self.ToF_TW = np.zeros(len(self.tw))
+        for i in range(len(self.tw)):
+            self.ToF_TW[i] = windowedXcorTOF(tt[:,i], self.WPs[:,i], UseHilbEnv=UseHilbEnv) if windowXcor else TOF(tt[:,i], self.WPs[:,i], UseHilbEnv=UseHilbEnv)
+        print('ToF_TW done.')
+        
+        if self.windowed:
+            # Iterative Deconvolution: first face
+            self.ToF_RW = np.apply_along_axis(ID, 0, pe_r, self.PEref, UseHilbEnv)
+            self.ToF_R21 = self.ToF_RW[1] - self.ToF_RW[0]
+            print('ToF_RW done.')
+    
+            # Second face
+            if windowSecondFace:
+                mref = np.argmax(self.PEref)
+                _toftemp = np.apply_along_axis(TOF, 0, pe_tr, self.PEref, True)
+                for i, t in enumerate(_toftemp):
+                    pe_tr[int(t + mref - 70) : int(t + mref + 70), i] = 0
+                _toftemp2 = np.apply_along_axis(TOF, 0, pe_tr, self.PEref, True)
+                self._pe_tr  = pe_tr
+                self.ToF_TRW = np.zeros_like(self.ToF_RW)
+                for i in range(len(_toftemp)):
+                    if _toftemp[i] > _toftemp2[i]:
+                        self.ToF_TRW[0,i] = _toftemp2[i]
+                        self.ToF_TRW[1,i] = _toftemp[i]
+                    else:
+                        self.ToF_TRW[0,i] = _toftemp[i]
+                        self.ToF_TRW[1,i] = _toftemp2[i]
+            else:
+                # Iterative Deconvolution: second face
+                if os.path.isfile(self.PEref2_path):
+                    self._temp = np.apply_along_axis(ID, 0, pe_tr, self.PEref2, True)
+                    self.ToF_TRW = self._temp.copy()
+                    self.ToF_TRW[1] = self._temp[1]
+                    self.ToF_TRW[0] = self._temp[0]
+                    self.peref2_tof = TOF(self.PEref2, self.PEref, True)
+                    self.ToF_TRW = self.ToF_TRW + self.peref2_tof
+                else:
+                    self.ToF_TRW = np.apply_along_axis(ID, 0, pe_tr, self.PEref, True)
+            self.ToF_TR21 = self.ToF_TRW[1] - self.ToF_TRW[0]
+            self.ToF_TR1R2 = self.ToF_TRW[0] - self.ToF_RW[1]
+            print('ToF_TRW done.')
+        else:
+            self.ToF_RW = np.apply_along_axis(ID4, 0, self.PEraw, self.PEref, UseHilbEnv)
+            self.ToF_R21 = self.ToF_RW[1] - self.ToF_RW[0]
+            
+            self.ToF_TR21 = self.ToF_RW[3] - self.ToF_RW[2]
+            self.ToF_TR1R2 = self.ToF_RW[2] - self.ToF_RW[1]
+            print('ToF_RW and ToF_TRW done.')
+
+
+    def computeResults(self, Cc=2726, charac_container=False):
+        '''
+        Compute results.
+
+        Parameters
+        ----------
+        Cc : float, optional
+            Speed of sound in the container in m/s. The default is 5490.
+        charac_container : bool, optional
+            If True, compute Cc and Lc assuming water inside. The default is
+            False.
+        
+        Returns
+        -------
+        None.
+
+        Arnau, 09/01/2024
+        '''
+        self.Cc = Cc
+        cw = self.Cw_lpf
+
+        if charac_container:
+            self.Cc = cw*(np.abs(self.ToF_TW)/self.ToF_R21 + 1) # container speed - m/s
+            self.Lc = cw/2*(np.abs(self.ToF_TW) + self.ToF_R21)/self.Fs # container thickness - m
+        else:
+            self.Lc = self.Cc*self.ToF_R21/2/self.Fs # container thickness - m
+            self.L = (self.ToF_R21 + np.abs(self.ToF_TW) + self.ToF_TR1R2/2)*cw/self.Fs - 2*self.Lc # material thickness - m
+            self.C = 2*self.L/self.ToF_TR1R2*self.Fs # material speed - m/s
+            
+    def computeResults_old(self, Cc=2726, charac_container=False, cw=None):
         '''
         Compute results.
 
@@ -507,7 +643,7 @@ class RealtimeSP:
             self.L = (self.ToF_R21 + np.abs(self.ToF_TW) + self.ToF_TR1R2/2)*cw/self.Fs - 2*self.Lc # material thickness - m
             self.C = 2*self.L/self.ToF_TR1R2*self.Fs # material speed - m/s
     
-    def computeResultsFinal(self, Cc=2726, lpf_temperature=True):
+    def computeResultsFinal_old(self, Cc=2726, lpf_temperature=True):
         self.Cc = Cc
         cw0 = USS.temp2sos(self.config_dict['WP_temperature'], material='water')
         cw = self.Cw_lpf if lpf_temperature else self.Cw
@@ -942,14 +1078,14 @@ class DogboneSP:
         self.temperature = self.temperature_dict['Inside'] if 'Inside' in self.temperature_dict else None
         self.Cw = self.temperature_dict['Cw'] if 'Cw' in self.temperature_dict else USS.temp2sos(self.temperature, material='water')
         
-        self.L             = self.results_dict['L']             if 'L'             in self.results_dict else None
-        self.CL            = self.results_dict['CL']            if 'CL'            in self.results_dict else None
-        self.Cs            = self.results_dict['Cs']            if 'Cs'            in self.results_dict else None
-        self.density       = self.results_dict['density']       if 'density'       in self.results_dict else None
-        self.shear_modulus = self.results_dict['shear_modulus'] if 'shear_modulus' in self.results_dict else None
-        self.young_modulus = self.results_dict['young_modulus'] if 'young_modulus' in self.results_dict else None
-        self.bulk_modulus  = self.results_dict['bulk_modulus']  if 'bulk_modulus'  in self.results_dict else None
-        self.poisson_ratio = self.results_dict['poisson_ratio'] if 'poisson_ratio' in self.results_dict else None
+        self.L             = self.results_dict['L']             if self.results_dict is not None and 'L'             in self.results_dict else None
+        self.CL            = self.results_dict['CL']            if self.results_dict is not None and 'CL'            in self.results_dict else None
+        self.Cs            = self.results_dict['Cs']            if self.results_dict is not None and 'Cs'            in self.results_dict else None
+        self.density       = self.results_dict['density']       if self.results_dict is not None and 'density'       in self.results_dict else None
+        self.shear_modulus = self.results_dict['shear_modulus'] if self.results_dict is not None and 'shear_modulus' in self.results_dict else None
+        self.young_modulus = self.results_dict['young_modulus'] if self.results_dict is not None and 'young_modulus' in self.results_dict else None
+        self.bulk_modulus  = self.results_dict['bulk_modulus']  if self.results_dict is not None and 'bulk_modulus'  in self.results_dict else None
+        self.poisson_ratio = self.results_dict['poisson_ratio'] if self.results_dict is not None and 'poisson_ratio' in self.results_dict else None
     
     def angleAndScanpos(self):
         '''
@@ -1077,7 +1213,7 @@ class DogboneSP:
         self.ToF_TW = np.zeros(len(self.tw))
         for i in range(len(self.tw)):
             tt = self.windowedTT[:,i] if WindowTTshear else self.TT[:,i]
-            self.ToF_TW[i] = USF.CalcToFAscanCosine_XCRFFT(tt, self.WPs[:,i], UseHilbEnv=UseHilbEnv, UseCentroid=UseCentroid)[0]
+            self.ToF_TW[i] = USF.CalcToFAscanCosine_XCRFFT(tt, self.WPs[:,i], UseHilbEnv=UseHilbEnv, UseCentroid=UseCentroid)[0] # ts - tw
                         
         self.ToF_RW = np.apply_along_axis(ID, 0, self.PE, self.PEref)
         self.ToF_R21 = self.ToF_RW[1] - self.ToF_RW[0]
